@@ -1,33 +1,32 @@
-# web/ — Insult AI frontend (Next.js)
+# web/ — Insult AI frontend (Next.js, static export)
 
-The UI/UX layer. Scaffold it (interactive, so run it yourself):
+The demo UI — a single-page roast console. Calls the FastAPI backend in `../api`.
+
+## What it does
+1. **Input** — one field: a URL or a claim.
+2. **Live state** — "scraping live + reasoning, ~1 min…" while `/roast` runs (the
+   visual proof that Bright Data is doing real work).
+3. **Result** — the 🔥 roast (Insult voice, sententia in bold) + a **🧾 Receipts**
+   panel listing the sources it actually fetched (every jab cited).
+
+## Run locally
+The API must be up first (see `../api`):
 
 ```bash
-cd /Users/bernardurizaorozco/Documents/insult_ai
-npx create-next-app@latest web --ts --tailwind --eslint --app --src-dir --use-npm
+# 1) API — in ../api, with the conda env active:
+uvicorn insult_ai.app:app --env-file .env --port 8080
+
+# 2) web — here:
+cp .env.local.example .env.local        # NEXT_PUBLIC_API_URL=http://localhost:8080
+npm install
+npm run dev                             # → http://localhost:3000
 ```
 
-## The "ideal user journey" to build (what wins per lablab judging)
-
-1. **Input** — one field: paste a URL or a claim. Big, bold, single CTA.
-2. **Live state** — "🕷️ scraping the web in real time…" while `/roast` runs
-   (this is what visually SELLS the live-web-data angle to judges).
-3. **Result** — the 🔥 roast, plus a side panel **🧾 Receipts** = the sources it
-   actually fetched (proves Bright Data is doing real work).
-4. Mobile-responsive (judges open links on their phones).
-
-## Wiring
-
-Call the FastAPI backend:
-
-```ts
-const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/roast`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ target }),
-});
-const { roast, usage } = await res.json();
+## Build / deploy
+```bash
+npm run build          # static export → out/
 ```
-
-Set `NEXT_PUBLIC_API_URL` to the Azure Container App URL (or `http://localhost:8080` in dev).
-Deploy this dir to **Azure Static Web Apps**.
+Deploy `out/` to **Azure Static Web Apps** (see `../.claude/rules/deploy.md`). Set
+`NEXT_PUBLIC_API_URL` to the Azure Container App URL **at build time** — it's baked
+into the static bundle (`NEXT_PUBLIC_*`). The API's CORS allows `*` for the demo;
+tighten to the SWA origin before anything beyond the hackathon.
