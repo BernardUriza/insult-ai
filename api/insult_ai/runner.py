@@ -58,6 +58,16 @@ def build_runner(backend: str | None = None) -> Runner:
     else:
         # Claude Code (Max). The OAuth token is materialized to
         # ~/.claude/.credentials.json by entrypoint.sh; the SDK reads it there.
+        #
+        # Auth precedence footgun: the Claude Agent SDK gives an ambient
+        # ANTHROPIC_API_KEY priority over the OAuth token ("API motor mode"),
+        # silently hijacking subscription auth. A stale key in a dev shell then
+        # surfaces as "Invalid API key". Picking `claude` AND supplying an OAuth
+        # token is an explicit intent to use the subscription, so drop any
+        # ambient API key and let the SDK fall through to OAuth. No-op in the
+        # container (the entrypoint env carries no ANTHROPIC_API_KEY).
+        if os.getenv("CLAUDE_CODE_OAUTH_TOKEN"):
+            os.environ.pop("ANTHROPIC_API_KEY", None)
         agent_backend = ClaudeCodeBackend(
             default_model=os.getenv("INSULT_AI_MODEL", "claude-sonnet-4-5"),
         )
