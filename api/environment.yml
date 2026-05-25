@@ -15,7 +15,10 @@ dependencies:
       # fi-runner's fi-core dep from this explicit URL).
       # LOCAL/dev pin: `@dev` is a MOVING branch. For deploy, pin a tag/SHA (or
       # switch to main once dev lands there) so the image is reproducible.
-      - "fi-core @ git+https://github.com/BernardUriza/free-intelligence.git@dev#subdirectory=apps/packages/fi-core"
+      # [stores-hdf5] pulls h5py+numpy — the persistent HDF5 backend for the
+      # rag_store MCP (the agent's document corpus). Needed so "upload + query
+      # your files" persists to disk.
+      - "fi-core[stores-hdf5] @ git+https://github.com/BernardUriza/free-intelligence.git@dev#subdirectory=apps/packages/fi-core"
       # [claude,codex]: the phantom `openai-codex` dep was dropped on dev (the
       # codex extra is now empty), so both backends install clean — paridad as
       # architecture.md wants. CodexBackend still drives the `codex` npm CLI.

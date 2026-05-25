@@ -68,8 +68,10 @@ _ROAST_GUARDS = [
 ]
 
 
-def build_runner(backend: str | None = None) -> Runner:
-    """Compose a fi_runner Runner with the chosen backend + Bright Data MCP."""
+def build_runner(backend: str | None = None, *, with_rag: bool = False) -> Runner:
+    """Compose a fi_runner Runner with the chosen backend + Bright Data MCP.
+    With ``with_rag``, also wire the fi-core rag_store capability so the agent can
+    mine the user's document corpus."""
     backend = (backend or os.getenv("INSULT_AI_BACKEND", "claude")).lower()
 
     if backend == "codex":
@@ -100,6 +102,10 @@ def build_runner(backend: str | None = None) -> Runner:
         backend=agent_backend,
         persona=ROAST_PERSONA,
         extra_mcp_servers=[BRIGHTDATA_MCP],
+        # rag_store (fi-core MCP) when the user has a document corpus — the agent
+        # can search_documents over it for extra ammo. Boundary-clean: capability
+        # resolution stays in fi-runner; we never import fi_core here.
+        capabilities=["rag_store"] if with_rag else [],
         # BYPASS = auto-approve tool calls (needs non-root user in the container).
         # Block the built-in WebSearch/WebFetch so ALL web access goes through
         # Bright Data (the hackathon requirement + what the $250 credit is for) —
@@ -115,13 +121,21 @@ def build_runner(backend: str | None = None) -> Runner:
     )
 
 
-def roast_prompt(target: str) -> str:
+def roast_prompt(target: str, corpus_id: str | None = None) -> str:
     """The turn instruction for a roast — ONE source of truth. The bench imports
     this instead of re-hardcoding the wording, so the two never drift."""
-    return f"Roast & fact-check this using live web data: {target}"
+    base = f"Roast & fact-check this using live web data: {target}"
+    if corpus_id:
+        base += (
+            f"\n\nThe user also has a document corpus (id: '{corpus_id}'). Use the"
+            " search_documents tool over it for extra context and ammo about the"
+            " target before roasting — cite anything you use in the receipts."
+        )
+    return base
 
 
-async def roast(target: str, backend: str | None = None):
-    """Run one roast turn. `target` is a URL or a claim."""
-    runner = build_runner(backend)
-    return await runner.run(roast_prompt(target))
+async def roast(target: str, backend: str | None = None, corpus_id: str | None = None):
+    """Run one roast turn. `target` is a URL or a claim. If `corpus_id` is given,
+    the agent can also mine the user's document corpus (rag_store)."""
+    runner = build_runner(backend, with_rag=bool(corpus_id))
+    return await runner.run(roast_prompt(target, corpus_id))
