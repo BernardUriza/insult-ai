@@ -58,7 +58,7 @@ load_dotenv(_API / ".env")
 sys.path.insert(0, str(_API))
 
 from fi_runner import ToolCall  # noqa: E402  (reconstruct tool_calls on --rescore)
-from insult_ai.runner import BRIGHTDATA_MCP, build_runner  # noqa: E402
+from insult_ai.runner import BRIGHTDATA_MCP, build_runner, roast_prompt  # noqa: E402
 
 EVAL_SET = _HERE / "eval_set.jsonl"
 BASELINE = _HERE / "baseline_quality.json"
@@ -222,7 +222,7 @@ async def run_eval(cases: list[dict]) -> list[dict]:
                 print(f"[{i}/{len(cases)}] roasting {case['target']} ...", flush=True)
                 try:
                     result = await asyncio.wait_for(
-                        runner.run(f"Roast & fact-check this using live web data: {case['target']}"),
+                        runner.run(roast_prompt(case["target"])),
                         timeout=TURN_TIMEOUT_S,
                     )
                 except Exception as exc:  # noqa: BLE001 - one bad case must not rot the run
