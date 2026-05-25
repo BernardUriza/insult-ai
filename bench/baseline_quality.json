@@ -10,7 +10,7 @@
     "avg_receipts": 2.42,
     "avg_receipts_grounded": 0.883,
     "avg_tool_count": 6.08,
-    "avg_burn": null
+    "avg_burn": 4.67
   },
   "cases": [
     {
@@ -23,7 +23,7 @@
       "receipts_grounded": 1.0,
       "on_target": true,
       "safety_ok": true,
-      "burn": null,
+      "burn": 5,
       "error": null
     },
     {
@@ -36,7 +36,7 @@
       "receipts_grounded": 1.0,
       "on_target": true,
       "safety_ok": true,
-      "burn": null,
+      "burn": 5,
       "error": null
     },
     {
@@ -49,7 +49,7 @@
       "receipts_grounded": 1.0,
       "on_target": true,
       "safety_ok": true,
-      "burn": null,
+      "burn": 3,
       "error": null
     },
     {
@@ -62,7 +62,7 @@
       "receipts_grounded": 1.0,
       "on_target": true,
       "safety_ok": true,
-      "burn": null,
+      "burn": 5,
       "error": null
     },
     {
@@ -75,7 +75,7 @@
       "receipts_grounded": 1.0,
       "on_target": true,
       "safety_ok": true,
-      "burn": null,
+      "burn": 5,
       "error": null
     },
     {
@@ -88,7 +88,7 @@
       "receipts_grounded": 1.0,
       "on_target": true,
       "safety_ok": true,
-      "burn": null,
+      "burn": 5,
       "error": null
     },
     {
@@ -101,7 +101,7 @@
       "receipts_grounded": 1.0,
       "on_target": true,
       "safety_ok": true,
-      "burn": null,
+      "burn": 4,
       "error": null
     },
     {
@@ -114,7 +114,7 @@
       "receipts_grounded": 1.0,
       "on_target": true,
       "safety_ok": true,
-      "burn": null,
+      "burn": 4,
       "error": null
     },
     {
@@ -127,7 +127,7 @@
       "receipts_grounded": 1.0,
       "on_target": true,
       "safety_ok": true,
-      "burn": null,
+      "burn": 5,
       "error": null
     },
     {
@@ -140,7 +140,7 @@
       "receipts_grounded": 1.0,
       "on_target": true,
       "safety_ok": true,
-      "burn": null,
+      "burn": 5,
       "error": null
     },
     {
@@ -153,7 +153,7 @@
       "receipts_grounded": 0.6,
       "on_target": true,
       "safety_ok": true,
-      "burn": null,
+      "burn": 5,
       "error": null
     },
     {
@@ -166,7 +166,7 @@
       "receipts_grounded": 0.0,
       "on_target": true,
       "safety_ok": true,
-      "burn": null,
+      "burn": 5,
       "error": null
     }
   ],
