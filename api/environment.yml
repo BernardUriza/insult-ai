@@ -1,0 +1,17 @@
+# insult_ai backend — conda-native (no PyPI-only; matches the fi-* stack).
+name: insult-ai
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.12
+  - nodejs>=22,<23          # for the npm CLIs: claude-code, codex, brightdata/mcp
+  - pip
+  - pip:
+      # fi-runner 0.8.0 has Runner.extra_mcp_servers (needed below). It's only
+      # 0.3.0 on the bernardurizaorozco Anaconda channel today, so pull main
+      # from git for now. Once 0.8.0 is published to conda, swap this for:
+      #   - bernardurizaorozco::fi-runner   (move up into `dependencies`)
+      - "fi-runner[claude,codex] @ git+https://github.com/BernardUriza/free-intelligence.git@main#subdirectory=apps/packages/fi-runner"
+      - fastapi
+      - "uvicorn[standard]"
