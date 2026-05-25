@@ -14,6 +14,16 @@ out/
 .env.local
 .env*.local
 
+# Private working notes — NEVER commit (this repo is public)
+CLAUDE.local.md
+CLAUDE_LOCAL.md
+.claude/SESSION_STATE.md
+.claude/settings.local.json
+
+# Bench — raw roast dumps carry the FULL roast text (employer mentions, etc.);
+# the baseline_quality.json (scores only) IS committed, the raw text is NOT.
+bench/.raw_roasts.jsonl
+
 # Misc
 *.log
 .DS_Store

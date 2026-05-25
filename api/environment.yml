@@ -8,20 +8,17 @@ dependencies:
   - nodejs>=22,<23          # for the npm CLIs: claude-code, codex, brightdata/mcp
   - pip
   - pip:
-      # fi-runner 0.8.0 has Runner.extra_mcp_servers (needed below). It's only
-      # 0.3.0 on the bernardurizaorozco Anaconda channel today, so pull main
-      # from git for now. Once 0.8.0 is published to conda, swap this for:
-      #   - bernardurizaorozco::fi-runner   (move up into `dependencies`)
-      # fi-runner depends on fi-core, which is NOT on PyPI either — it's a sibling
-      # package in the same monorepo. Declare it explicitly from git so pip can
-      # resolve fi-runner's `fi-core` dependency. Must come BEFORE fi-runner.
-      - "fi-core @ git+https://github.com/BernardUriza/free-intelligence.git@main#subdirectory=apps/packages/fi-core"
-      # NOTE: we install only the [claude] extra, NOT [claude,codex]. The `codex`
-      # extra declares `openai-codex>=0.1`, a package that does NOT exist on PyPI
-      # (upstream fi-runner bug). It's also unused: CodexBackend shells out to the
-      # `codex` npm CLI (`codex exec --json`) — it imports no Python codex package.
-      # So the codex backend STILL works via the npm CLI; we just don't pull a
-      # phantom dep. TODO: report upstream + restore [claude,codex] once fixed.
-      - "fi-runner[claude] @ git+https://github.com/BernardUriza/free-intelligence.git@main#subdirectory=apps/packages/fi-runner"
+      # fi-runner + fi-core live in the free-intelligence monorepo (MIT). Neither
+      # is on PyPI, so install both from git. We track the `dev` branch because it
+      # carries the tool-trace (TurnResult.tool_calls) the bench needs — not yet
+      # merged to main. fi-core MUST come before fi-runner (pip resolves
+      # fi-runner's fi-core dep from this explicit URL).
+      # LOCAL/dev pin: `@dev` is a MOVING branch. For deploy, pin a tag/SHA (or
+      # switch to main once dev lands there) so the image is reproducible.
+      - "fi-core @ git+https://github.com/BernardUriza/free-intelligence.git@dev#subdirectory=apps/packages/fi-core"
+      # [claude,codex]: the phantom `openai-codex` dep was dropped on dev (the
+      # codex extra is now empty), so both backends install clean — paridad as
+      # architecture.md wants. CodexBackend still drives the `codex` npm CLI.
+      - "fi-runner[claude,codex] @ git+https://github.com/BernardUriza/free-intelligence.git@dev#subdirectory=apps/packages/fi-runner"
       - fastapi
       - "uvicorn[standard]"
