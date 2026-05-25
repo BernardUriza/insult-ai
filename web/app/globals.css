@@ -1,26 +1,83 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ── Insult AI Design System (iai-*) ────────────────────────────────────────
+ * Token-first: components use semantic `iai-*` classes (defined here with
+ * @apply), never raw Tailwind in JSX. Pattern adapted from the AURITY design
+ * system; theme is Insult's own (red/black), defined fresh — no upstream CSS. */
+
+@theme {
+  --color-iai-bg: #0f1115;
+  --color-iai-surface: #181b22;
+  --color-iai-border: #2a2f3a;
+  --color-iai-brand: #ff5c5c;
+  --color-iai-accent: #ffd479;
+  --color-iai-link: #7fd1ff;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    @apply min-h-full bg-[#0f1115] text-zinc-200 antialiased;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Buttons (each variant is self-contained — v4 @apply takes utilities, not
+     component classes) */
+  .iai-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-[#ff5c5c]
+           px-5 py-2.5 font-bold text-black transition enabled:hover:brightness-110
+           disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .iai-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1
+           text-sm font-medium text-zinc-400 transition enabled:hover:text-zinc-100
+           disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .iai-btn-chip {
+    @apply rounded border border-zinc-800 px-2 py-1 text-xs text-zinc-400
+           transition enabled:hover:border-zinc-600 disabled:opacity-40;
+  }
+
+  /* Cards */
+  .iai-card {
+    @apply rounded-2xl border border-[#2a2f3a] bg-[#0f1115] p-6;
+  }
+  .iai-card-soft {
+    @apply rounded-2xl border border-[#2a2f3a] bg-[#181b22]/50 p-5;
+  }
+  .iai-card-title {
+    @apply font-bold text-[#ffd479];
+  }
+
+  /* Inputs */
+  .iai-input {
+    @apply w-full resize-y rounded-xl border border-zinc-700 bg-[#181b22] p-4
+           text-zinc-100 outline-none placeholder:text-zinc-600
+           focus:border-[#ff5c5c];
+  }
+
+  /* Roast typography */
+  .iai-roast {
+    @apply leading-relaxed whitespace-pre-wrap break-words text-zinc-100;
+  }
+  .iai-sententia {
+    @apply font-semibold text-[#ffd479];
+  }
+  .iai-link {
+    @apply break-all text-[#7fd1ff] hover:underline;
+  }
+  .iai-brand {
+    @apply text-[#ff5c5c];
+  }
+  .iai-accent {
+    @apply text-[#7fd1ff];
+  }
+
+  /* States */
+  .iai-error {
+    @apply rounded-lg border border-red-800 bg-red-950/40 p-4 text-red-300;
+  }
+  .iai-hint {
+    @apply animate-pulse text-sm text-zinc-500;
+  }
 }
