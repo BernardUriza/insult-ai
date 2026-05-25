@@ -74,6 +74,7 @@ Frontend: see `web/README.md`.
 - `bright-data.md` — mandatory Bright Data MCP integration + how it's wired
 - `benchmarks.md` — the two-baseline discipline (guard quality + perf)
 - `deploy.md` — Azure (Container Apps + Static Web Apps), secrets, non-root
+- `personas.md` — the two product personas (roast = hook, brief = business value)
 
 ## Note
 

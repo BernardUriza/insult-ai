@@ -22,7 +22,9 @@ CLAUDE_LOCAL.md
 
 # Bench — raw roast dumps carry the FULL roast text (employer mentions, etc.);
 # the baseline_quality.json (scores only) IS committed, the raw text is NOT.
-bench/.raw_roasts.jsonl
+bench/.raw_roasts*.jsonl
+bench/.roasts_review.md
+bench/.roasts_review.html
 
 # Misc
 *.log
