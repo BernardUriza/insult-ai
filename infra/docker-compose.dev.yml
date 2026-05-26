@@ -1,0 +1,56 @@
+# Local Postgres + pgvector for `FI_RAG_BACKEND=pgvector` development.
+#
+# Why this is HERE and not in api/Dockerfile: the API image runs ONE process
+# (uvicorn) — the database is a separate, long-lived service. In local-dev we
+# want it up before the API, persistent across `docker compose down`s, and
+# easy to nuke + reseed when the schema (or EMBED_DIM) changes. In Azure
+# this role is filled by Azure Database for PostgreSQL Flexible Server with
+# `azure.extensions=VECTOR` — see `.claude/rules/deploy.md`.
+#
+# Usage (from the repo root):
+#   docker compose -f infra/docker-compose.dev.yml up -d        # start pg+vector
+#   docker compose -f infra/docker-compose.dev.yml logs -f pg   # tail logs
+#   docker compose -f infra/docker-compose.dev.yml down         # stop (keeps volume)
+#   docker compose -f infra/docker-compose.dev.yml down -v      # nuke (drops data)
+#
+# Then in api/.env:
+#   FI_RAG_BACKEND=pgvector
+#   FI_RAG_PGVECTOR_DSN=postgresql://insultai:insultai@127.0.0.1:5433/insultai
+#   FI_RAG_EMBED_DIM=256            # MUST match the embedder (hashing default)
+#
+# fi-core's PgVectorChunkStore runs `CREATE EXTENSION IF NOT EXISTS vector;`
+# on connect, so all this image needs is the binary loaded (which the
+# pgvector/pgvector tag provides).
+services:
+  pg:
+    image: pgvector/pgvector:pg16
+    container_name: insultai-pg-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: insultai
+      POSTGRES_PASSWORD: insultai
+      POSTGRES_DB: insultai
+    ports:
+      # Bound to 127.0.0.1 so a misconfigured network doesn't expose the dev
+      # DB on the LAN. Port 5433 (NOT the default 5432) so a co-resident
+      # Postgres / dev tool that already owns 5432 (Tilt, brew-installed PG,
+      # Supabase CLI, …) doesn't silently shadow our container: Docker happily
+      # accepts overlapping host binds on macOS, packets go to whoever bound
+      # first, and the wrong DB rejects auth — see the auth-failure rabbit
+      # hole we fell into the first time. Production uses Azure private
+      # networking, so the host-port collision is a local-dev concern only.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      # Named volume — survives `down`, dropped by `down -v`.
+      - insultai_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # `pg_isready` lies if the postmaster is up but no DB is mounted yet.
+      # Pin to OUR db so the check only passes when the DB this app uses is
+      # actually accepting queries.
+      test: ["CMD-SHELL", "pg_isready -U insultai -d insultai"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  insultai_pgdata:
