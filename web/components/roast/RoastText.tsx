@@ -5,8 +5,11 @@
  * The split logic used to live verbatim in both `RoastView` (single-shot)
  * and `MessageBubble` (chat) — this module is the single source.
  *
- * The optional `caret` prop appends a soft pulsing ▍ at the end (for the
- * streaming state in the chat). Default off, single-shot doesn't need it. */
+ * The optional `caret` prop appends a soft pulsing terminal-style cursor at
+ * the end (for the streaming state in the chat). Default off, single-shot
+ * doesn't need it. The cursor is a CSS pseudo-block (a styled span with a
+ * background) — NOT a Unicode block char like the old ▍, which renders with
+ * the OS text font and varies in weight/baseline. */
 export function RoastText({ text, caret = false }: { text: string; caret?: boolean }) {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return (
@@ -20,7 +23,12 @@ export function RoastText({ text, caret = false }: { text: string; caret?: boole
           <span key={i}>{p}</span>
         ),
       )}
-      {caret && <span className="ml-0.5 animate-pulse">▍</span>}
+      {caret && (
+        <span
+          aria-hidden
+          className="ml-0.5 inline-block h-[1em] w-[0.45em] -mb-[0.15em] animate-pulse bg-iai-brand align-baseline"
+        />
+      )}
     </div>
   );
 }

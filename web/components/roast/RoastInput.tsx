@@ -1,7 +1,10 @@
 "use client";
 
+import { getUIIcon } from "../../lib/icons";
 import { Button } from "../ui/Button";
 import { Textarea } from "../ui/Textarea";
+
+const FlameIcon = getUIIcon("brand");
 
 const EXAMPLES = [
   "https://example.com",
@@ -32,9 +35,16 @@ export function RoastInput({ target, loading, onChange, onRun }: RoastInputProps
       />
       <div className="flex flex-wrap items-center gap-3">
         <Button onClick={() => onRun()} disabled={!target.trim()} loading={loading}>
-          {loading ? "Roasting…" : "Roast it 🔥"}
+          {loading ? "Roasting…" : (
+            <>
+              Roast it
+              <FlameIcon className="h-4 w-4" aria-hidden />
+            </>
+          )}
         </Button>
-        {loading && <span className="iai-hint">scraping live + reasoning, ~1 min…</span>}
+        {loading && (
+          <span className="iai-hint iai-hint-live">scraping live + reasoning, ~1 min…</span>
+        )}
       </div>
       <div className="flex flex-wrap gap-2 text-xs text-zinc-500">
         <span>try:</span>

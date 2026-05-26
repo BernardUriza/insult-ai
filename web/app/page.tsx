@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ReceiptsPanel } from "../components/roast/ReceiptsPanel";
 import { RoastInput } from "../components/roast/RoastInput";
+import { RoastSkeleton } from "../components/roast/RoastSkeleton";
 import { RoastView } from "../components/roast/RoastView";
 import { useRoast } from "../components/roast/useRoast";
 import { getStatusIcon, getUIIcon } from "../lib/icons";
@@ -52,6 +53,22 @@ export default function Home() {
         </div>
       )}
 
+      {/* Empty / loading / done — three exclusive states. The empty state
+          used to be a literal blank page (the user typed and stared at the
+          spinner button alone). Now there's a low-pressure hint card that
+          mirrors the /chat onboarding so the surface never feels dead. */}
+      {!roast && !loading && !error && (
+        <div className="iai-card-soft flex flex-col items-center gap-2 py-10 text-center text-zinc-400">
+          <FlameIcon className="h-7 w-7 text-orange-400" aria-hidden />
+          <div className="font-medium text-zinc-300">
+            Feed it a URL or a claim above.
+          </div>
+          <div className="iai-hint">
+            The agent will fetch live web data first, then roast what it actually finds.
+          </div>
+        </div>
+      )}
+      {loading && !roast && <RoastSkeleton />}
       {roast && <RoastView text={roast} />}
       <ReceiptsPanel urls={receipts} />
 

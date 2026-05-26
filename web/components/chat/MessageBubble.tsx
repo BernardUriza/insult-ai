@@ -8,6 +8,7 @@ import type { ChatMessage, ChatMeta } from "./types";
 
 const DoneIcon = getStatusIcon("done");
 const WarnIcon = getStatusIcon("warning");
+const ErrorIcon = getStatusIcon("error");
 
 /** Compact per-turn observability footer — projection of fi_runner's
  * `turn_completed` event ("✓ 2.3s · 4 tools · 1,234 tokens · guards: ok").
@@ -75,7 +76,10 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
           <RoastText text={message.content} caret={message.status === "streaming"} />
         )}
         {message.status === "error" && (
-          <div className="iai-error mt-2 text-sm">⚠️ {message.errorMessage ?? "stream failed"}</div>
+          <div className="iai-error mt-2 inline-flex items-center gap-2 text-sm">
+            <ErrorIcon className="h-4 w-4 shrink-0 text-red-400" aria-hidden />
+            {message.errorMessage ?? "stream failed"}
+          </div>
         )}
         {message.receipts.length > 0 && (
           <div className="mt-3">

@@ -16,15 +16,16 @@
 
 @layer base {
   body {
-    @apply min-h-full bg-[#0f1115] text-zinc-200 antialiased;
+    @apply min-h-full bg-iai-bg text-zinc-200 antialiased;
   }
 }
 
 @layer components {
   /* Buttons (each variant is self-contained — v4 @apply takes utilities, not
-     component classes) */
+     component classes). Colors come from @theme tokens so a brand recolor is
+     a six-line change at the top of this file, not a grep-and-replace. */
   .iai-btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-[#ff5c5c]
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-iai-brand
            px-5 py-2.5 font-bold text-black transition enabled:hover:brightness-110
            disabled:cursor-not-allowed disabled:opacity-40;
   }
@@ -40,20 +41,20 @@
 
   /* Cards */
   .iai-card {
-    @apply rounded-2xl border border-[#2a2f3a] bg-[#0f1115] p-6;
+    @apply rounded-2xl border border-iai-border bg-iai-bg p-6;
   }
   .iai-card-soft {
-    @apply rounded-2xl border border-[#2a2f3a] bg-[#181b22]/50 p-5;
+    @apply rounded-2xl border border-iai-border bg-iai-surface/50 p-5;
   }
   .iai-card-title {
-    @apply font-bold text-[#ffd479];
+    @apply font-bold text-iai-accent;
   }
 
   /* Inputs */
   .iai-input {
-    @apply w-full resize-y rounded-xl border border-zinc-700 bg-[#181b22] p-4
+    @apply w-full resize-y rounded-xl border border-zinc-700 bg-iai-surface p-4
            text-zinc-100 outline-none placeholder:text-zinc-600
-           focus:border-[#ff5c5c];
+           focus:border-iai-brand;
   }
 
   /* Roast typography */
@@ -61,23 +62,31 @@
     @apply leading-relaxed whitespace-pre-wrap break-words text-zinc-100;
   }
   .iai-sententia {
-    @apply font-semibold text-[#ffd479];
+    @apply font-semibold text-iai-accent;
   }
   .iai-link {
-    @apply break-all text-[#7fd1ff] hover:underline;
+    @apply break-all text-iai-link hover:underline;
   }
   .iai-brand {
-    @apply text-[#ff5c5c];
+    @apply text-iai-brand;
   }
   .iai-accent {
-    @apply text-[#7fd1ff];
+    @apply text-iai-link;
   }
 
   /* States */
   .iai-error {
     @apply rounded-lg border border-red-800 bg-red-950/40 p-4 text-red-300;
   }
+  /* Secondary text — sub-labels, footers, API path, meta footer, etc.
+     STATIC by design; the live variant below is for in-flight states only. */
   .iai-hint {
-    @apply animate-pulse text-sm text-zinc-500;
+    @apply text-sm text-zinc-500;
+  }
+  /* Pulsing variant — pair with .iai-hint where there's a turn IN FLIGHT
+     ("scraping live + reasoning, ~1 min…"). Adds the animation back so the
+     pulse is opt-in, not on every hint label in the app. */
+  .iai-hint-live {
+    @apply animate-pulse;
   }
 }
