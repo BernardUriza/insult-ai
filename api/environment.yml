@@ -29,3 +29,8 @@ dependencies:
       - "fi-runner[claude,codex] @ git+https://github.com/BernardUriza/free-intelligence.git@dev#subdirectory=apps/packages/fi-runner"
       - fastapi
       - "uvicorn[standard]"
+      # Per-IP rate limiting on the agent endpoints (/roast, /chat/stream).
+      # The $250 Bright Data credit + per-turn Claude tokens make an unauth'd
+      # public URL a money funnel for any bot that finds it — slowapi is the
+      # cheap floor under that risk. Bearer token check sits ON TOP.
+      - "slowapi>=0.1.9"

@@ -29,7 +29,45 @@ real container (Azure Container Apps, or any container host). If someone suggest
 - Backend `claude`: `CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`)
 - Backend `codex`: `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_ENDPOINT`
 - `INSULT_AI_BACKEND` to pick the default engine
+- `INSULT_AI_API_KEY` — shared X-API-Key gate (see Auth, below)
 - `FI_RAG_BACKEND=pgvector` + `FI_RAG_PGVECTOR_DSN` (see RAG store, below)
+
+## Auth — the cheap floor that protects Bright Data credit
+
+Every `/roast`, `/chat/stream`, `/documents` request is gated by an
+`X-API-Key` header matched (constant-time) against `INSULT_AI_API_KEY`.
+This is NOT real auth — it's a casual-crawler gate. Threat model: a bot
+scanning Container App URLs starts hitting `/roast` and burns the $250
+Bright Data credit before anyone notices. With the key, the crawler gets
+401s and gives up. With a rotated key, a leak buys hours, not days.
+
+It's PAIRED with a per-IP rate limit (SlowAPI: 10 roasts/hour, 10 chat
+streams/hour, 60 ingests/hour). Even a leaked key can't drain the credit
+from one client.
+
+Wiring:
+
+```bash
+KEY="$(openssl rand -hex 32)"
+az containerapp secret set --name <app-name> --resource-group <rg> \
+  --secrets "api-key=$KEY"
+az containerapp update --name <app-name> --resource-group <rg> \
+  --set-env-vars "INSULT_AI_API_KEY=secretref:api-key"
+
+# Front-end build (SWA) needs the same value as NEXT_PUBLIC_API_KEY so
+# the bundle can include the header. NEXT_PUBLIC_* gets inlined into the
+# JS — anyone can read it in DevTools, that's by design (the key is a
+# rate-limit anchor, not a secret).
+```
+
+`/health` is intentionally UNGATED — Container Apps' liveness probe must
+reach it without a key, and conflating "service up" with "key configured"
+makes restarts harder. Don't gate health.
+
+DEV convenience: when `INSULT_AI_API_KEY` is UNSET, the API fail-opens
+(loud WARN in the logs on each request). That keeps the bench, smoke
+tests and a bare `uvicorn --reload` workable without ceremony. Production
+ALWAYS sets the env var.
 
 ## RAG store — Postgres + pgvector (NOT HDF5)
 

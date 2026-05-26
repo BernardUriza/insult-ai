@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { API_URL, apiUrl } from "../../lib/api";
+import { API_URL, apiHeaders, apiUrl } from "../../lib/api";
 import { receiptsFrom } from "../../lib/text";
 
 /** Owns the roast turn: input, the POST /roast call, and derived receipts. */
@@ -21,7 +21,7 @@ export function useRoast() {
     try {
       const res = await fetch(apiUrl("/roast"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ target: t }),
       });
       if (!res.ok) throw new Error(`API responded ${res.status}`);

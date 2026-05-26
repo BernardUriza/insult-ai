@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { API_URL, apiUrl } from "../../lib/api";
+import { API_URL, apiHeaders, apiUrl } from "../../lib/api";
 import { receiptsFrom } from "../../lib/text";
 import type { ChatMessage, ChatMeta, Plan, PlanRejection, PlanStep, Step } from "./types";
 
@@ -80,7 +80,10 @@ export function useChat() {
       try {
         const res = await fetch(apiUrl("/chat/stream"), {
           method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+          headers: apiHeaders({
+            "Content-Type": "application/json",
+            Accept: "text/event-stream",
+          }),
           body: JSON.stringify({ session_id: sessionRef.current, message: trimmed }),
           signal: controller.signal,
         });

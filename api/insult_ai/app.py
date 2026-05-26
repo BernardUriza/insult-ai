@@ -5,15 +5,20 @@ POST /chat/stream — a multi-turn chat with live chain-of-thought (SSE)."""
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 import logging
+import os
 import time
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fi_runner.rag_store import RagStoreClient
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from .runner import chat_stream, roast
 from .wire import (
@@ -52,6 +57,57 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Auth: simple shared X-API-Key ----------------------------------------
+# The threat model is a casual crawler that finds the public URL of the
+# Container App and starts hitting /roast — each turn burns Bright Data
+# credit + Claude tokens. A constant-time match against ``INSULT_AI_API_KEY``
+# is the floor that stops that without any infra (Entra ID / OAuth would be
+# the next tier but is overkill for a hackathon).
+#
+# Fail-open in DEV (no env var set) so the bench, the smoke tests and a
+# bare `uvicorn --reload` still work. Fail-CLOSED only when the env var is
+# present — that's the production posture: set the secret in Container
+# Apps, no key in the request → 401. A WARNING is logged on each request
+# when fail-open is active so it's loud in the logs.
+_API_KEY = (os.getenv("INSULT_AI_API_KEY") or "").strip() or None
+if _API_KEY is None:
+    _log.warning(
+        "INSULT_AI_API_KEY is unset — /roast, /chat/stream, /documents are "
+        "UNAUTHENTICATED (fail-open). Set the env var in production."
+    )
+
+
+async def verify_api_key(x_api_key: str | None = Header(default=None)) -> None:
+    """Dependency: 401 if a key is configured AND the request doesn't supply
+    a matching one. No-op when no key is configured (dev convenience).
+
+    Constant-time compare via ``hmac.compare_digest`` so a timing-side-channel
+    attacker can't iterate character-by-character against /health-style
+    probes. ``str.encode()`` because compare_digest is byte-strict."""
+    if _API_KEY is None:
+        return  # fail-open in dev
+    supplied = (x_api_key or "").strip()
+    if not supplied or not hmac.compare_digest(supplied.encode(), _API_KEY.encode()):
+        # 401 ``WWW-Authenticate`` hints at the scheme so a thoughtful caller
+        # knows to send the header. A bare 401 with no hint is a UX hole.
+        raise HTTPException(
+            status_code=401,
+            detail="missing or invalid X-API-Key header",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
+
+
+# --- Per-IP rate limit on the agent endpoints -----------------------------
+# Defense-in-depth alongside the API key. Even a leaked key shouldn't let
+# one client cycle through $250 of Bright Data credit. ``get_remote_address``
+# trusts ``X-Forwarded-For`` only behind a properly-configured reverse proxy;
+# Azure Container Apps sets it on the ingress, so this works in production.
+# In local dev the limiter sees 127.0.0.1 — the limit is global to the
+# loopback (fine for the bench's single-process pattern).
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # Programmatic, boundary-clean store client (imports fi_core internally; results
 # are plain dicts). Same FI_RAG_* env as the agent's rag_store MCP, so a doc
 # ingested here is searchable by the agent during a roast.
@@ -88,18 +144,29 @@ class ChatRequest(BaseModel):
 
 @app.get("/health")
 async def health() -> dict:
+    # Intentionally UNGATED — Container Apps' liveness probe must reach this
+    # without a key, and a key check here would conflate "service up" with
+    # "key configured". Returns ok even when INSULT_AI_API_KEY is unset.
     return {"ok": True}
 
 
-@app.post("/roast", response_model=RoastResponse)
-async def do_roast(req: RoastRequest) -> RoastResponse:
+@app.post("/roast", response_model=RoastResponse, dependencies=[Depends(verify_api_key)])
+@limiter.limit("10/hour")
+async def do_roast(request: Request, req: RoastRequest) -> RoastResponse:
+    # SlowAPI needs the ``request: Request`` parameter to extract the client
+    # IP for ``get_remote_address``. Don't drop it even if the body doesn't
+    # use it — the decorator wraps this signature.
     result = await roast(req.target, backend=req.backend, corpus_id=req.corpus_id)
     return RoastResponse(roast=result.text, usage=result.usage)
 
 
-@app.post("/documents", response_model=IngestResponse)
-async def ingest_document(req: IngestRequest) -> IngestResponse:
+@app.post("/documents", response_model=IngestResponse, dependencies=[Depends(verify_api_key)])
+@limiter.limit("60/hour")
+async def ingest_document(request: Request, req: IngestRequest) -> IngestResponse:
     """Feed a document into a corpus the agent can mine during a later roast."""
+    # Higher limit than /roast because ingestion is local (no Bright Data /
+    # Claude spend) — the cap is still useful to floor abuse but cheap enough
+    # to let a real onboarding flow paste 20 documents in a row.
     # Low min_chunk_size so short pastes (a paragraph, a bio) still get stored,
     # not silently dropped.
     chunks = await _rag.ingest(req.corpus_id, req.doc_id, req.text, min_chunk_size=30)
@@ -112,8 +179,9 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-@app.post("/chat/stream")
-async def chat_stream_endpoint(req: ChatRequest) -> StreamingResponse:
+@app.post("/chat/stream", dependencies=[Depends(verify_api_key)])
+@limiter.limit("10/hour")
+async def chat_stream_endpoint(request: Request, req: ChatRequest) -> StreamingResponse:
     """Multi-turn chat with live chain-of-thought as Server-Sent Events.
 
     Re-emits each event from ``runner.run_stream`` as SSE so the UI can paint
