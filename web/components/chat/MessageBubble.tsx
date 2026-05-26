@@ -2,7 +2,42 @@
 
 import { ReceiptsPanel } from "../roast/ReceiptsPanel";
 import { ThinkingPanel } from "./ThinkingPanel";
-import type { ChatMessage } from "./types";
+import type { ChatMessage, ChatMeta } from "./types";
+
+/** Compact per-turn observability footer — projection of fi_runner's
+ * `turn_completed` event ("✓ 2.3s · 4 tools · 1,234 tokens · guards: ok").
+ * Renders nothing when `meta` is null (turn errored or never closed). */
+function MetaFooter({ meta }: { meta: ChatMeta }) {
+  const parts: string[] = [];
+  if (typeof meta.latency_ms === "number") parts.push(`${(meta.latency_ms / 1000).toFixed(2)}s`);
+  if (typeof meta.tool_count === "number") parts.push(`${meta.tool_count} tools`);
+  // `tokens` is whatever the backend reported (Claude/Codex differ); extract a
+  // canonical "total" if we can guess it. Anthropic-shaped → input+output_tokens.
+  const tk = meta.tokens as Record<string, unknown> | null | undefined;
+  if (tk) {
+    const inp = typeof tk.input_tokens === "number" ? tk.input_tokens : 0;
+    const out = typeof tk.output_tokens === "number" ? tk.output_tokens : 0;
+    const total = inp + out;
+    if (total > 0) parts.push(`${total.toLocaleString()} tokens`);
+  }
+  if (meta.guard_levels) {
+    const levels = Object.values(meta.guard_levels);
+    const worst = levels.find((l) => l === "critical") ?? levels.find((l) => l === "warning") ?? "ok";
+    if (worst !== "ok") parts.push(`guards: ${worst}`);
+  }
+  if (typeof meta.replayed_messages === "number" && meta.replayed_messages > 0) {
+    parts.push(`replay ${meta.replayed_messages}`);
+  }
+  if (parts.length === 0) return null;
+  return (
+    <div className="iai-hint mt-3 flex flex-wrap gap-x-2 text-[10px] uppercase tracking-wide">
+      <span>✓</span>
+      {parts.map((p, i) => (
+        <span key={i}>{p}</span>
+      ))}
+    </div>
+  );
+}
 
 /** Render one chat message. User → right-aligned plain bubble. Assistant →
  * left-aligned card with: thinking steps (collapsible) + roast text (with the
@@ -47,6 +82,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
             <ReceiptsPanel urls={message.receipts} />
           </div>
         )}
+        {message.meta && <MetaFooter meta={message.meta} />}
       </div>
     </div>
   );

@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import time
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +17,22 @@ from pydantic import BaseModel
 
 from .runner import chat_stream, roast
 from .wire import result_to_wire, tool_call_to_wire
+
+# Ensure our logger surfaces in uvicorn's stdout/stderr. uvicorn configures the
+# `uvicorn.*` loggers but leaves the root logger handler-less in some setups —
+# without this, `insult_ai.chat.info(...)` calls silently disappear. We attach
+# a single StreamHandler iff nothing else has, and set our package level to
+# INFO. Idempotent on --reload.
+_root_log = logging.getLogger()
+if not _root_log.handlers:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)-7s [%(name)s] %(message)s",
+        datefmt="%H:%M:%S",
+    )
+logging.getLogger("insult_ai").setLevel(logging.INFO)
+_log = logging.getLogger("insult_ai.chat")
+_log.info("logging cabled — chat.event lines will land here")
 
 app = FastAPI(title="Insult AI", version="0.1.0")
 
@@ -106,6 +124,27 @@ async def chat_stream_endpoint(req: ChatRequest) -> StreamingResponse:
                                                                    even after ``error``)
     """
 
+    # Capture fi_runner telemetry for THIS turn. Lives in the closure so each
+    # request gets its own list (no cross-request leak). Server-side log fires
+    # immediately on each event; the `meta` SSE event is composed from this
+    # list after the turn settles, so the UI sees the same numbers the server
+    # logged. Order matters: history_replayed (if multi-turn) → tool_called
+    # (one per call) → turn_completed (closing summary with latency_ms,
+    # tokens, guard_levels).
+    captured: list[tuple[str, dict]] = []
+    t0 = time.perf_counter()
+
+    def _capture(event: str, fields: dict) -> None:
+        captured.append((event, fields))
+        # Structured log — visible in uvicorn output, also picked up by any
+        # JSON log aggregator (Azure Log Analytics, Loki, etc.) when deployed.
+        # `extra=` keeps it parseable; the literal message stays short.
+        _log.info(
+            "chat.event %s",
+            event,
+            extra={"event": event, "session_id": req.session_id, "fields": fields},
+        )
+
     async def gen():
         # Tell the client the stream is live so the UI can flip 'thinking…' on
         # before the first tool_call lands (otherwise nothing happens for ~1s).
@@ -121,6 +160,7 @@ async def chat_stream_endpoint(req: ChatRequest) -> StreamingResponse:
                     session_id=req.session_id,
                     backend=req.backend,
                     corpus_id=req.corpus_id,
+                    on_event=_capture,
                 ):
                     etype = event.get("type")
                     if etype == "tool_call":
@@ -136,6 +176,22 @@ async def chat_stream_endpoint(req: ChatRequest) -> StreamingResponse:
                         yield _sse("result", dict(payload))
                     # Any other event type from fi_runner (telemetry, etc.) is
                     # skipped — only the three above are part of our wire contract.
+            # Turn settled cleanly → emit the closing telemetry as `meta`. The
+            # frontend uses this for the "✓ 2.3s · 4 tools · 1,234 tokens"
+            # footer; if turn_completed never fired (edge case), we synthesize
+            # a minimal one from the wall clock so the UI always gets numbers.
+            tc = next((f for e, f in captured if e == "turn_completed"), None)
+            replayed = next((f for e, f in captured if e == "history_replayed"), None)
+            yield _sse("meta", {
+                "latency_ms": (tc or {}).get("latency_ms", round((time.perf_counter() - t0) * 1000, 2)),
+                "tool_count": (tc or {}).get("tool_count"),
+                "mcp_count": (tc or {}).get("mcp_count"),
+                "tokens": (tc or {}).get("tokens"),
+                "guard_levels": (tc or {}).get("guard_levels"),
+                "attempts": (tc or {}).get("attempts"),
+                "model": (tc or {}).get("model"),
+                "replayed_messages": (replayed or {}).get("messages", 0),
+            })
         except asyncio.CancelledError:
             # Client closed the tab / cancelled the fetch. Propagate so
             # `run_stream` (and the backend SDK request) actually cancel —

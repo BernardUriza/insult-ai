@@ -21,6 +21,21 @@ export type Step = {
   isError: boolean | null;
 };
 
+/** Per-turn observability — fi_runner's `turn_completed` event projected to
+ * the wire. Composed by the API after the stream settles (see app.py:gen),
+ * driven from the same data the server logs. Shown as a small footer below
+ * the receipts ("✓ 2.3s · 4 tools · 1,234 tokens"). */
+export type ChatMeta = {
+  latency_ms?: number | null;
+  tool_count?: number | null;
+  mcp_count?: number | null;
+  tokens?: Record<string, unknown> | null;
+  guard_levels?: Record<string, string> | null;
+  attempts?: number | null;
+  model?: string | null;
+  replayed_messages?: number | null;
+};
+
 export type ChatMessage =
   | { id: string; role: "user"; content: string }
   | {
@@ -33,6 +48,7 @@ export type ChatMessage =
       steps: Step[];
       receipts: string[];
       usage: Record<string, unknown> | null;
+      meta: ChatMeta | null;
       status: "thinking" | "streaming" | "done" | "error";
       errorMessage?: string;
     };

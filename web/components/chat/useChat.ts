@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { type ChatMessage, type Step, receiptsFrom } from "./types";
+import { type ChatMessage, type ChatMeta, type Step, receiptsFrom } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
@@ -67,6 +67,7 @@ export function useChat() {
         steps: [],
         receipts: [],
         usage: null,
+        meta: null,
         status: "thinking",
       };
       setMessages((prev) => [...prev, userMsg, assistantMsg]);
@@ -136,6 +137,11 @@ export function useChat() {
                 usage: (data.usage as Record<string, unknown> | null) ?? null,
                 status: "done",
               }));
+            } else if (event === "meta") {
+              // Per-turn observability — see ChatMeta in types.ts. The full
+              // payload is stored on the message so MessageBubble can render
+              // a compact footer ("✓ 2.3s · 4 tools · 1,234 tokens").
+              patchAssistant(assistantId, () => ({ meta: data as ChatMeta }));
             } else if (event === "error") {
               const msg = (data.message as string) ?? "stream error";
               patchAssistant(assistantId, () => ({ status: "error", errorMessage: msg }));

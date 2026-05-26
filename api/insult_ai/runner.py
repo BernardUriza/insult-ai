@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Callable
 from pathlib import Path
 
 from fi_runner import (
@@ -137,11 +138,17 @@ def build_runner(
     *,
     with_rag: bool = False,
     conversation_store: ConversationStore | None = None,
+    on_event: Callable[[str, dict], None] | None = None,
 ) -> Runner:
     """Compose a fi_runner Runner with the chosen backend + Bright Data MCP.
     With ``with_rag``, also wire the fi-core rag_store capability so the agent can
     mine the user's document corpus. With ``conversation_store``, the Runner folds
     prior turns into the next prompt (chat mode), keyed by ``session_id``.
+
+    ``on_event`` is fi_runner's telemetry sink — it fires for ``history_replayed``,
+    ``tool_called``, ``turn_completed``, ``backend_error``, etc. The chat endpoint
+    uses this to log structured per-turn metrics AND to emit an SSE ``meta`` event
+    with latency/tokens/tool_count to the UI.
 
     The Runner itself is cheap (a config holder); the BACKEND is the expensive
     bit and it's cached process-wide — see :func:`_get_backend`."""
@@ -170,6 +177,9 @@ def build_runner(
         retry_policy=RetryPolicy(max_attempts=2),
         # Multi-turn chat memory (None = stateless single-shot, like /roast).
         conversation_store=conversation_store,
+        # Telemetry — None for /roast (we don't surface per-turn metrics yet),
+        # cabled for /chat/stream so the UI can show "done in 2.3s · 4 tools".
+        on_event=on_event,
     )
 
 
@@ -218,6 +228,7 @@ async def chat_stream(
     session_id: str,
     backend: str | None = None,
     corpus_id: str | None = None,
+    on_event: Callable[[str, dict], None] | None = None,
 ):
     """Stream a chat turn as dict events (chain-of-thought).
 
@@ -225,6 +236,10 @@ async def chat_stream(
       - ``{"type":"tool_call","tool":ToolCall}`` per Bright Data / RAG call,
       - ``{"type":"text","text":delta}`` as the assistant text arrives,
       - ``{"type":"result","result":TurnResult}`` once guards settle.
+
+    ``on_event`` taps fi_runner's telemetry sink (history_replayed, tool_called,
+    turn_completed, backend_error). The endpoint uses it to (a) log structured
+    per-turn metrics and (b) emit an SSE ``meta`` event to the UI.
 
     The first user turn of a session may use ``roast_prompt`` framing (URL/claim
     → roast); follow-ups go in as plain chat. We detect "first turn" via the
@@ -234,6 +249,7 @@ async def chat_stream(
         backend,
         with_rag=bool(corpus_id),
         conversation_store=_CHAT_STORE,
+        on_event=on_event,
     )
     history = await _CHAT_STORE.load(session_id)
     is_first_turn = not history
