@@ -12,6 +12,7 @@ import os
 import re
 from collections.abc import Callable
 from pathlib import Path
+from typing import Literal
 
 from fi_runner import (
     ClaudeCodeBackend,
@@ -42,6 +43,18 @@ def load_persona(name: str) -> str:
 
 
 ROAST_PERSONA = load_persona("roast")
+BRIEF_PERSONA = load_persona("brief")
+
+# The product modes: two personas over the SAME Runner (same backend, same
+# Bright Data MCP, same receipts + grounding). Selected at call time — config,
+# not code (see .claude/rules/personas.md). Adding a new mode = a new file in
+# personas/ + an entry in the three dispatch tables below. NO engine changes.
+Mode = Literal["roast", "brief"]
+
+_PERSONA_BY_MODE: dict[Mode, str] = {
+    "roast": ROAST_PERSONA,
+    "brief": BRIEF_PERSONA,
+}
 
 # --- Bright Data MCP (live web data — REQUIRED by the hackathon) -----------
 # Runs as `npx @brightdata/mcp`. It reads its credential from the API_TOKEN env
@@ -189,6 +202,31 @@ def _build_roast_guards(target_hint: str | None) -> list:
     ]
 
 
+def _build_brief_guards(target_hint: str | None) -> list:
+    """Compose the brief guard chain. CRITICAL difference vs the roast: the
+    brief INTENTIONALLY uses markdown headers + bullet summaries (it IS a
+    structured briefing document). So ``MARKDOWN_DRIFT`` and ``SUMMARIZING``
+    packs would false-positive on every brief — drop them. ``STAGE_DIRECTIONS``
+    stays on (no "*reviews their pricing page*" cues even in a brief).
+    ``DEFAULT_EN/ES`` stays on too — assistant tone + AI-disclosure are still
+    drift the brief shouldn't ship."""
+    language_packs = list(packs.DEFAULT_EN)
+    if target_hint and looks_spanish(target_hint):
+        language_packs = [*packs.DEFAULT_ES, *language_packs]
+    return [
+        antidrift_guard(
+            break_patterns=[*language_packs, *packs.STAGE_DIRECTIONS],
+            reinforcement=packs.GENERIC_REINFORCEMENT,
+        )
+    ]
+
+
+_GUARDS_BY_MODE: dict[Mode, Callable[[str | None], list]] = {
+    "roast": _build_roast_guards,
+    "brief": _build_brief_guards,
+}
+
+
 # --- Chat conversation store ----------------------------------------------
 # Module-level so multi-turn chat sessions persist across `/chat/stream` calls
 # without making every endpoint pass it explicitly. In-memory is fine for the
@@ -254,12 +292,20 @@ def _get_backend(name: str) -> ClaudeCodeBackend | CodexBackend:
 def build_runner(
     backend: str | None = None,
     *,
+    mode: Mode = "roast",
     with_rag: bool = False,
     conversation_store: ConversationStore | None = None,
     on_event: Callable[[str, dict], None] | None = None,
     target_hint: str | None = None,
 ) -> Runner:
     """Compose a fi_runner Runner with the chosen backend + Bright Data MCP.
+
+    ``mode`` selects the product persona (see :data:`Mode`): ``roast`` (the
+    hook — abrasive, fragment voice) or ``brief`` (the business-value — a
+    structured competitive briefing). Persona + guards + prompt wrapper all
+    dispatch off this one arg. Adding a new mode = a new ``personas/*.md``
+    + entries in the three dispatch tables; the engine stays untouched.
+
     With ``with_rag``, also wire the fi-core rag_store capability so the agent can
     mine the user's document corpus. With ``conversation_store``, the Runner folds
     prior turns into the next prompt (chat mode), keyed by ``session_id``.
@@ -272,8 +318,8 @@ def build_runner(
     ``target_hint`` is the user's input for this turn (URL/claim for /roast,
     the current message for /chat). It decides the guard language layer: when
     it looks Spanish (see :func:`looks_spanish`), Spanish drift patterns are
-    layered on top of the English ones so a Spanish-side roast can still be
-    guard-checked. Pass ``None`` for pure-EN guards.
+    layered on top of the English ones so a Spanish-side roast/brief can still
+    be guard-checked. Pass ``None`` for pure-EN guards.
 
     The Runner itself is cheap (a config holder); the BACKEND is the expensive
     bit and it's cached process-wide — see :func:`_get_backend`."""
@@ -294,7 +340,7 @@ def build_runner(
 
     return Runner(
         backend=agent_backend,
-        persona=ROAST_PERSONA,
+        persona=_PERSONA_BY_MODE[mode],
         extra_mcp_servers=[BRIGHTDATA_MCP],
         capabilities=capability_names,
         # BYPASS = auto-approve tool calls (needs non-root user in the container).
@@ -305,11 +351,14 @@ def build_runner(
             permission_mode=PermissionMode.BYPASS,
             builtin_disallowed=["WebSearch", "WebFetch"],
         ),
-        # Anti-drift: if the roast breaks character (report voice, assistant tone,
-        # AI-disclosure), the runner re-roasts once more with reinforcement appended.
-        # Guards are built per-turn because the language layer depends on the
-        # target — Runner is cheap; the BACKEND is what's cached (see _get_backend).
-        guards=_build_roast_guards(target_hint),
+        # Anti-drift: if the output breaks character (report voice in the roast,
+        # assistant tone, AI-disclosure), the runner re-runs the turn once more
+        # with reinforcement appended. Mode-specific because the BRIEF mode
+        # legitimately uses markdown structure — those packs would false-positive
+        # against the brief. Guards are built per-turn because the language layer
+        # depends on the target — Runner is cheap; the BACKEND is what's cached
+        # (see _get_backend).
+        guards=_GUARDS_BY_MODE[mode](target_hint),
         # Plan-first ethics defense: inspects the agent's `declare_plan` BEFORE
         # any other tool fires. Pairs with the persona's PLAN BEFORE YOU ACT
         # contract — the persona orders the agent to write its route, this guard
@@ -358,11 +407,54 @@ def roast_prompt(target: str, corpus_id: str | None = None) -> str:
     return base
 
 
-async def roast(target: str, backend: str | None = None, corpus_id: str | None = None):
-    """Run one roast turn. `target` is a URL or a claim. If `corpus_id` is given,
+def brief_prompt(target: str, corpus_id: str | None = None) -> str:
+    """The turn instruction for a BRIEF — sibling to ``roast_prompt``. Same
+    target shape, different framing: produce a structured competitive
+    intelligence brief instead of a roast. The persona supplies the section
+    headers + voice; this wrapper just sets the goal."""
+    base = (
+        f"Produce a competitive intelligence brief on this target using live "
+        f"web data: {target}"
+    )
+    if corpus_id:
+        base += (
+            f"\n\nThe user also has a document corpus (id: '{corpus_id}'). Use the"
+            " search_documents tool over it for additional context about the"
+            " target before composing the brief — cite anything you use in the"
+            " Receipts section."
+        )
+    return base
+
+
+_PROMPT_BY_MODE: dict[Mode, Callable[[str, str | None], str]] = {
+    "roast": roast_prompt,
+    "brief": brief_prompt,
+}
+
+
+async def roast(
+    target: str,
+    backend: str | None = None,
+    corpus_id: str | None = None,
+    mode: Mode = "roast",
+):
+    """Run one turn against the agent. ``target`` is a URL or a claim.
+
+    ``mode`` picks the product persona (see :data:`Mode`):
+      - ``roast`` — abrasive fragment-voice takedown (the hook).
+      - ``brief`` — structured competitive intelligence brief (the business
+        value: GTM battlecards, outreach hooks).
+
+    The function is still called ``roast`` for backwards compatibility with
+    the API + bench, but it dispatches both modes. If ``corpus_id`` is given,
     the agent can also mine the user's document corpus (rag_store)."""
-    runner = build_runner(backend, with_rag=bool(corpus_id), target_hint=target)
-    return await runner.run(roast_prompt(target, corpus_id))
+    runner = build_runner(
+        backend,
+        mode=mode,
+        with_rag=bool(corpus_id),
+        target_hint=target,
+    )
+    return await runner.run(_PROMPT_BY_MODE[mode](target, corpus_id))
 
 
 async def chat_stream(
@@ -371,6 +463,7 @@ async def chat_stream(
     session_id: str,
     backend: str | None = None,
     corpus_id: str | None = None,
+    mode: Mode = "roast",
     on_event: Callable[[str, dict], None] | None = None,
 ):
     """Stream a chat turn as dict events (chain-of-thought).
@@ -380,16 +473,23 @@ async def chat_stream(
       - ``{"type":"text","text":delta}`` as the assistant text arrives,
       - ``{"type":"result","result":TurnResult}`` once guards settle.
 
+    ``mode`` picks the persona (see :data:`Mode`). Each turn's runner is
+    rebuilt with that mode's persona + guards — switching mid-conversation
+    is supported and intentional (the chat history is shared across modes,
+    so "now write a brief on the same target" works after a roast turn).
+
     ``on_event`` taps fi_runner's telemetry sink (history_replayed, tool_called,
     turn_completed, backend_error). The endpoint uses it to (a) log structured
     per-turn metrics and (b) emit an SSE ``meta`` event to the UI.
 
-    The first user turn of a session may use ``roast_prompt`` framing (URL/claim
-    → roast); follow-ups go in as plain chat. We detect "first turn" via the
-    shared conversation store. The Runner is built per turn (cheap) but shares
-    ``_CHAT_STORE`` so prior turns are replayed for context."""
+    The first user turn of a session may use the mode's prompt framing
+    (URL/claim → roast/brief); follow-ups go in as plain chat. We detect
+    "first turn" via the shared conversation store. The Runner is built per
+    turn (cheap) but shares ``_CHAT_STORE`` so prior turns are replayed for
+    context."""
     runner = build_runner(
         backend,
+        mode=mode,
         with_rag=bool(corpus_id),
         conversation_store=_CHAT_STORE,
         on_event=on_event,
@@ -401,12 +501,13 @@ async def chat_stream(
     history = await _CHAT_STORE.load(session_id)
     is_first_turn = not history
     # On turn 1 the user message is USUALLY a target ("acme.com") — wrap it
-    # so the agent fetches + roasts. But if the user opens with free-form chat
-    # ("hey, can you roast something for me?") the wrap reads weirdly; the
-    # heuristic gates it. Subsequent turns ALWAYS go raw (the conversation
-    # already carries the roast context via the conversation_store replay).
+    # so the agent fetches + roasts (or briefs). But if the user opens with
+    # free-form chat ("hey, can you roast something for me?") the wrap reads
+    # weirdly; the heuristic gates it. Subsequent turns ALWAYS go raw (the
+    # conversation already carries the context via the conversation_store
+    # replay).
     prompt = (
-        roast_prompt(message, corpus_id)
+        _PROMPT_BY_MODE[mode](message, corpus_id)
         if is_first_turn and looks_like_roast_target(message)
         else message
     )

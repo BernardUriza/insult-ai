@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import time
+from typing import Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -118,9 +119,18 @@ class RoastRequest(BaseModel):
     target: str  # a URL or a claim to roast + fact-check
     backend: str | None = None  # "claude" | "codex" (defaults to INSULT_AI_BACKEND)
     corpus_id: str | None = None  # if set, the agent also mines this document corpus
+    # Product mode — "roast" (the hook, fragment voice) or "brief" (the
+    # business value, structured GTM intelligence). Default keeps existing
+    # callers (the bench, the web's roast button) on the roast path; brief
+    # is opt-in via this field. See runner.py:Mode.
+    mode: Literal["roast", "brief"] = "roast"
 
 
 class RoastResponse(BaseModel):
+    # Field name kept as ``roast`` for backwards compat with the web client
+    # (useRoast.ts reads data.roast). Holds the agent's output text for
+    # EITHER mode — a slight misnomer the field name carries, documented
+    # here so a future rename is intentional rather than accidental.
     roast: str
     usage: dict | None = None
 
@@ -140,6 +150,10 @@ class ChatRequest(BaseModel):
     message: str
     backend: str | None = None  # "claude" | "codex" (only claude streams live)
     corpus_id: str | None = None  # optional rag_store doc corpus to mine
+    # Persona for THIS turn. Switching mid-conversation is allowed (the
+    # conversation_store replays prior turns into the new persona's context)
+    # — that's the whole point of two modes over one engine.
+    mode: Literal["roast", "brief"] = "roast"
 
 
 @app.get("/health")
@@ -156,7 +170,12 @@ async def do_roast(request: Request, req: RoastRequest) -> RoastResponse:
     # SlowAPI needs the ``request: Request`` parameter to extract the client
     # IP for ``get_remote_address``. Don't drop it even if the body doesn't
     # use it — the decorator wraps this signature.
-    result = await roast(req.target, backend=req.backend, corpus_id=req.corpus_id)
+    result = await roast(
+        req.target,
+        backend=req.backend,
+        corpus_id=req.corpus_id,
+        mode=req.mode,
+    )
     return RoastResponse(roast=result.text, usage=result.usage)
 
 
@@ -245,6 +264,7 @@ async def chat_stream_endpoint(request: Request, req: ChatRequest) -> StreamingR
                     session_id=req.session_id,
                     backend=req.backend,
                     corpus_id=req.corpus_id,
+                    mode=req.mode,
                     on_event=_capture,
                 ):
                     etype = event.get("type")
