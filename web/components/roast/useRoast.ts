@@ -1,17 +1,8 @@
 "use client";
 
 import { useState } from "react";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
-
-/** URLs under the last "Receipts" heading (fallback: every URL), de-duped. */
-function receiptsFrom(text: string): string[] {
-  const marks = [...text.matchAll(/receipts?/gi)];
-  const last = marks.at(-1);
-  const tail = last?.index != null ? text.slice(last.index) : text;
-  const urls = tail.match(/https?:\/\/[^\s)\]>"']+/g) ?? [];
-  return [...new Set(urls)];
-}
+import { API_URL, apiUrl } from "../../lib/api";
+import { receiptsFrom } from "../../lib/text";
 
 /** Owns the roast turn: input, the POST /roast call, and derived receipts. */
 export function useRoast() {
@@ -28,7 +19,7 @@ export function useRoast() {
     setError("");
     setRoast("");
     try {
-      const res = await fetch(`${API_URL}/roast`, {
+      const res = await fetch(apiUrl("/roast"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ target: t }),

@@ -1,22 +1,12 @@
 import { Card } from "../ui/Card";
+import { RoastText } from "./RoastText";
 
-/** Renders the roast: preserves line breaks (iai-roast) and lifts **sententia**
- * into a highlighted span. No raw Tailwind — styling lives in iai-* classes. */
+/** Single-shot roast card: wraps the shared <RoastText> in a Card. The split
+ * + sententia render lives in RoastText so the chat can reuse it. */
 export function RoastView({ text }: { text: string }) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return (
     <Card>
-      <div className="iai-roast">
-        {parts.map((p, i) =>
-          p.startsWith("**") && p.endsWith("**") ? (
-            <strong key={i} className="iai-sententia">
-              {p.slice(2, -2)}
-            </strong>
-          ) : (
-            <span key={i}>{p}</span>
-          ),
-        )}
-      </div>
+      <RoastText text={text} />
     </Card>
   );
 }

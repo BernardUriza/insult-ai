@@ -39,9 +39,9 @@ export function RoastInput({ target, loading, onChange, onRun }: RoastInputProps
       <div className="flex flex-wrap gap-2 text-xs text-zinc-500">
         <span>try:</span>
         {EXAMPLES.map((ex) => (
-          <button key={ex} onClick={() => onRun(ex)} disabled={loading} className="iai-btn-chip">
+          <Button key={ex} variant="chip" onClick={() => onRun(ex)} disabled={loading}>
             {ex.length > 32 ? ex.slice(0, 32) + "…" : ex}
-          </button>
+          </Button>
         ))}
       </div>
     </section>

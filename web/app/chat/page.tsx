@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChatInput } from "../../components/chat/ChatInput";
 import { ChatView } from "../../components/chat/ChatView";
 import { useChat } from "../../components/chat/useChat";
+import { Button } from "../../components/ui/Button";
 import { getUIIcon } from "../../lib/icons";
 
 const FlameIcon = getUIIcon("brand");
@@ -33,16 +34,16 @@ export default function ChatPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button
+          <Button
             type="button"
+            variant="chip"
             onClick={reset}
             disabled={streaming || messages.length === 0}
-            className="iai-btn-chip inline-flex items-center gap-1 text-xs disabled:opacity-40"
             title="nueva conversación"
           >
             <NewIcon className="h-3.5 w-3.5" aria-hidden />
             nueva
-          </button>
+          </Button>
           <Link
             href="/"
             className="iai-link inline-flex items-center gap-1 text-xs"

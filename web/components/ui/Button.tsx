@@ -1,8 +1,11 @@
 import * as React from "react";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  /** Visual variant → maps to an iai-btn-* semantic class. */
-  variant?: "primary" | "ghost";
+  /** Visual variant → maps to an iai-btn-* semantic class.
+   *  - ``primary`` — the main CTA (Roast it 🔥).
+   *  - ``ghost`` — neutral / secondary (Stop, cancel).
+   *  - ``chip`` — small inline pill (example targets, nav chips, ``chat →``). */
+  variant?: "primary" | "ghost" | "chip";
   /** Shows a spinner and disables the button. */
   loading?: boolean;
 }
@@ -10,6 +13,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 const VARIANT: Record<NonNullable<ButtonProps["variant"]>, string> = {
   primary: "iai-btn-primary",
   ghost: "iai-btn-ghost",
+  chip: "iai-btn-chip",
 };
 
 /** Button — styled only through `iai-btn-*` (see globals.css). `className` is for

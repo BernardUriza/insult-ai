@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { type ChatMessage, type ChatMeta, type Step, receiptsFrom } from "./types";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+import { API_URL, apiUrl } from "../../lib/api";
+import { receiptsFrom } from "../../lib/text";
+import type { ChatMessage, ChatMeta, Step } from "./types";
 
 /** Mint a short id without depending on `crypto.randomUUID` (Safari 14 etc.). */
 function newId(): string {
@@ -77,7 +77,7 @@ export function useChat() {
       abortRef.current = controller;
 
       try {
-        const res = await fetch(`${API_URL}/chat/stream`, {
+        const res = await fetch(apiUrl("/chat/stream"), {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
           body: JSON.stringify({ session_id: sessionRef.current, message: trimmed }),

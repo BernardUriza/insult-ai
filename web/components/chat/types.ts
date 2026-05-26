@@ -53,12 +53,5 @@ export type ChatMessage =
       errorMessage?: string;
     };
 
-/** URLs under the last "Receipts" heading (fallback: every URL), de-duped.
- * Lifted from useRoast so the chat reuses the same heuristic as single-shot. */
-export function receiptsFrom(text: string): string[] {
-  const marks = [...text.matchAll(/receipts?/gi)];
-  const last = marks.at(-1);
-  const tail = last?.index != null ? text.slice(last.index) : text;
-  const urls = tail.match(/https?:\/\/[^\s)\]>"']+/g) ?? [];
-  return [...new Set(urls)];
-}
+// Note: `receiptsFrom` now lives in `lib/text.ts` and is imported by both
+// useRoast and useChat. Keep this file React-free and wire-shape-only.
