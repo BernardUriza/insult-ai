@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { ChatInput } from "../../components/chat/ChatInput";
 import { ChatView } from "../../components/chat/ChatView";
 import { useChat } from "../../components/chat/useChat";
@@ -14,45 +15,94 @@ const BackIcon = getUIIcon("back");
 
 /** Multi-turn chat with live chain-of-thought. Streams /chat/stream (SSE) and
  * paints every Bright Data call as a step while the roast text arrives token
- * by token. Sister page of the single-shot `/` (kept as the demo's "quick" mode). */
+ * by token. Sister page of the single-shot `/` (kept as the demo's "quick" mode).
+ *
+ * Corpus selector: an optional `?corpus=<id>` query arg (set by a "Use →" link
+ * on /library) primes the chat to mine that document corpus on every turn.
+ * The user can also type the corpus_id manually in the input next to the
+ * header — handy for switching between corpora mid-session. Empty = no rag. */
 export default function ChatPage() {
-  const { messages, streaming, send, abort, reset } = useChat();
+  // Read ?corpus= from window.location on mount. We do it in an effect (not
+  // during render) because window doesn't exist during the static export
+  // pre-render — Next.js refuses to ship the chunk otherwise.
+  const [corpusId, setCorpusId] = useState<string>("");
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const q = url.searchParams.get("corpus");
+    if (q) setCorpusId(q);
+  }, []);
+
+  const { messages, streaming, send, abort, reset } = useChat({ corpusId });
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-5 py-8">
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="inline-flex items-center gap-2 text-2xl font-extrabold tracking-tight">
-            <FlameIcon className="h-6 w-6 text-iai-accent" aria-hidden />
-            Insult <span className="iai-brand">AI</span>
-            <span className="text-zinc-500">·</span>
-            <span className="text-zinc-400">chat</span>
-          </h1>
-          <p className="iai-hint mt-1 text-sm">
-            <span className="iai-accent">The web&apos;s data, unlocked.</span> Then roasted.
-            Every jab traces to a fetched source.
-          </p>
+      <header className="flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="inline-flex items-center gap-2 text-2xl font-extrabold tracking-tight">
+              <FlameIcon className="h-6 w-6 text-iai-accent" aria-hidden />
+              Insult <span className="iai-brand">AI</span>
+              <span className="text-zinc-500">·</span>
+              <span className="text-zinc-400">chat</span>
+            </h1>
+            <p className="iai-hint mt-1 text-sm">
+              <span className="iai-accent">The web&apos;s data, unlocked.</span> Then roasted.
+              Every jab traces to a fetched source.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="chip"
+              onClick={reset}
+              disabled={streaming || messages.length === 0}
+              title="start a new conversation"
+            >
+              <NewIcon className="h-3.5 w-3.5" aria-hidden />
+              new
+            </Button>
+            <Link
+              href="/library"
+              className="iai-link inline-flex items-center gap-1 text-xs"
+              title="add documents to a corpus"
+            >
+              library →
+            </Link>
+            <Link
+              href="/"
+              className="iai-link inline-flex items-center gap-1 text-xs"
+              title="switch to single-shot mode"
+            >
+              <BackIcon className="h-3.5 w-3.5" aria-hidden />
+              single-shot
+            </Link>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            type="button"
-            variant="chip"
-            onClick={reset}
-            disabled={streaming || messages.length === 0}
-            title="start a new conversation"
-          >
-            <NewIcon className="h-3.5 w-3.5" aria-hidden />
-            new
-          </Button>
-          <Link
-            href="/"
-            className="iai-link inline-flex items-center gap-1 text-xs"
-            title="switch to single-shot mode"
-          >
-            <BackIcon className="h-3.5 w-3.5" aria-hidden />
-            single-shot
-          </Link>
-        </div>
+        {/* Corpus selector — small inline input. Editable so the user can
+         * switch corpora mid-session WITHOUT leaving /chat. Empty = no rag,
+         * the agent skips the search_documents tool entirely. */}
+        <label className="iai-hint flex items-center gap-2 text-[11px] uppercase tracking-wider">
+          corpus
+          <input
+            value={corpusId}
+            onChange={(e) => setCorpusId(e.target.value)}
+            placeholder="(none — agent skips rag_store)"
+            disabled={streaming}
+            className="iai-input flex-1 px-3 py-1 font-mono text-xs normal-case tracking-normal"
+            aria-label="rag corpus id (optional)"
+          />
+          {corpusId && (
+            <button
+              type="button"
+              onClick={() => setCorpusId("")}
+              className="iai-btn-chip text-[10px]"
+              title="clear corpus — next turn skips rag_store"
+              disabled={streaming}
+            >
+              clear
+            </button>
+          )}
+        </label>
       </header>
 
       <ChatView messages={messages} />

@@ -29,8 +29,15 @@ function parseFrame(frame: string): { event: string; data: unknown } | null {
 }
 
 /** The chat state machine. Owns `messages`, the `sessionId` (one per
- * conversation), the in-flight assistant id, and the POST → SSE consumer. */
-export function useChat() {
+ * conversation), the in-flight assistant id, and the POST → SSE consumer.
+ *
+ * ``opts.corpusId`` (optional) — when set, every turn is sent with
+ * ``corpus_id``, telling the agent to ``search_documents`` over that corpus
+ * (rag_store MCP) for extra ammo before composing the roast/brief. Wired
+ * from the /library page (sticky) and the ``?corpus=`` query param on /chat
+ * so a "Use →" click from the library lands in chat with the corpus armed. */
+export function useChat(opts?: { corpusId?: string }) {
+  const corpusId = opts?.corpusId?.trim() || undefined;
   // One id per browser session so the API folds prior turns into the prompt.
   // Held in a ref so re-renders don't churn it.
   const sessionRef = useRef<string>(newId());
@@ -84,7 +91,11 @@ export function useChat() {
             "Content-Type": "application/json",
             Accept: "text/event-stream",
           }),
-          body: JSON.stringify({ session_id: sessionRef.current, message: trimmed }),
+          body: JSON.stringify({
+            session_id: sessionRef.current,
+            message: trimmed,
+            ...(corpusId ? { corpus_id: corpusId } : {}),
+          }),
           signal: controller.signal,
         });
         if (!res.ok || !res.body) throw new Error(`API responded ${res.status}`);
@@ -227,7 +238,7 @@ export function useChat() {
         abortRef.current = null;
       }
     },
-    [streaming, patchAssistant],
+    [streaming, patchAssistant, corpusId],
   );
 
   const abort = useCallback(() => {

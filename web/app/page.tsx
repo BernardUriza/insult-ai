@@ -30,14 +30,23 @@ export default function Home() {
             every jab traces to a receipt.
           </p>
         </div>
-        <Link
-          href="/chat"
-          className="iai-btn-chip inline-flex shrink-0 items-center gap-1 text-xs"
-          title="multi-turn chat with live chain-of-thought"
-        >
-          chat
-          <ForwardIcon className="h-3.5 w-3.5" aria-hidden />
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href="/library"
+            className="iai-link inline-flex items-center gap-1 text-xs"
+            title="feed the agent a document corpus"
+          >
+            library →
+          </Link>
+          <Link
+            href="/chat"
+            className="iai-btn-chip inline-flex items-center gap-1 text-xs"
+            title="multi-turn chat with live chain-of-thought"
+          >
+            chat
+            <ForwardIcon className="h-3.5 w-3.5" aria-hidden />
+          </Link>
+        </div>
       </header>
 
       <RoastInput target={target} loading={loading} onChange={setTarget} onRun={run} />
