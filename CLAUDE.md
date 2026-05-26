@@ -70,12 +70,15 @@ Frontend: see `web/README.md`.
 
 ## Rules index (`.claude/rules/`)
 
-- `architecture.md` — fi-runner usage, the two backends, the thin-consumer boundary
+- `architecture.md` — fi-runner usage, the two backends, the thin-consumer boundary, backend caching, leverage left on the table
 - `bright-data.md` — mandatory Bright Data MCP integration + how it's wired
 - `benchmarks.md` — the two-baseline discipline (guard quality + perf)
-- `deploy.md` — Azure (Container Apps + Static Web Apps), secrets, non-root
+- `deploy.md` — Azure (Container Apps + Static Web Apps), pgvector RAG, X-API-Key + rate-limit, non-root
+- `hackathon.md` — Web Data UNLOCKED official judging criteria, deliverables, deadline, mapping to this repo's surfaces
+- `local-dev.md` — environment gotchas: port collisions (5432/Tilt, 3000/Archestra), Docker macOS NAT, Next.js 16 cross-origin, React 19 input quirks, free-intelligence pin discipline
 - `personas.md` — the two product personas (roast = hook, brief = business value)
 - `language.md` — system writes English (UI, personas, antidrift packs, comments); only the roast follows the target
+- `working-style.md` — meta rules: use WebFetch/WebSearch/chrome-devtools BEFORE saying "no sé"; don't trickle-ask; investigate before declaring "limitation"
 
 ## Note
 
