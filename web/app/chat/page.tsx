@@ -16,7 +16,7 @@ const BackIcon = getUIIcon("back");
  * paints every Bright Data call as a step while the roast text arrives token
  * by token. Sister page of the single-shot `/` (kept as the demo's "quick" mode). */
 export default function ChatPage() {
-  const { messages, streaming, send, abort, reset, apiUrl } = useChat();
+  const { messages, streaming, send, abort, reset } = useChat();
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-5 py-8">
@@ -59,11 +59,12 @@ export default function ChatPage() {
 
       <div className="sticky bottom-2 mt-2">
         <ChatInput onSend={send} onAbort={abort} streaming={streaming} />
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-[10px]">
+        <div className="mt-2 flex items-center justify-center text-[10px]">
+          {/* Just the badge — the API URL used to live here too, but on mobile
+           * (and even on desktop with a long Container App hostname) it broke
+           * the layout into two crooked lines. The URL is still discoverable
+           * via DevTools / the title attr on PoweredBy for anyone curious. */}
           <PoweredBy />
-          <span className="iai-hint">
-            <span className="font-mono">{apiUrl}</span> · backend=claude
-          </span>
         </div>
       </div>
     </main>

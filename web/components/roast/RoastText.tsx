@@ -1,3 +1,24 @@
+/** Strip the trailing "Receipts" block from the agent's raw output.
+ *
+ * The persona instructs the agent to close with a ``Receipts`` heading +
+ * the source URLs. The ``ReceiptsPanel`` sibling already renders those URLs
+ * as polished cards (with the domain bolded, hover ring, etc.) by parsing
+ * the same text via :func:`receiptsFrom`. Rendering them ALSO as raw text
+ * inside the roast body is a double-render and a visual eyesore — see the
+ * 2026-05-26 production screenshot where ``Receipts\nhttps://…`` appeared
+ * twice in a row.
+ *
+ * Heuristic: a ``Receipts`` heading sits on its OWN line (newline before,
+ * optional whitespace + newline after). Mid-paragraph ``receipt`` mentions
+ * (e.g. "the receipt was forged") are unaffected because they don't match
+ * this shape. During streaming the block appears progressively — the regex
+ * doesn't match until the heading lands on its own line, so the body
+ * transitions cleanly from "with receipts visible" to "without" without a
+ * flash. */
+function stripReceiptsTail(text: string): string {
+  return text.replace(/\n+\s*Receipts\s*\n[\s\S]*$/i, "");
+}
+
 /** Render a roast string with the **sententia** convention.
  *
  * The agent emits its key one-liners as ``**bold**``; we lift those into
@@ -11,7 +32,8 @@
  * background) — NOT a Unicode block char like the old ▍, which renders with
  * the OS text font and varies in weight/baseline. */
 export function RoastText({ text, caret = false }: { text: string; caret?: boolean }) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  const body = stripReceiptsTail(text);
+  const parts = body.split(/(\*\*[^*]+\*\*)/g);
   return (
     <div className="iai-roast">
       {parts.map((p, i) =>
