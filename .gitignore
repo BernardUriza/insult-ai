@@ -26,6 +26,14 @@ bench/.raw_roasts*.jsonl
 bench/.roasts_review.md
 bench/.roasts_review.html
 
+# RAG store — runtime artifacts (HDF5 backend + lock file), per-process state.
+# Materialized by fi_runner.rag_store on first ingest; never committed.
+fi_rag_store.h5
+fi_rag_store.h5.lock
+
+# Local verification screenshots (chrome-devtools runs during dev).
+.tmp-screenshots/
+
 # Misc
 *.log
 .DS_Store

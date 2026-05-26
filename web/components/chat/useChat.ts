@@ -1,0 +1,184 @@
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+import { type ChatMessage, type Step, receiptsFrom } from "./types";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+
+/** Mint a short id without depending on `crypto.randomUUID` (Safari 14 etc.). */
+function newId(): string {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+/** Parse one SSE frame ("event: foo\ndata: {...}") into {event, data}. SSE
+ * frames are separated by a blank line — the caller splits on `\n\n` first. */
+function parseFrame(frame: string): { event: string; data: unknown } | null {
+  const lines = frame.split("\n");
+  let event = "message";
+  const dataLines: string[] = [];
+  for (const line of lines) {
+    if (line.startsWith("event:")) event = line.slice(6).trim();
+    else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+  }
+  if (dataLines.length === 0) return null;
+  try {
+    return { event, data: JSON.parse(dataLines.join("\n")) };
+  } catch {
+    return null;
+  }
+}
+
+/** The chat state machine. Owns `messages`, the `sessionId` (one per
+ * conversation), the in-flight assistant id, and the POST → SSE consumer. */
+export function useChat() {
+  // One id per browser session so the API folds prior turns into the prompt.
+  // Held in a ref so re-renders don't churn it.
+  const sessionRef = useRef<string>(newId());
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [streaming, setStreaming] = useState(false);
+  // Abort controller for the current /chat/stream fetch (user can cancel mid-roast).
+  const abortRef = useRef<AbortController | null>(null);
+
+  /** Mutate the in-flight assistant message by id (functional update so
+   * concurrent events compose cleanly). */
+  const patchAssistant = useCallback(
+    (id: string, patch: (m: ChatMessage & { role: "assistant" }) => Partial<ChatMessage & { role: "assistant" }>) => {
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== id || m.role !== "assistant") return m;
+          return { ...m, ...patch(m) };
+        }),
+      );
+    },
+    [],
+  );
+
+  const send = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || streaming) return;
+
+      const userMsg: ChatMessage = { id: newId(), role: "user", content: trimmed };
+      const assistantId = newId();
+      const assistantMsg: ChatMessage = {
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        steps: [],
+        receipts: [],
+        usage: null,
+        status: "thinking",
+      };
+      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+      setStreaming(true);
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const res = await fetch(`${API_URL}/chat/stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+          body: JSON.stringify({ session_id: sessionRef.current, message: trimmed }),
+          signal: controller.signal,
+        });
+        if (!res.ok || !res.body) throw new Error(`API responded ${res.status}`);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        // SSE loop: drain the byte stream, split on blank lines, parse, dispatch.
+        // We keep the trailing partial frame in `buffer` between reads.
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const frames = buffer.split("\n\n");
+          buffer = frames.pop() ?? "";
+          for (const raw of frames) {
+            const parsed = parseFrame(raw);
+            if (!parsed) continue;
+            const { event, data } = parsed as { event: string; data: Record<string, unknown> };
+
+            if (event === "tool_call") {
+              const step: Step = {
+                id: (data.id as string) ?? null,
+                name: (data.name as string) ?? "",
+                server: (data.server as string | null) ?? null,
+                isError: (data.is_error as boolean | null) ?? null,
+              };
+              patchAssistant(assistantId, (m) => ({
+                steps: [...m.steps, step],
+                status: "streaming",
+              }));
+            } else if (event === "text") {
+              const delta = (data.delta as string) ?? "";
+              if (!delta) continue;
+              patchAssistant(assistantId, (m) => ({
+                content: m.content + delta,
+                status: "streaming",
+              }));
+            } else if (event === "result") {
+              // Replace, don't append — post-guard text may diverge from the
+              // streamed deltas. Backfill is_error on steps from the final list.
+              const finalText = (data.text as string) ?? "";
+              const finalSteps = ((data.tool_calls as Array<Record<string, unknown>>) ?? []).map((tc) => ({
+                id: (tc.id as string) ?? null,
+                name: (tc.name as string) ?? "",
+                server: (tc.server as string | null) ?? null,
+                isError: (tc.is_error as boolean | null) ?? null,
+              }));
+              patchAssistant(assistantId, () => ({
+                content: finalText,
+                steps: finalSteps,
+                receipts: receiptsFrom(finalText),
+                usage: (data.usage as Record<string, unknown> | null) ?? null,
+                status: "done",
+              }));
+            } else if (event === "error") {
+              const msg = (data.message as string) ?? "stream error";
+              patchAssistant(assistantId, () => ({ status: "error", errorMessage: msg }));
+            }
+            // `open` and `done` are wire-only — UI doesn't need them.
+          }
+        }
+      } catch (e) {
+        // AbortError on user cancel is not a real error.
+        const aborted = e instanceof DOMException && e.name === "AbortError";
+        if (!aborted) {
+          const msg = e instanceof Error ? e.message : "request failed";
+          patchAssistant(assistantId, () => ({ status: "error", errorMessage: msg }));
+        } else {
+          patchAssistant(assistantId, () => ({ status: "done" }));
+        }
+      } finally {
+        setStreaming(false);
+        abortRef.current = null;
+      }
+    },
+    [streaming, patchAssistant],
+  );
+
+  const abort = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
+  /** Wipe the conversation locally AND on the backend (new session id). The
+   * server's store keeps the old session under its old id, but we never refer
+   * to it again — InMemoryConversationStore is per-process, fine to leak. */
+  const reset = useCallback(() => {
+    sessionRef.current = newId();
+    setMessages([]);
+  }, []);
+
+  return {
+    messages,
+    streaming,
+    send,
+    abort,
+    reset,
+    sessionId: sessionRef.current,
+    apiUrl: API_URL,
+  };
+}
