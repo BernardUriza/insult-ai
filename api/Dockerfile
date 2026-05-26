@@ -17,7 +17,15 @@ RUN mamba env update -n base -f environment.yml \
 #   - @openai/codex              → CodexBackend (Azure API-motor)
 #   - @brightdata/mcp            → the live-web MCP server (pre-installed so the
 #                                   first request doesn't pay an npx cold fetch)
-RUN npm install -g --silent @anthropic-ai/claude-code @openai/codex @brightdata/mcp
+# Pin npm's global prefix to /usr/local (Linux standard) instead of conda's
+# /opt/conda. The Python `mcp` package (Claude Agent SDK dep) installs its own
+# /opt/conda/bin/mcp, and `@brightdata/mcp` would collide there — EEXIST.
+# /usr/local/bin is already in the default PATH, so the resulting `claude`,
+# `codex`, `mcp` binaries resolve cleanly from any shell. fi-runner shells out
+# via `claude`, `codex` and `npx @brightdata/mcp` — npx finds the package
+# wherever it's installed.
+RUN npm config set prefix /usr/local && \
+    npm install -g @anthropic-ai/claude-code @openai/codex @brightdata/mcp
 
 # App code (insult_ai/ package + entrypoint).
 COPY . /app/

@@ -38,3 +38,4 @@ bench/e2e_*.png
 # Misc
 *.log
 .DS_Store
+.deploy/

@@ -49,11 +49,25 @@ _log.info("logging cabled — chat.event lines will land here")
 
 app = FastAPI(title="Insult AI", version="0.1.0")
 
-# Wide-open CORS for the demo (the Next.js front lives on a different origin).
-# Tighten to the SWA origin before anything real.
+# CORS — accept the origins listed in ``CORS_ALLOW_ORIGINS`` (comma-separated)
+# or fall back to wide-open in dev. Production sets this to the SWA URL via
+# Container App env var; dev leaves it unset and the API accepts everything
+# (handy for curl, the bench, and a local Next.js on a non-standard port).
+_cors_origins_env = (os.getenv("CORS_ALLOW_ORIGINS") or "").strip()
+_cors_origins = (
+    [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
+    if _cors_origins_env
+    else ["*"]
+)
+if _cors_origins == ["*"]:
+    _log.warning(
+        "CORS_ALLOW_ORIGINS unset — accepting requests from any origin "
+        "(dev convenience). Set the env var in production to lock CORS to "
+        "the SWA URL."
+    )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
