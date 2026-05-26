@@ -56,8 +56,19 @@ function MetaFooter({ meta }: { meta: ChatMeta }) {
 
 /** Render one chat message. User → right-aligned plain bubble. Assistant →
  * left-aligned card with: thinking steps (collapsible) + roast text (with the
- * **sententia** highlight as in RoastView) + receipts panel. */
-export function MessageBubble({ message }: { message: ChatMessage }) {
+ * **sententia** highlight as in RoastView) + receipts panel.
+ *
+ * ``target`` (optional) is the user message that prompted THIS assistant turn
+ * — ChatView pulls it from the message before this one. The ThinkingPanel
+ * uses it for the live "Unlocking <target>…" label (UNLOCKED tagline tie-in
+ * for the hackathon). */
+export function MessageBubble({
+  message,
+  target,
+}: {
+  message: ChatMessage;
+  target?: string;
+}) {
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
@@ -77,7 +88,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
             and one of them may be empty depending on the backend (codex doesn't
             capture MCP inputs → no derived plan events). */}
         <PlanChecklist plan={message.plan} />
-        <ThinkingPanel steps={message.steps} status={message.status} />
+        <ThinkingPanel steps={message.steps} status={message.status} target={target} />
         {message.content && (
           <RoastText text={message.content} caret={message.status === "streaming"} />
         )}

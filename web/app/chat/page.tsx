@@ -5,6 +5,7 @@ import { ChatInput } from "../../components/chat/ChatInput";
 import { ChatView } from "../../components/chat/ChatView";
 import { useChat } from "../../components/chat/useChat";
 import { Button } from "../../components/ui/Button";
+import { PoweredBy } from "../../components/ui/PoweredBy";
 import { getUIIcon } from "../../lib/icons";
 
 const FlameIcon = getUIIcon("brand");
@@ -22,15 +23,14 @@ export default function ChatPage() {
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="inline-flex items-center gap-2 text-2xl font-extrabold tracking-tight">
-            <FlameIcon className="h-6 w-6 text-orange-400" aria-hidden />
+            <FlameIcon className="h-6 w-6 text-iai-accent" aria-hidden />
             Insult <span className="iai-brand">AI</span>
             <span className="text-zinc-500">·</span>
             <span className="text-zinc-400">chat</span>
           </h1>
           <p className="iai-hint mt-1 text-sm">
-            Chat with live chain-of-thought.{" "}
-            <span className="iai-accent">Each Bright Data call surfaces in real time</span>{" "}
-            before the roast lands.
+            <span className="iai-accent">The web&apos;s data, unlocked.</span> Then roasted.
+            Every jab traces to a fetched source.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -59,10 +59,12 @@ export default function ChatPage() {
 
       <div className="sticky bottom-2 mt-2">
         <ChatInput onSend={send} onAbort={abort} streaming={streaming} />
-        <p className="iai-hint mt-2 text-center text-[10px]">
-          API: <span className="font-mono">{apiUrl}/chat/stream</span> · live streaming requires
-          backend=claude
-        </p>
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-[10px]">
+          <PoweredBy />
+          <span className="iai-hint">
+            <span className="font-mono">{apiUrl}</span> · backend=claude
+          </span>
+        </div>
       </div>
     </main>
   );

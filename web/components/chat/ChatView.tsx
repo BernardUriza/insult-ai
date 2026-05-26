@@ -45,9 +45,21 @@ export function ChatView({ messages }: { messages: ChatMessage[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {messages.map((m) => (
-        <MessageBubble key={m.id} message={m} />
-      ))}
+      {messages.map((m, i) => {
+        // Find the user message that prompted THIS assistant turn — the
+        // closest preceding user-role message. ThinkingPanel uses it for
+        // the "Unlocking <target>…" live label.
+        let target: string | undefined;
+        if (m.role === "assistant") {
+          for (let j = i - 1; j >= 0; j--) {
+            if (messages[j].role === "user") {
+              target = messages[j].content;
+              break;
+            }
+          }
+        }
+        return <MessageBubble key={m.id} message={m} target={target} />;
+      })}
       <div ref={tailRef} />
     </div>
   );

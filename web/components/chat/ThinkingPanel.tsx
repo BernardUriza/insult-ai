@@ -8,13 +8,22 @@ const BotIcon = getUIIcon("bot");
 
 /** Collapsible "thinking" panel that lists every Bright Data / RAG step
  * as it happens. Auto-expands while the turn is streaming and collapses on
- * `done` so the conversation doesn't get noisy in retrospective view. */
+ * `done` so the conversation doesn't get noisy in retrospective view.
+ *
+ * The "thinking…" label reads as boring; the demo's selling point is that
+ * the agent is LIVE-FETCHING the web right now via Bright Data MCP. When the
+ * caller passes `target`, the empty-state label leans into that:
+ * "Unlocking acme.com…" reads as "we are pulling fresh data right this
+ * second" — which is literally what's happening. Tag-line tie-in to the
+ * hackathon's "Web Data UNLOCKED" theming. */
 export function ThinkingPanel({
   steps,
   status,
+  target,
 }: {
   steps: Step[];
   status: "thinking" | "streaming" | "done" | "error";
+  target?: string;
 }) {
   // Default expanded while live; user can override either way after.
   const live = status === "thinking" || status === "streaming";
@@ -23,9 +32,16 @@ export function ThinkingPanel({
 
   if (steps.length === 0 && status === "done") return null;
 
+  // Trim long targets so the header doesn't blow the layout. A claim like
+  // "Elon Musk founded OpenAI" is fine inline; a 80-char URL is not.
+  const shortTarget =
+    target && target.length > 36 ? `${target.slice(0, 33).trim()}…` : target;
+
   const summary =
     status === "thinking"
-      ? "thinking…"
+      ? shortTarget
+        ? `Unlocking ${shortTarget}…`
+        : "thinking…"
       : status === "streaming" && steps.length === 0
         ? "writing…"
         : `${steps.length} ${steps.length === 1 ? "step" : "steps"}`;

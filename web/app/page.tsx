@@ -6,6 +6,7 @@ import { RoastInput } from "../components/roast/RoastInput";
 import { RoastSkeleton } from "../components/roast/RoastSkeleton";
 import { RoastView } from "../components/roast/RoastView";
 import { useRoast } from "../components/roast/useRoast";
+import { PoweredBy } from "../components/ui/PoweredBy";
 import { getStatusIcon, getUIIcon } from "../lib/icons";
 
 const FlameIcon = getUIIcon("brand");
@@ -20,13 +21,13 @@ export default function Home() {
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="inline-flex items-center gap-2 text-3xl font-extrabold tracking-tight">
-            <FlameIcon className="h-8 w-8 text-orange-400" aria-hidden />
+            <FlameIcon className="h-8 w-8 text-iai-accent" aria-hidden />
             Insult <span className="iai-brand">AI</span>
           </h1>
           <p className="mt-1 text-zinc-400">
-            Feed it a URL or a claim. It pulls{" "}
-            <span className="iai-accent">live web data via Bright Data</span> and roasts the
-            target — every jab with a real receipt.
+            <span className="iai-accent">The web&apos;s data, unlocked.</span> Then roasted.
+            Live fetch via <span className="iai-brand font-semibold">Bright Data</span>,
+            every jab traces to a receipt.
           </p>
         </div>
         <Link
@@ -59,7 +60,7 @@ export default function Home() {
           mirrors the /chat onboarding so the surface never feels dead. */}
       {!roast && !loading && !error && (
         <div className="iai-card-soft flex flex-col items-center gap-2 py-10 text-center text-zinc-400">
-          <FlameIcon className="h-7 w-7 text-orange-400" aria-hidden />
+          <FlameIcon className="h-7 w-7 text-iai-accent" aria-hidden />
           <div className="font-medium text-zinc-300">
             Feed it a URL or a claim above.
           </div>
@@ -72,8 +73,9 @@ export default function Home() {
       {roast && <RoastView text={roast} />}
       <ReceiptsPanel urls={receipts} />
 
-      <footer className="mt-auto pt-6 text-center text-xs text-zinc-600">
-        Insult AI · Web Data UNLOCKED Hackathon · Bright Data + fi-runner
+      <footer className="mt-auto flex flex-col items-center gap-2 pt-6 text-center text-xs text-zinc-600">
+        <PoweredBy />
+        <span>Insult AI · Web Data UNLOCKED Hackathon · fi-runner</span>
       </footer>
     </main>
   );

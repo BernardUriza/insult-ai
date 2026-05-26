@@ -3,15 +3,29 @@
 /* ── Insult AI Design System (iai-*) ────────────────────────────────────────
  * Token-first: components use semantic `iai-*` classes (defined here with
  * @apply), never raw Tailwind in JSX. Pattern adapted from the AURITY design
- * system; theme is Insult's own (red/black), defined fresh — no upstream CSS. */
+ * system; theme is Bright Data-flavored (the hackathon's sponsor) — six tokens,
+ * one edit point to re-brand the whole app. */
 
 @theme {
-  --color-iai-bg: #0f1115;
-  --color-iai-surface: #181b22;
-  --color-iai-border: #2a2f3a;
-  --color-iai-brand: #ff5c5c;
-  --color-iai-accent: #ffd479;
-  --color-iai-link: #7fd1ff;
+  /* Bright Data palette — extracted directly from the CSS custom properties
+   * served on brightdata.com (audited 2026-05-26 via Chrome DevTools, the
+   * canonical source — third-party brand color sites disagreed on the
+   * secondaries). The hackathon is themed around BD's Web Data product line,
+   * so leaning into their visual identity reads as deliberate, not lazy.
+   *   bg/surface/border → BD's --dark / --light-blue / --blue-gray (their
+   *     dark-hero scheme — what brightdata.com renders below the fold).
+   *   brand              → BD's --brand (their primary blue, Pantone 2727 C).
+   *   accent             → BD's --cyan (the neon used for live/streaming
+   *     emphasis — pairs with our SSE streaming UX semantically).
+   *   link               → BD's --web-data (the purple accent reserved for
+   *     their Web Data product — the SAME product line this hackathon is
+   *     about). On-brand receipts/links. */
+  --color-iai-bg: #091B36;        /* BD --dark */
+  --color-iai-surface: #0F2D58;   /* BD --light-blue (dark variant) */
+  --color-iai-border: #22395B;    /* BD --blue-gray */
+  --color-iai-brand: #3D7FFC;     /* BD --brand (primary blue) */
+  --color-iai-accent: #4DF8E2;    /* BD --cyan (neon glow / live state) */
+  --color-iai-link: #9D97F4;      /* BD --web-data (purple — receipts/links) */
 }
 
 @layer base {

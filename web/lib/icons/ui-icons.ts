@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Bot,
+  ExternalLink,
   Flame,
   ListChecks,
   Receipt,
@@ -43,6 +44,9 @@ export const UI_ICONS: Record<string, LucideIcon> = {
   receipts: Receipt,
   // Plan checklist header (declare_plan / start_step / complete_step)
   plan: ListChecks,
+  // Outgoing-link arrow — shown on hover next to each receipt URL so the user
+  // sees the row is clickable AND that it leaves the site.
+  external: ExternalLink,
 } as const;
 
 export function getUIIcon(key: string): LucideIcon {
