@@ -7,6 +7,7 @@ import { RoastText } from "./RoastText";
 const ReceiptIcon = getUIIcon("receipts");
 const ExternalIcon = getUIIcon("external");
 const DoneIcon = getStatusIcon("done");
+const FlameIcon = getUIIcon("brand");
 
 function host(url: string): string {
   try {
@@ -22,8 +23,12 @@ function host(url: string): string {
  * output — bold sententia, voice, receipts panel — without typing anything.
  *
  * Marked with a SAMPLE tag so it isn't confused with a live result. Receipts
- * are real public URLs (IANA, RFC, Wikipedia) — clickable, verifiable. */
-export function SampleRoast() {
+ * are real public URLs (IANA, RFC, Wikipedia) — clickable, verifiable.
+ *
+ * Optional ``onRunSample`` callback wires a "Run this live" button at the
+ * bottom — closes the demo loop: judge reads the sample, clicks the button,
+ * the input fills with the sample target and the agent fires for real. */
+export function SampleRoast({ onRunSample }: { onRunSample?: (target: string) => void }) {
   const { target, text, receipts } = SAMPLE_ROAST;
   return (
     <section className="iai-card-sample flex flex-col gap-4">
@@ -74,6 +79,23 @@ export function SampleRoast() {
           ))}
         </ul>
       </div>
+
+      {onRunSample && (
+        <div className="flex items-center justify-between gap-3 border-t border-iai-border pt-3">
+          <span className="iai-hint text-xs">
+            This was pre-rendered. Want to see the agent do it for real?
+          </span>
+          <button
+            type="button"
+            onClick={() => onRunSample(target)}
+            className="iai-btn-primary text-sm"
+            title="Fires a live roast against the sample target via the Bright Data MCP"
+          >
+            Run this live
+            <FlameIcon className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+      )}
     </section>
   );
 }

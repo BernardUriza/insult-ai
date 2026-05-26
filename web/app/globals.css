@@ -54,8 +54,10 @@
     @apply inline-flex items-center justify-center gap-2 rounded-lg bg-iai-fire
            px-6 py-3 text-base font-bold text-black
            shadow-[0_4px_24px_-6px_rgba(255,92,40,0.55)]
-           transition enabled:hover:brightness-110
-           enabled:hover:shadow-[0_6px_30px_-4px_rgba(255,92,40,0.75)]
+           transition duration-150 enabled:hover:-translate-y-0.5
+           enabled:hover:brightness-110
+           enabled:hover:shadow-[0_8px_32px_-4px_rgba(255,92,40,0.8)]
+           enabled:active:translate-y-0 enabled:active:brightness-95
            disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none;
   }
   .iai-btn-ghost {
@@ -81,10 +83,13 @@
     @apply font-bold text-iai-accent;
   }
 
-  /* Inputs */
+  /* Inputs — placeholder bumped from zinc-600 → zinc-500 because zinc-600 on
+   * iai-surface (a dark BD blue) was nearly invisible to anyone with average
+   * eyesight on a laptop screen. zinc-500 is still secondary text but reads
+   * comfortably without competing with real entered content. */
   .iai-input {
     @apply w-full resize-y rounded-xl border border-zinc-700 bg-iai-surface p-4
-           text-zinc-100 outline-none placeholder:text-zinc-600
+           text-zinc-100 outline-none placeholder:text-zinc-500
            focus:border-iai-brand;
   }
 
@@ -125,10 +130,22 @@
    * default stroke is neutral; we color it fire AND drop a soft glow so the
    * brand reads as warm/aggressive instead of cold/sponsor. Single edit
    * point: every page imports getUIIcon("brand") + applies .iai-flame and
-   * inherits the same treatment. */
+   * inherits the same treatment.
+   *
+   * The pulse is intentionally SLOW (3.5s) and subtle (8px→14px glow
+   * radius). Faster or wider reads as "demanding attention" — we want
+   * "alive in the periphery", not "buy now button". */
   .iai-flame {
     @apply text-iai-fire;
     filter: drop-shadow(0 0 8px rgba(255, 92, 40, 0.45));
+    animation: iai-flame-pulse 3.5s ease-in-out infinite;
+  }
+  @keyframes iai-flame-pulse {
+    0%, 100% { filter: drop-shadow(0 0 8px rgba(255, 92, 40, 0.45)); }
+    50%      { filter: drop-shadow(0 0 14px rgba(255, 92, 40, 0.75)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .iai-flame { animation: none; }
   }
 
   /* Demo proof — the "what you'll get" sample card on the empty home. Same

@@ -22,8 +22,8 @@ export default function Home() {
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 py-10">
       <header className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
-          <h1 className="inline-flex items-center gap-2.5 text-4xl font-extrabold tracking-tight md:text-5xl">
-            <FlameIcon className="iai-flame h-10 w-10 md:h-11 md:w-11" aria-hidden />
+          <h1 className="inline-flex items-center gap-2.5 text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
+            <FlameIcon className="iai-flame h-8 w-8 sm:h-10 sm:w-10 md:h-11 md:w-11" aria-hidden />
             Insult <span className="iai-brand">AI</span>
           </h1>
           <nav className="flex shrink-0 items-center gap-2">
@@ -77,7 +77,7 @@ export default function Home() {
        * Idle now shows a REAL sample roast (text + receipts) instead of a
        * placeholder card that just echoed the input. Demo proof above-the-fold:
        * a judge sees the format before typing anything. */}
-      {idle && <SampleRoast />}
+      {idle && <SampleRoast onRunSample={run} />}
       {loading && !roast && <RoastSkeleton />}
       {roast && <RoastView text={roast} />}
       <ReceiptsPanel urls={receipts} />

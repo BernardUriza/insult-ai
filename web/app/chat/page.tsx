@@ -78,25 +78,28 @@ export default function ChatPage() {
             </Link>
           </div>
         </div>
-        {/* Corpus selector — small inline input. Editable so the user can
-         * switch corpora mid-session WITHOUT leaving /chat. Empty = no rag,
-         * the agent skips the search_documents tool entirely. */}
-        <label className="iai-hint flex items-center gap-2 text-[11px] uppercase tracking-wider">
-          corpus
+        {/* Knowledge-base selector — small inline input. Editable so the user
+         * can switch corpora mid-session WITHOUT leaving /chat. Empty = the
+         * agent skips the document search step entirely. Copy says
+         * "knowledge base" instead of "corpus / rag_store" — the latter is
+         * the implementation detail (rag_store MCP), the former is what the
+         * user actually understands. */}
+        <label className="iai-hint flex items-center gap-2 text-xs">
+          <span className="uppercase tracking-wider">Knowledge base</span>
           <input
             value={corpusId}
             onChange={(e) => setCorpusId(e.target.value)}
-            placeholder="(none — agent skips rag_store)"
+            placeholder="Optional — paste an ID from /library"
             disabled={streaming}
-            className="iai-input flex-1 px-3 py-1 font-mono text-xs normal-case tracking-normal"
-            aria-label="rag corpus id (optional)"
+            className="iai-input flex-1 px-3 py-1.5 text-xs"
+            aria-label="knowledge base id (optional)"
           />
           {corpusId && (
             <button
               type="button"
               onClick={() => setCorpusId("")}
               className="iai-btn-chip text-[10px]"
-              title="clear corpus — next turn skips rag_store"
+              title="clear — next turn searches the web only"
               disabled={streaming}
             >
               clear

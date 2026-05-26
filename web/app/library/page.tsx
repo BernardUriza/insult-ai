@@ -60,11 +60,13 @@ export default function LibraryPage() {
        * docs into the same corpus doesn't require re-typing it. */}
       <section className="iai-card flex flex-col gap-3">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="iai-hint text-xs uppercase tracking-wide">Corpus ID</span>
+          <span className="iai-hint text-xs uppercase tracking-wide">
+            Knowledge base name
+          </span>
           <input
             value={corpusId}
             onChange={(e) => setCorpusId(e.target.value)}
-            placeholder="my-corpus"
+            placeholder="e.g. acme-research"
             className="iai-input text-sm"
             disabled={busy}
           />
@@ -81,8 +83,11 @@ export default function LibraryPage() {
         </label>
         <div className="flex items-center justify-between gap-3">
           <span className="iai-hint text-xs">
-            Stored as <span className="font-mono">corpus_id={corpusId || "—"}</span> · text
-            is chunked + embedded ({"<"} 30 chars = skipped).
+            Saving to{" "}
+            <span className="font-mono text-zinc-300">
+              {corpusId || "—"}
+            </span>{" "}
+            · text under 30 chars is skipped.
           </span>
           <Button
             type="button"
