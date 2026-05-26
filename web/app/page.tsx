@@ -5,6 +5,7 @@ import { ReceiptsPanel } from "../components/roast/ReceiptsPanel";
 import { RoastInput } from "../components/roast/RoastInput";
 import { RoastSkeleton } from "../components/roast/RoastSkeleton";
 import { RoastView } from "../components/roast/RoastView";
+import { SampleRoast } from "../components/roast/SampleRoast";
 import { useRoast } from "../components/roast/useRoast";
 import { PoweredBy } from "../components/ui/PoweredBy";
 import { getStatusIcon, getUIIcon } from "../lib/icons";
@@ -15,38 +16,47 @@ const WarnIcon = getStatusIcon("warning");
 
 export default function Home() {
   const { target, setTarget, roast, loading, error, run, receipts, apiUrl } = useRoast();
+  const idle = !roast && !loading && !error;
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 py-10">
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="inline-flex items-center gap-2 text-3xl font-extrabold tracking-tight">
-            <FlameIcon className="h-8 w-8 text-iai-accent" aria-hidden />
+      <header className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="inline-flex items-center gap-2.5 text-4xl font-extrabold tracking-tight md:text-5xl">
+            <FlameIcon className="iai-flame h-10 w-10 md:h-11 md:w-11" aria-hidden />
             Insult <span className="iai-brand">AI</span>
           </h1>
-          <p className="mt-1 text-zinc-400">
-            <span className="iai-accent">The web&apos;s data, unlocked.</span> Then roasted.
-            Live fetch via <span className="iai-brand font-semibold">Bright Data</span>,
-            every jab traces to a receipt.
-          </p>
+          <nav className="flex shrink-0 items-center gap-2">
+            <Link
+              href="/library"
+              className="iai-btn-chip"
+              title="feed the agent a document corpus"
+            >
+              library
+              <ForwardIcon className="h-3.5 w-3.5" aria-hidden />
+            </Link>
+            <Link
+              href="/chat"
+              className="iai-btn-chip"
+              title="multi-turn chat with live chain-of-thought"
+            >
+              chat
+              <ForwardIcon className="h-3.5 w-3.5" aria-hidden />
+            </Link>
+          </nav>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Link
-            href="/library"
-            className="iai-link inline-flex items-center gap-1 text-xs"
-            title="feed the agent a document corpus"
-          >
-            library →
-          </Link>
-          <Link
-            href="/chat"
-            className="iai-btn-chip inline-flex items-center gap-1 text-xs"
-            title="multi-turn chat with live chain-of-thought"
-          >
-            chat
-            <ForwardIcon className="h-3.5 w-3.5" aria-hidden />
-          </Link>
-        </div>
+        {/* Hero copy — split in two: the punch line first (loud), then the
+         * mechanic (quieter). The old paragraph buried the promise under a
+         * Bright Data attribution; this version puts the voice up front. */}
+        <p className="text-xl font-bold leading-tight text-zinc-100 md:text-2xl">
+          Don't trust the pitch.{" "}
+          <span className="text-iai-fire">We scraped it.</span>
+        </p>
+        <p className="iai-hint text-base">
+          Live web data via{" "}
+          <span className="iai-brand font-semibold">Bright Data</span>. Every
+          roast comes with receipts.
+        </p>
       </header>
 
       <RoastInput target={target} loading={loading} onChange={setTarget} onRun={run} />
@@ -63,28 +73,18 @@ export default function Home() {
         </div>
       )}
 
-      {/* Empty / loading / done — three exclusive states. The empty state
-          used to be a literal blank page (the user typed and stared at the
-          spinner button alone). Now there's a low-pressure hint card that
-          mirrors the /chat onboarding so the surface never feels dead. */}
-      {!roast && !loading && !error && (
-        <div className="iai-card-soft flex flex-col items-center gap-2 py-10 text-center text-zinc-400">
-          <FlameIcon className="h-7 w-7 text-iai-accent" aria-hidden />
-          <div className="font-medium text-zinc-300">
-            Feed it a URL or a claim above.
-          </div>
-          <div className="iai-hint">
-            The agent will fetch live web data first, then roast what it actually finds.
-          </div>
-        </div>
-      )}
+      {/* Idle / loading / done — three exclusive states.
+       * Idle now shows a REAL sample roast (text + receipts) instead of a
+       * placeholder card that just echoed the input. Demo proof above-the-fold:
+       * a judge sees the format before typing anything. */}
+      {idle && <SampleRoast />}
       {loading && !roast && <RoastSkeleton />}
       {roast && <RoastView text={roast} />}
       <ReceiptsPanel urls={receipts} />
 
       <footer className="mt-auto flex flex-col items-center gap-2 pt-6 text-center text-xs text-zinc-600">
         <PoweredBy />
-        <span>Insult AI · Web Data UNLOCKED Hackathon · fi-runner</span>
+        <span>Insult AI · Web Data UNLOCKED Hackathon</span>
       </footer>
     </main>
   );

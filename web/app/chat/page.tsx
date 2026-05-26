@@ -40,7 +40,7 @@ export default function ChatPage() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="inline-flex items-center gap-2 text-2xl font-extrabold tracking-tight">
-              <FlameIcon className="h-6 w-6 text-iai-accent" aria-hidden />
+              <FlameIcon className="iai-flame h-6 w-6" aria-hidden />
               Insult <span className="iai-brand">AI</span>
               <span className="text-zinc-500">·</span>
               <span className="text-zinc-400">chat</span>
@@ -63,14 +63,14 @@ export default function ChatPage() {
             </Button>
             <Link
               href="/library"
-              className="iai-link inline-flex items-center gap-1 text-xs"
+              className="iai-btn-chip"
               title="add documents to a corpus"
             >
-              library →
+              library
             </Link>
             <Link
               href="/"
-              className="iai-link inline-flex items-center gap-1 text-xs"
+              className="iai-btn-chip"
               title="switch to single-shot mode"
             >
               <BackIcon className="h-3.5 w-3.5" aria-hidden />

@@ -35,22 +35,20 @@ export default function LibraryPage() {
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="inline-flex items-center gap-2 text-3xl font-extrabold tracking-tight">
-            <FlameIcon className="h-8 w-8 text-iai-accent" aria-hidden />
+            <FlameIcon className="iai-flame h-8 w-8" aria-hidden />
             Insult <span className="iai-brand">AI</span>
             <span className="text-zinc-500">·</span>
             <span className="text-zinc-400">library</span>
           </h1>
           <p className="mt-1 text-zinc-400">
-            Feed the agent a document corpus.{" "}
-            <span className="iai-accent">
-              Persisted in pgvector via Bright Data&apos;s rag_store MCP.
-            </span>{" "}
-            The agent can mine it during a later roast or brief.
+            Feed the agent a document corpus. Paste bios, press releases,
+            internal notes — the agent can mine them during a later roast or
+            brief, alongside live web data.
           </p>
         </div>
         <Link
           href="/chat"
-          className="iai-btn-chip inline-flex shrink-0 items-center gap-1 text-xs"
+          className="iai-btn-chip shrink-0"
           title="back to chat"
         >
           <BackIcon className="h-3.5 w-3.5" aria-hidden />
@@ -148,7 +146,7 @@ export default function LibraryPage() {
 
       <footer className="mt-auto flex flex-col items-center gap-2 pt-6 text-center text-xs text-zinc-600">
         <PoweredBy />
-        <span>Insult AI · Web Data UNLOCKED Hackathon · fi-runner + pgvector</span>
+        <span>Insult AI · Web Data UNLOCKED Hackathon</span>
       </footer>
     </main>
   );

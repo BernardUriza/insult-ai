@@ -26,6 +26,13 @@
   --color-iai-brand: #3D7FFC;     /* BD --brand (primary blue) */
   --color-iai-accent: #4DF8E2;    /* BD --cyan (neon glow / live state) */
   --color-iai-link: #9D97F4;      /* BD --web-data (purple — receipts/links) */
+  /* Warm accents — Insult AI's OWN identity, layered on top of the BD palette.
+   * Reserved for: the flame logo, primary CTAs, verdicts, "hot" emphasis.
+   * The BD cool palette (above) handles structure/chrome; these two tokens
+   * carry the product's voice. The pairing is deliberate — sponsor visible,
+   * product distinct. */
+  --color-iai-fire: #FF5C28;      /* primary warm — flame + CTAs */
+  --color-iai-ember: #FFB347;     /* secondary warm — hover glow + accents */
 }
 
 @layer base {
@@ -38,10 +45,18 @@
   /* Buttons (each variant is self-contained — v4 @apply takes utilities, not
      component classes). Colors come from @theme tokens so a brand recolor is
      a six-line change at the top of this file, not a grep-and-replace. */
+  /* Primary CTA — the warm-accent action button. Bigger, bolder, with a
+   * soft fire glow that lifts on hover. Used for "Roast it" (single-shot),
+   * "Roast" (chat send), "Ingest" (library) — every page's headline action.
+   * Color is iai-fire (NOT iai-brand) so the action contrasts the cool BD
+   * chrome — the user's eye lands on the warm button, then on receipts. */
   .iai-btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-iai-brand
-           px-5 py-2.5 font-bold text-black transition enabled:hover:brightness-110
-           disabled:cursor-not-allowed disabled:opacity-40;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-iai-fire
+           px-6 py-3 text-base font-bold text-black
+           shadow-[0_4px_24px_-6px_rgba(255,92,40,0.55)]
+           transition enabled:hover:brightness-110
+           enabled:hover:shadow-[0_6px_30px_-4px_rgba(255,92,40,0.75)]
+           disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none;
   }
   .iai-btn-ghost {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1
@@ -49,8 +64,10 @@
            disabled:cursor-not-allowed disabled:opacity-40;
   }
   .iai-btn-chip {
-    @apply rounded border border-zinc-800 px-2 py-1 text-xs text-zinc-400
-           transition enabled:hover:border-zinc-600 disabled:opacity-40;
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-iai-border
+           bg-iai-surface/40 px-3 py-1.5 text-sm font-medium text-zinc-200
+           transition enabled:hover:border-iai-fire/50 enabled:hover:bg-iai-surface
+           enabled:hover:text-white disabled:opacity-40;
   }
 
   /* Cards */
@@ -102,5 +119,28 @@
      pulse is opt-in, not on every hint label in the app. */
   .iai-hint-live {
     @apply animate-pulse;
+  }
+
+  /* Flame styling — the product's mascot icon (lucide Flame). The lucide
+   * default stroke is neutral; we color it fire AND drop a soft glow so the
+   * brand reads as warm/aggressive instead of cold/sponsor. Single edit
+   * point: every page imports getUIIcon("brand") + applies .iai-flame and
+   * inherits the same treatment. */
+  .iai-flame {
+    @apply text-iai-fire;
+    filter: drop-shadow(0 0 8px rgba(255, 92, 40, 0.45));
+  }
+
+  /* Demo proof — the "what you'll get" sample card on the empty home. Same
+   * structure as iai-card but with a warm accent border tint so the eye
+   * recognizes it as the product output (vs. plain chrome cards). */
+  .iai-card-sample {
+    @apply rounded-2xl border border-iai-fire/30 bg-iai-surface/40 p-5
+           shadow-[0_0_40px_-20px_rgba(255,92,40,0.4)];
+  }
+  .iai-tag {
+    @apply inline-flex items-center gap-1 rounded-full border border-iai-fire/40
+           bg-iai-fire/10 px-2 py-0.5 text-[10px] font-semibold uppercase
+           tracking-wider text-iai-fire;
   }
 }
