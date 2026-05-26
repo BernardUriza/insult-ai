@@ -53,19 +53,6 @@ export type ChatMessage =
       errorMessage?: string;
     };
 
-/** Derive a UI label for a tool name. Strips the `mcp__<server>__` prefix so
- * the step reads as ``🔍 search_engine`` instead of ``🔍 mcp__brightdata__…``. */
-export function stepLabel(name: string): { icon: string; short: string } {
-  const short = name.replace(/^mcp__[^_]+__/, "");
-  const lower = short.toLowerCase();
-  let icon = "⚙️";
-  if (lower.includes("search")) icon = "🔍";
-  else if (lower.includes("scrape") || lower.includes("fetch")) icon = "📄";
-  else if (lower.includes("browser")) icon = "🌐";
-  else if (lower.includes("document") || lower.includes("rag")) icon = "📚";
-  return { icon, short };
-}
-
 /** URLs under the last "Receipts" heading (fallback: every URL), de-duped.
  * Lifted from useRoast so the chat reuses the same heuristic as single-shot. */
 export function receiptsFrom(text: string): string[] {

@@ -4,6 +4,11 @@ import Link from "next/link";
 import { ChatInput } from "../../components/chat/ChatInput";
 import { ChatView } from "../../components/chat/ChatView";
 import { useChat } from "../../components/chat/useChat";
+import { getUIIcon } from "../../lib/icons";
+
+const FlameIcon = getUIIcon("brand");
+const NewIcon = getUIIcon("new");
+const BackIcon = getUIIcon("back");
 
 /** Multi-turn chat with live chain-of-thought. Streams /chat/stream (SSE) and
  * paints every Bright Data call as a step while the roast text arrives token
@@ -15,8 +20,11 @@ export default function ChatPage() {
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-5 py-8">
       <header className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">
-            🔥 Insult <span className="iai-brand">AI</span> · chat
+          <h1 className="inline-flex items-center gap-2 text-2xl font-extrabold tracking-tight">
+            <FlameIcon className="h-6 w-6 text-orange-400" aria-hidden />
+            Insult <span className="iai-brand">AI</span>
+            <span className="text-zinc-500">·</span>
+            <span className="text-zinc-400">chat</span>
           </h1>
           <p className="iai-hint mt-1 text-sm">
             Conversación con chain-of-thought.{" "}
@@ -29,13 +37,19 @@ export default function ChatPage() {
             type="button"
             onClick={reset}
             disabled={streaming || messages.length === 0}
-            className="iai-btn-chip text-xs disabled:opacity-40"
+            className="iai-btn-chip inline-flex items-center gap-1 text-xs disabled:opacity-40"
             title="nueva conversación"
           >
-            ✦ nueva
+            <NewIcon className="h-3.5 w-3.5" aria-hidden />
+            nueva
           </button>
-          <Link href="/" className="iai-link text-xs">
-            ← single-shot
+          <Link
+            href="/"
+            className="iai-link inline-flex items-center gap-1 text-xs"
+            title="modo single-shot"
+          >
+            <BackIcon className="h-3.5 w-3.5" aria-hidden />
+            single-shot
           </Link>
         </div>
       </header>

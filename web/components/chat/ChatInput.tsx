@@ -1,6 +1,10 @@
 "use client";
 
 import { type KeyboardEvent, useState } from "react";
+import { getUIIcon } from "../../lib/icons";
+
+const SendIcon = getUIIcon("send");
+const StopIcon = getUIIcon("stop");
 
 /** Composer: textarea + send button. Enter sends, Shift+Enter newline. While
  * streaming, the button becomes "Stop" so the user can cancel mid-roast. */
@@ -46,17 +50,25 @@ export function ChatInput({
         aria-label="mensaje al agente"
       />
       {streaming ? (
-        <button type="button" onClick={onAbort} className="iai-btn-ghost h-12 px-5">
-          ⏹ Parar
+        <button
+          type="button"
+          onClick={onAbort}
+          className="iai-btn-ghost inline-flex h-12 items-center gap-2 px-5"
+          aria-label="parar generación"
+        >
+          <StopIcon className="h-4 w-4" aria-hidden />
+          Parar
         </button>
       ) : (
         <button
           type="button"
           onClick={submit}
           disabled={!draft.trim()}
-          className="iai-btn-primary h-12 px-5 disabled:opacity-40"
+          className="iai-btn-primary inline-flex h-12 items-center gap-2 px-5 disabled:opacity-40"
+          aria-label="mandar mensaje"
         >
-          Roast ↵
+          Roast
+          <SendIcon className="h-4 w-4" aria-hidden />
         </button>
       )}
     </div>

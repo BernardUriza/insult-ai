@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { getUIIcon } from "../../lib/icons";
 import { MessageBubble } from "./MessageBubble";
 import type { ChatMessage } from "./types";
+
+const FlameIcon = getUIIcon("brand");
 
 /** Conversation surface: vertically stacked messages with a **sticky-bottom**
  * auto-scroll. Naïve scroll-on-every-update fires ~30x/s during text streaming
@@ -30,7 +33,7 @@ export function ChatView({ messages }: { messages: ChatMessage[] }) {
   if (messages.length === 0) {
     return (
       <div className="iai-card-soft flex flex-col items-center gap-2 py-10 text-center text-zinc-400">
-        <div className="text-2xl">🔥</div>
+        <FlameIcon className="h-7 w-7 text-orange-400" aria-hidden />
         <div className="font-medium text-zinc-300">Empieza con una URL o un claim.</div>
         <div className="iai-hint text-sm">
           Ej: <span className="font-mono text-zinc-300">acme.com</span> · &nbsp;

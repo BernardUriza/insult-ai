@@ -1,8 +1,12 @@
 "use client";
 
+import { getStatusIcon } from "../../lib/icons";
 import { ReceiptsPanel } from "../roast/ReceiptsPanel";
 import { ThinkingPanel } from "./ThinkingPanel";
 import type { ChatMessage, ChatMeta } from "./types";
+
+const DoneIcon = getStatusIcon("done");
+const WarnIcon = getStatusIcon("warning");
 
 /** Compact per-turn observability footer — projection of fi_runner's
  * `turn_completed` event ("✓ 2.3s · 4 tools · 1,234 tokens · guards: ok").
@@ -29,9 +33,17 @@ function MetaFooter({ meta }: { meta: ChatMeta }) {
     parts.push(`replay ${meta.replayed_messages}`);
   }
   if (parts.length === 0) return null;
+  // Worst guard level decides the icon: warning/critical → triangle, else check.
+  const worstGuard = meta.guard_levels
+    ? Object.values(meta.guard_levels).find((l) => l === "critical" || l === "warning")
+    : undefined;
+  const Indicator = worstGuard ? WarnIcon : DoneIcon;
   return (
-    <div className="iai-hint mt-3 flex flex-wrap gap-x-2 text-[10px] uppercase tracking-wide">
-      <span>✓</span>
+    <div className="iai-hint mt-3 flex flex-wrap items-center gap-x-2 text-[10px] uppercase tracking-wide">
+      <Indicator
+        className={`h-3 w-3 ${worstGuard ? "text-amber-400" : "text-emerald-400"}`}
+        aria-hidden
+      />
       {parts.map((p, i) => (
         <span key={i}>{p}</span>
       ))}
