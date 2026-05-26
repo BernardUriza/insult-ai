@@ -16,7 +16,14 @@ from fi_runner.rag_store import RagStoreClient
 from pydantic import BaseModel
 
 from .runner import chat_stream, roast
-from .wire import result_to_wire, tool_call_to_wire
+from .wire import (
+    plan_rejected_to_wire,
+    plan_to_wire,
+    result_to_wire,
+    step_done_to_wire,
+    step_started_to_wire,
+    tool_call_to_wire,
+)
 
 # Ensure our logger surfaces in uvicorn's stdout/stderr. uvicorn configures the
 # `uvicorn.*` loggers but leaves the root logger handler-less in some setups —
@@ -115,13 +122,23 @@ async def chat_stream_endpoint(req: ChatRequest) -> StreamingResponse:
     backend; codex falls back to a single ``result`` event (per fi-runner).
 
     Wire contract (event names → payload shape — see :mod:`insult_ai.wire`):
-      - ``open``       {"session_id"}
-      - ``tool_call``  :class:`ToolCallWire`                     (no input — PHI-safe)
-      - ``text``       {"delta"}                                  (token-ish chunk)
-      - ``result``     :class:`ResultWire`
-      - ``error``      {"message","kind"}
-      - ``done``       {}                                         (always fires last,
+      - ``open``         {"session_id"}
+      - ``plan``         :class:`PlanWire`                       (declare_plan — first turn-tool)
+      - ``plan_rejected`` :class:`PlanRejectedWire`              (PlanGuard veto — soft, stream continues)
+      - ``step_started`` :class:`StepStartedWire`                (start_step → row goes "running")
+      - ``step_done``    :class:`StepDoneWire`                   (complete_step | fail_step)
+      - ``tool_call``    :class:`ToolCallWire`                   (no input — PHI-safe)
+      - ``text``         {"delta"}                                (token-ish chunk)
+      - ``result``       :class:`ResultWire`
+      - ``error``        {"message","kind"}
+      - ``done``         {}                                       (always fires last,
                                                                    even after ``error``)
+
+    ``plan`` / ``step_started`` / ``step_done`` are emitted ADDITIONALLY to the
+    raw ``tool_call`` for each task_tracker MCP call (see fi_runner's
+    ``_derive_plan_events``). The UI uses the semantic ones for a checklist and
+    keeps the raw ones for a "thinking" detail view — so both panels stay in
+    sync even if the persona ever stops calling ``declare_plan``.
     """
 
     # Capture fi_runner telemetry for THIS turn. Lives in the closure so each
@@ -167,6 +184,23 @@ async def chat_stream_endpoint(req: ChatRequest) -> StreamingResponse:
                         yield _sse("tool_call", dict(tool_call_to_wire(event["tool"])))
                     elif etype == "text":
                         yield _sse("text", {"delta": event["text"]})
+                    elif etype == "plan":
+                        # Semantic re-emit of the agent's declare_plan call — UI
+                        # uses this for the live checklist. The raw task_tracker
+                        # tool_call still went through above, so the thinking
+                        # panel keeps its detail view.
+                        yield _sse("plan", dict(plan_to_wire(event["data"])))
+                    elif etype == "plan_rejected":
+                        # PlanGuard vetoed the declared plan — SOFT reject
+                        # (fi-runner keeps the stream open; the agent's retry
+                        # path picks up the reinforcement and re-declares). UI
+                        # paints a red banner over the checklist with the reason
+                        # and which steps tripped.
+                        yield _sse("plan_rejected", dict(plan_rejected_to_wire(event["data"])))
+                    elif etype == "step_started":
+                        yield _sse("step_started", dict(step_started_to_wire(event["data"])))
+                    elif etype == "step_done":
+                        yield _sse("step_done", dict(step_done_to_wire(event["data"])))
                     elif etype == "result":
                         # POST-guard text + final tool_calls (is_error resolved).
                         # The UI MUST REPLACE, not append — antidrift may have
@@ -175,7 +209,7 @@ async def chat_stream_endpoint(req: ChatRequest) -> StreamingResponse:
                         payload = result_to_wire(event["result"], fallback_session_id=req.session_id)
                         yield _sse("result", dict(payload))
                     # Any other event type from fi_runner (telemetry, etc.) is
-                    # skipped — only the three above are part of our wire contract.
+                    # skipped — only the ones above are part of our wire contract.
             # Turn settled cleanly → emit the closing telemetry as `meta`. The
             # frontend uses this for the "✓ 2.3s · 4 tools · 1,234 tokens"
             # footer; if turn_completed never fired (edge case), we synthesize

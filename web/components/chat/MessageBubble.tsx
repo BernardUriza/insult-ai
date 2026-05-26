@@ -3,6 +3,7 @@
 import { getStatusIcon } from "../../lib/icons";
 import { ReceiptsPanel } from "../roast/ReceiptsPanel";
 import { RoastText } from "../roast/RoastText";
+import { PlanChecklist } from "./PlanChecklist";
 import { ThinkingPanel } from "./ThinkingPanel";
 import type { ChatMessage, ChatMeta } from "./types";
 
@@ -71,6 +72,11 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
   return (
     <div className="flex w-full justify-start">
       <div className="iai-card w-full">
+        {/* Plan checklist (signal) sits ABOVE the raw thinking panel (detail).
+            Both can be present — they read different events (plan vs tool_call)
+            and one of them may be empty depending on the backend (codex doesn't
+            capture MCP inputs → no derived plan events). */}
+        <PlanChecklist plan={message.plan} />
         <ThinkingPanel steps={message.steps} status={message.status} />
         {message.content && (
           <RoastText text={message.content} caret={message.status === "streaming"} />

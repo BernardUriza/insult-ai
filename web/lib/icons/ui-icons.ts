@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Bot,
   Flame,
+  ListChecks,
   Receipt,
   Send,
   Sparkles,
@@ -40,6 +41,8 @@ export const UI_ICONS: Record<string, LucideIcon> = {
   close: X,
   // Receipts panel header
   receipts: Receipt,
+  // Plan checklist header (declare_plan / start_step / complete_step)
+  plan: ListChecks,
 } as const;
 
 export function getUIIcon(key: string): LucideIcon {

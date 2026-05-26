@@ -1,0 +1,32 @@
+{
+  "benchmark": "roast_perf_sequential",
+  "backend": "claude",
+  "label": "after",
+  "reps": 1,
+  "aggregate": {
+    "turns": 1,
+    "ok": 1,
+    "failed": 0,
+    "latency_s": {
+      "p50": 266.66,
+      "p90": 266.66,
+      "p99": 266.66,
+      "mean": 266.66,
+      "min": 266.66,
+      "max": 266.66
+    },
+    "throughput_turns_per_min": 0.23,
+    "avg_tool_count": 3
+  },
+  "turns": [
+    {
+      "id": "self-roast-01",
+      "target": "https://bernarduriza.com",
+      "rep": 1,
+      "latency_s": 266.66,
+      "tool_count": 3,
+      "error": null
+    }
+  ],
+  "note": "sequential per-turn latency; flow_narrator OFF to keep the measurement honest"
+}

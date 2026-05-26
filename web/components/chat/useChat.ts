@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { API_URL, apiUrl } from "../../lib/api";
 import { receiptsFrom } from "../../lib/text";
-import type { ChatMessage, ChatMeta, Step } from "./types";
+import type { ChatMessage, ChatMeta, Plan, PlanRejection, PlanStep, Step } from "./types";
 
 /** Mint a short id without depending on `crypto.randomUUID` (Safari 14 etc.). */
 function newId(): string {
@@ -65,6 +65,7 @@ export function useChat() {
         role: "assistant",
         content: "",
         steps: [],
+        plan: null,
         receipts: [],
         usage: null,
         meta: null,
@@ -113,6 +114,66 @@ export function useChat() {
                 steps: [...m.steps, step],
                 status: "streaming",
               }));
+            } else if (event === "plan") {
+              // The agent committed to a route — replace any prior plan (a
+              // turn that re-declares is non-canonical; per personas/roast.md
+              // "one declare_plan per turn", but we'd rather track the latest
+              // than splice). A fresh plan also CLEARS any prior rejection
+              // banner — the agent is re-trying, the prior verdict is stale.
+              const labels = (data.steps as unknown[]) ?? [];
+              const plan: Plan = {
+                steps: labels.map((s) => ({
+                  label: String(s),
+                  status: "pending" as const,
+                })),
+                rejection: null,
+              };
+              patchAssistant(assistantId, () => ({ plan, status: "streaming" }));
+            } else if (event === "plan_rejected") {
+              const rejection: PlanRejection = {
+                reason: (data.reason as string) ?? "plan rejected",
+                matched: ((data.matched as Array<Record<string, unknown>>) ?? []).map((m) => ({
+                  index: Number(m.index ?? 0),
+                  label: String(m.label ?? ""),
+                })),
+                guard: (data.guard as string | null) ?? null,
+              };
+              patchAssistant(assistantId, (m) => {
+                if (!m.plan) return {};
+                return { plan: { ...m.plan, rejection } };
+              });
+            } else if (event === "step_started") {
+              const idx = Number(data.step_index);
+              patchAssistant(assistantId, (m) => {
+                if (!m.plan || !Number.isFinite(idx) || idx < 0 || idx >= m.plan.steps.length) {
+                  return {};
+                }
+                const next = m.plan.steps.slice();
+                next[idx] = { ...next[idx], status: "running" };
+                return { plan: { steps: next } };
+              });
+            } else if (event === "step_done") {
+              const idx = Number(data.step_index);
+              const failed = data.status === "failed";
+              patchAssistant(assistantId, (m) => {
+                if (!m.plan || !Number.isFinite(idx) || idx < 0 || idx >= m.plan.steps.length) {
+                  return {};
+                }
+                const next = m.plan.steps.slice();
+                const prev = next[idx];
+                const patch: PlanStep = {
+                  ...prev,
+                  status: failed ? "failed" : "done",
+                };
+                // Only attach the non-empty field — keep the object shape tight
+                // so a missing summary doesn't render as an empty line in the UI.
+                const summary = (data.summary as string | null) ?? "";
+                if (!failed && summary) patch.summary = summary;
+                const errorMsg = (data.error as string | null) ?? "";
+                if (failed && errorMsg) patch.error = errorMsg;
+                next[idx] = patch;
+                return { plan: { steps: next } };
+              });
             } else if (event === "text") {
               const delta = (data.delta as string) ?? "";
               if (!delta) continue;

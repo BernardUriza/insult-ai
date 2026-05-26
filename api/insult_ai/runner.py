@@ -18,11 +18,13 @@ from fi_runner import (
     CodexBackend,
     MCPServerSpec,
     PermissionMode,
+    PlanGuard,
     RetryPolicy,
     Runner,
     ToolPolicy,
     antidrift_guard,
     packs,
+    plan_guard,
 )
 from fi_runner.conversation import ConversationStore, InMemoryConversationStore
 
@@ -101,6 +103,67 @@ def looks_spanish(text: str) -> bool:
     if len(_SPANISH_STOPWORDS.findall(text)) >= 2:
         return True
     return False
+
+
+# --- PlanGuard: defense-in-depth on the agent's declared route ------------
+# The persona's "NEVER ATTACK" list (race, ethnicity, gender, sexuality,
+# nationality, disability, neurodivergence, illness, trauma, body, poverty,
+# accent) is currently enforced ONLY in the post-hoc roast text via antidrift
+# packs — i.e. the agent has already scraped, spent credit, and burned tokens
+# by the time the guard fires. PlanGuard moves the same policy UP to the
+# plan step: when ``declare_plan`` declares "fetch founder's ethnic
+# background", fi-runner inspects the steps BEFORE the agent fires any
+# follow-up tool and re-emits a soft ``plan_rejected`` event (see
+# fi_runner.Runner.run_stream). The consumer (this repo's /chat/stream) just
+# forwards the rejection to the UI — the agent's own retry path picks up the
+# reinforcement and re-declares.
+#
+# Patterns are intentionally NARROW: a roast plan step that says "Scrape acme
+# pricing page" must not trip; one that says "Search founder's racial
+# background" must. The blocklist targets IDENTITY-ATTRIBUTE vocabulary that
+# is rarely legitimate in a fact-finding plan — we tolerate occasional false
+# positives because the rejection is SOFT (the turn retries; nothing dies).
+_ETHICS_REINFORCEMENT = (
+    "PlanGuard rejected your previous plan because one or more steps targeted "
+    "an identity attribute that the ETHICS rule forbids (race / ethnicity / "
+    "nationality / gender identity / sexual orientation / disability / "
+    "neurodivergence / mental-health history / body / class / accent). Re-declare "
+    "the plan: attack the BEHAVIOR (arguments, broken promises, hypocrisy, what "
+    "they SHIP) and the SYSTEMS, never the BEING. Rewrite the offending step(s) "
+    "to target a behavior or claim instead."
+)
+_ETHICS_BLOCKLIST: tuple[str, ...] = (
+    # Race / ethnicity / nationality framing — broad; "ethnic"/"racial" rarely
+    # appears legitimately in a roast-plan step.
+    r"\b(?:race|racial|ethnic(?:ity)?|ethnically|skin\s*color|caucasian|african[\s-]?american|asian\s+american|latino|latina|hispanic|heritage(?:\s+background)?)\b",
+    # Gender identity / sexual orientation — same logic. "gender" alone is rare
+    # in a roast plan; "gender identity" / "sexual orientation" never legitimate.
+    r"\b(?:gender\s+identity|sexual\s+orientation|sexuality|lgbtq?\+?|transgender|trans\s+(?:woman|man|person)|gay|lesbian|bisexual|queer)\b",
+    # Disability / neurodivergence
+    r"\b(?:disabilit(?:y|ies)|disabled|autis(?:m|tic)|asperger'?s?|adhd|neurodivergen(?:t|ce)|developmental\s+disorder)\b",
+    # Mental-health / trauma framing
+    r"\b(?:mental\s+illness|mental[\s-]health\s+history|psychiatric\s+(?:history|record)|depression\s+history|trauma\s+history|abuse\s+(?:history|background)|addiction\s+history)\b",
+    # Body / appearance — contextual: require a person/role anchor so "page
+    # appearance" / "site looks" don't trip. The anchor is a possessive or
+    # bare role noun before the attribute.
+    r"\b(?:founder|co[\s-]?founder|ceo|cto|cofounder|executive|owner)('?s)?\s+(?:looks|appearance|body|weight|physique|attractiveness)\b",
+    r"\bobesit(?:y|e)\b",
+    # Class / poverty as an identity attribute (not "low pricing tier")
+    r"\b(?:poverty\s+(?:childhood|background)|poor\s+background|underclass|broke\s+(?:childhood|upbringing))\b",
+    # Accent / grammar mocking (the persona's "accent/grammar" never-attack item)
+    r"\b(?:foreign\s+accent|speech\s+accent|broken\s+english|english\s+as\s+(?:a\s+)?second\s+language|esl(?:\s+grammar)?|grammar\s+(?:mistakes?|errors?))\b",
+)
+
+
+def _build_plan_guard() -> PlanGuard:
+    """Compose the PlanGuard for the roast persona. Returns a single guard so
+    fi-runner's ``Runner.plan_guard`` slot stays one-to-one with our policy
+    (the runner only inspects ONE PlanGuard; multiple require a wrapper)."""
+    return plan_guard(
+        blocked_patterns=_ETHICS_BLOCKLIST,
+        reinforcement=_ETHICS_REINFORCEMENT,
+        name="insult_ai_ethics",
+    )
 
 
 def _build_roast_guards(target_hint: str | None) -> list:
@@ -217,14 +280,23 @@ def build_runner(
     backend_name = (backend or os.getenv("INSULT_AI_BACKEND", "claude")).lower()
     agent_backend = _get_backend(backend_name)
 
+    # Capabilities (fi-core MCPs, resolved by fi-runner — we never import fi_core):
+    # - task_tracker is ALWAYS ON. The agent calls declare_plan / start_step /
+    #   complete_step|fail_step so fi-runner can re-emit semantic plan/step_started/
+    #   step_done events. UI gets a live checklist instead of an opaque "thinking…".
+    #   Costs ~1 + 2·N extra MCP round-trips per turn (acceptable for the demo;
+    #   re-check against bench/bench_perf.py before tightening latency budgets).
+    # - rag_store opt-in via with_rag — the agent search_documents'es the user's
+    #   corpus for extra ammo.
+    capability_names = ["task_tracker"]
+    if with_rag:
+        capability_names.append("rag_store")
+
     return Runner(
         backend=agent_backend,
         persona=ROAST_PERSONA,
         extra_mcp_servers=[BRIGHTDATA_MCP],
-        # rag_store (fi-core MCP) when the user has a document corpus — the agent
-        # can search_documents over it for extra ammo. Boundary-clean: capability
-        # resolution stays in fi-runner; we never import fi_core here.
-        capabilities=["rag_store"] if with_rag else [],
+        capabilities=capability_names,
         # BYPASS = auto-approve tool calls (needs non-root user in the container).
         # Block the built-in WebSearch/WebFetch so ALL web access goes through
         # Bright Data (the hackathon requirement + what the $250 credit is for) —
@@ -238,6 +310,13 @@ def build_runner(
         # Guards are built per-turn because the language layer depends on the
         # target — Runner is cheap; the BACKEND is what's cached (see _get_backend).
         guards=_build_roast_guards(target_hint),
+        # Plan-first ethics defense: inspects the agent's `declare_plan` BEFORE
+        # any other tool fires. Pairs with the persona's PLAN BEFORE YOU ACT
+        # contract — the persona orders the agent to write its route, this guard
+        # vetoes a route that targets identity attributes. Static (no language
+        # branch): the plan is always in English per persona instructions
+        # ("4-8 short imperative labels"), regardless of the roast's output language.
+        plan_guard=_build_plan_guard(),
         retry_policy=RetryPolicy(max_attempts=2),
         # Multi-turn chat memory (None = stateless single-shot, like /roast).
         conversation_store=conversation_store,

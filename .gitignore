@@ -33,6 +33,7 @@ fi_rag_store.h5.lock
 
 # Local verification screenshots (chrome-devtools runs during dev).
 .tmp-screenshots/
+bench/e2e_*.png
 
 # Misc
 *.log
