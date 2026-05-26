@@ -75,6 +75,7 @@ Frontend: see `web/README.md`.
 - `benchmarks.md` — the two-baseline discipline (guard quality + perf)
 - `deploy.md` — Azure (Container Apps + Static Web Apps), secrets, non-root
 - `personas.md` — the two product personas (roast = hook, brief = business value)
+- `language.md` — system writes English (UI, personas, antidrift packs, comments); only the roast follows the target
 
 ## Note
 

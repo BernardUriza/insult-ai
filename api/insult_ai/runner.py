@@ -61,7 +61,13 @@ BRIGHTDATA_MCP = MCPServerSpec(
 _ROAST_GUARDS = [
     antidrift_guard(
         break_patterns=[
-            *packs.DEFAULT_BILINGUAL,
+            # English-only catalog — matches the rest of the system (see
+            # .claude/rules/language.md). DEFAULT_BILINGUAL would pull in
+            # Spanish patterns too; when a future feature ships Spanish-side
+            # drift detection it should branch on the detected target
+            # language and add packs.DEFAULT_ES on top, not flip back to
+            # bilingual-by-default.
+            *packs.DEFAULT_EN,
             *packs.MARKDOWN_DRIFT,
             *packs.SUMMARIZING,
             *packs.STAGE_DIRECTIONS,

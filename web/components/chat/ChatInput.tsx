@@ -52,11 +52,11 @@ export function ChatInput({
         className="min-h-[3rem] flex-1"
         rows={2}
         value={draft}
-        placeholder={placeholder ?? "URL o claim… (Enter manda · Shift+Enter salto)"}
+        placeholder={placeholder ?? "URL or claim… (Enter sends · Shift+Enter newline)"}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={onKeyDown}
         disabled={streaming}
-        aria-label="mensaje al agente"
+        aria-label="message to the agent"
       />
       {streaming ? (
         <Button
@@ -64,10 +64,10 @@ export function ChatInput({
           variant="ghost"
           onClick={onAbort}
           className="h-12 px-5"
-          aria-label="parar generación"
+          aria-label="stop the current turn"
         >
           <StopIcon className="h-4 w-4" aria-hidden />
-          Parar
+          Stop
         </Button>
       ) : (
         <Button
@@ -76,7 +76,7 @@ export function ChatInput({
           onClick={submit}
           disabled={!draft.trim()}
           className="h-12 px-5"
-          aria-label="mandar mensaje"
+          aria-label="send message"
         >
           Roast
           <SendIcon className="h-4 w-4" aria-hidden />

@@ -28,9 +28,9 @@ export default function ChatPage() {
             <span className="text-zinc-400">chat</span>
           </h1>
           <p className="iai-hint mt-1 text-sm">
-            Conversación con chain-of-thought.{" "}
-            <span className="iai-accent">Cada llamada a Bright Data se muestra en vivo</span> antes
-            de que el roast aterrice.
+            Chat with live chain-of-thought.{" "}
+            <span className="iai-accent">Each Bright Data call surfaces in real time</span>{" "}
+            before the roast lands.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -39,15 +39,15 @@ export default function ChatPage() {
             variant="chip"
             onClick={reset}
             disabled={streaming || messages.length === 0}
-            title="nueva conversación"
+            title="start a new conversation"
           >
             <NewIcon className="h-3.5 w-3.5" aria-hidden />
-            nueva
+            new
           </Button>
           <Link
             href="/"
             className="iai-link inline-flex items-center gap-1 text-xs"
-            title="modo single-shot"
+            title="switch to single-shot mode"
           >
             <BackIcon className="h-3.5 w-3.5" aria-hidden />
             single-shot

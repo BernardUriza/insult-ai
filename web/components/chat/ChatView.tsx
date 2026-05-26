@@ -34,9 +34,9 @@ export function ChatView({ messages }: { messages: ChatMessage[] }) {
     return (
       <div className="iai-card-soft flex flex-col items-center gap-2 py-10 text-center text-zinc-400">
         <FlameIcon className="h-7 w-7 text-orange-400" aria-hidden />
-        <div className="font-medium text-zinc-300">Empieza con una URL o un claim.</div>
+        <div className="font-medium text-zinc-300">Drop a URL or a claim to start.</div>
         <div className="iai-hint text-sm">
-          Ej: <span className="font-mono text-zinc-300">acme.com</span> · &nbsp;
+          Try: <span className="font-mono text-zinc-300">acme.com</span> · &nbsp;
           <span className="font-mono text-zinc-300">&quot;Elon Musk founded OpenAI&quot;</span>
         </div>
       </div>

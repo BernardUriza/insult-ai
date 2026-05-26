@@ -25,10 +25,10 @@ export function ThinkingPanel({
 
   const summary =
     status === "thinking"
-      ? "pensando…"
+      ? "thinking…"
       : status === "streaming" && steps.length === 0
-        ? "escribiendo…"
-        : `${steps.length} ${steps.length === 1 ? "paso" : "pasos"}`;
+        ? "writing…"
+        : `${steps.length} ${steps.length === 1 ? "step" : "steps"}`;
 
   return (
     <div className="iai-card-soft mb-2 text-sm">
@@ -42,7 +42,7 @@ export function ThinkingPanel({
           <BotIcon className="h-4 w-4 text-zinc-400" aria-hidden />
           {summary}
         </span>
-        <span className="iai-hint text-xs">{open ? "ocultar" : "ver"}</span>
+        <span className="iai-hint text-xs">{open ? "hide" : "show"}</span>
       </button>
       {open && steps.length > 0 && (
         <ol className="mt-2 space-y-1">
