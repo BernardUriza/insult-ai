@@ -53,6 +53,9 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           action: upload
-          app_location: web
-          output_location: out
+          # Quirk: when skip_app_build is true, the action ignores
+          # output_location and treats app_location as the artifact root
+          # (it greps app_location for index.html). So we point straight
+          # at web/out — the directory `next build` already populated.
+          app_location: web/out
           skip_app_build: true
