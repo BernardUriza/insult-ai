@@ -58,23 +58,72 @@ BRIGHTDATA_MCP = MCPServerSpec(
 # AI"), customer-service tone. On a break the runner re-roasts (RetryPolicy) with
 # the reinforcement appended, so the voice stays Insult turn after turn — and the
 # benchmark can read result.guard_outcomes instead of a hand-rolled heuristic.
-_ROAST_GUARDS = [
-    antidrift_guard(
-        break_patterns=[
-            # English-only catalog — matches the rest of the system (see
-            # .claude/rules/language.md). DEFAULT_BILINGUAL would pull in
-            # Spanish patterns too; when a future feature ships Spanish-side
-            # drift detection it should branch on the detected target
-            # language and add packs.DEFAULT_ES on top, not flip back to
-            # bilingual-by-default.
-            *packs.DEFAULT_EN,
-            *packs.MARKDOWN_DRIFT,
-            *packs.SUMMARIZING,
-            *packs.STAGE_DIRECTIONS,
-        ],
-        reinforcement=packs.GENERIC_REINFORCEMENT,
-    )
-]
+#
+# Language branch — the system writes English (.claude/rules/language.md), but
+# the persona's "Match the target's language" rule means a Spanish target gets
+# a Spanish roast. When THAT happens, English-only drift patterns ("as an AI")
+# won't catch Spanish-side drift ("soy un bot diseñado para…"). So we layer in
+# packs.DEFAULT_ES on top of DEFAULT_EN when the input looks Spanish. Both
+# layers always include the style packs (MARKDOWN_DRIFT / SUMMARIZING /
+# STAGE_DIRECTIONS), which are catalog-by-format and language-agnostic.
+_SPANISH_DOMAIN_TLD = re.compile(
+    r"\.(mx|ar|cl|co|es|pe|uy|ec|gt|hn|bo|sv|do|ni|cr|py|ve|cu)\b",
+    re.IGNORECASE,
+)
+_SPANISH_GLYPH = re.compile(r"[áéíóúñüÁÉÍÓÚÑÜ¿¡]")
+# Very common Spanish function words — rare in English-language inputs. We
+# require ≥2 hits to fire so a stray "esta" in an English sentence doesn't
+# flip the language.
+_SPANISH_STOPWORDS = re.compile(
+    r"\b(el|la|los|las|una?|y|o|pero|que|porque|para|por|con|sin|del|al|"
+    r"de|se|le|"
+    r"esto|este|esta|esa|ese|aquel|aquella|son|fue|era|estaba|hay|muy|"
+    r"como|cuando|donde|porque|tambi[eé]n|tampoco|m[aá]s|menos|"
+    r"ahora|antes|despu[eé]s|siempre|nunca|ayer|hoy|ma[ñn]ana|aqu[ií]|all[aá]|"
+    r"as[ií]|pues|entonces|ya)\b",
+    re.IGNORECASE,
+)
+
+
+def looks_spanish(text: str) -> bool:
+    """Heuristic: does ``text`` look like Spanish-speaking input?
+
+    Three layered signals (any wins): (1) a Spanish-speaking TLD in a URL,
+    (2) a Spanish-only glyph (ñ, accented vowel, ¿/¡), or (3) two-or-more
+    Spanish stop-word hits. Conservative on purpose — a single ``esta`` in
+    an English sentence (the demonstrative ``ESTA Inc``) won't trip it."""
+    if not text:
+        return False
+    if _SPANISH_DOMAIN_TLD.search(text):
+        return True
+    if _SPANISH_GLYPH.search(text):
+        return True
+    if len(_SPANISH_STOPWORDS.findall(text)) >= 2:
+        return True
+    return False
+
+
+def _build_roast_guards(target_hint: str | None) -> list:
+    """Compose the roast guard chain. EN patterns + style packs are always
+    on; ES patterns layer in when ``target_hint`` looks Spanish so the
+    Spanish-side roast can still be guard-checked. See module-level
+    comment for the rationale."""
+    style_packs = [
+        *packs.MARKDOWN_DRIFT,
+        *packs.SUMMARIZING,
+        *packs.STAGE_DIRECTIONS,
+    ]
+    language_packs = list(packs.DEFAULT_EN)
+    if target_hint and looks_spanish(target_hint):
+        # Prepend ES patterns so they catch first on a Spanish turn; EN stays
+        # on too (the model can still drift to English mid-Spanish-roast).
+        language_packs = [*packs.DEFAULT_ES, *language_packs]
+    return [
+        antidrift_guard(
+            break_patterns=[*language_packs, *style_packs],
+            reinforcement=packs.GENERIC_REINFORCEMENT,
+        )
+    ]
 
 
 # --- Chat conversation store ----------------------------------------------
@@ -145,6 +194,7 @@ def build_runner(
     with_rag: bool = False,
     conversation_store: ConversationStore | None = None,
     on_event: Callable[[str, dict], None] | None = None,
+    target_hint: str | None = None,
 ) -> Runner:
     """Compose a fi_runner Runner with the chosen backend + Bright Data MCP.
     With ``with_rag``, also wire the fi-core rag_store capability so the agent can
@@ -155,6 +205,12 @@ def build_runner(
     ``tool_called``, ``turn_completed``, ``backend_error``, etc. The chat endpoint
     uses this to log structured per-turn metrics AND to emit an SSE ``meta`` event
     with latency/tokens/tool_count to the UI.
+
+    ``target_hint`` is the user's input for this turn (URL/claim for /roast,
+    the current message for /chat). It decides the guard language layer: when
+    it looks Spanish (see :func:`looks_spanish`), Spanish drift patterns are
+    layered on top of the English ones so a Spanish-side roast can still be
+    guard-checked. Pass ``None`` for pure-EN guards.
 
     The Runner itself is cheap (a config holder); the BACKEND is the expensive
     bit and it's cached process-wide — see :func:`_get_backend`."""
@@ -179,7 +235,9 @@ def build_runner(
         ),
         # Anti-drift: if the roast breaks character (report voice, assistant tone,
         # AI-disclosure), the runner re-roasts once more with reinforcement appended.
-        guards=_ROAST_GUARDS,
+        # Guards are built per-turn because the language layer depends on the
+        # target — Runner is cheap; the BACKEND is what's cached (see _get_backend).
+        guards=_build_roast_guards(target_hint),
         retry_policy=RetryPolicy(max_attempts=2),
         # Multi-turn chat memory (None = stateless single-shot, like /roast).
         conversation_store=conversation_store,
@@ -224,7 +282,7 @@ def roast_prompt(target: str, corpus_id: str | None = None) -> str:
 async def roast(target: str, backend: str | None = None, corpus_id: str | None = None):
     """Run one roast turn. `target` is a URL or a claim. If `corpus_id` is given,
     the agent can also mine the user's document corpus (rag_store)."""
-    runner = build_runner(backend, with_rag=bool(corpus_id))
+    runner = build_runner(backend, with_rag=bool(corpus_id), target_hint=target)
     return await runner.run(roast_prompt(target, corpus_id))
 
 
@@ -256,6 +314,10 @@ async def chat_stream(
         with_rag=bool(corpus_id),
         conversation_store=_CHAT_STORE,
         on_event=on_event,
+        # Per-turn target hint — the language layer of the guards adapts to
+        # THIS turn's message. A bilingual conversation flips guard packs
+        # turn-by-turn, which is what we want.
+        target_hint=message,
     )
     history = await _CHAT_STORE.load(session_id)
     is_first_turn = not history
