@@ -4,22 +4,22 @@ Official reference card for prioritization decisions. Source:
 [lablab.ai/ai-hackathons/brightdata-ai-agents-web-data-hackathon](https://lablab.ai/ai-hackathons/brightdata-ai-agents-web-data-hackathon).
 Fetched 2026-05-26. Re-fetch if anything below changes.
 
-## Regla 0 — Producto
+## Rule 0 — Product
 
-El producto debe sentirse como comedia, pero comportarse como
-infraestructura clínica responsable.
+The product should feel like comedy, but behave like responsible
+clinical infrastructure.
 
-Esto significa:
+This means:
 
-- El humor es la interfaz, no el propósito.
-- El insulto permitido apunta a patrones, hábitos o procrastinación;
-  nunca a identidad, cuerpo, salud mental, trauma, atributos protegidos
-  o valor personal.
-- En señales sensibles o crisis, el personaje abandona el roast y
-  responde con contención, claridad y recursos.
-- Cada respuesta debe cerrar con una microacción útil.
-- La demo debe vender personalidad, pero demostrar arquitectura:
-  safety, trazabilidad, consentimiento de tono y degradación segura.
+- Humor is the interface, not the purpose.
+- Permitted insults target patterns, habits, or procrastination; never
+  identity, body, mental health, trauma, protected attributes, or
+  personal worth.
+- On sensitive or crisis signals, the persona abandons the roast and
+  responds with grounded support, clarity, and resources.
+- Every response closes with a useful micro-action.
+- The demo must sell personality but demonstrate architecture:
+  safety, traceability, tone consent, and graceful degradation.
 
 ## Judging criteria (no published weights — treat as paritarios)
 

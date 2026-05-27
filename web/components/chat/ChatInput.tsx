@@ -1,6 +1,6 @@
 "use client";
 
-import { type KeyboardEvent, useId, useState } from "react";
+import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { getUIIcon } from "../../lib/icons";
 import { Button } from "../ui/Button";
 import { Textarea } from "../ui/Textarea";
@@ -32,15 +32,32 @@ export function ChatInput({
   onAbort,
   streaming,
   placeholder,
+  seedDraft,
 }: {
   onSend: (text: string) => void;
   onAbort: () => void;
   streaming: boolean;
   placeholder?: string;
+  /** When the parent wants to populate the composer (e.g. a DemoPrompts
+   * tap), pass the text here. Each new value REPLACES the current draft.
+   * Pass an object wrapper or bump a nonce externally if you need to
+   * re-seed the SAME text twice in a row. */
+  seedDraft?: string;
 }) {
   const [draft, setDraft] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const inputId = useId();
+
+  // Apply a parent-supplied seed when it changes. We compare against a
+  // ref of the LAST applied value so the user's manual edits don't get
+  // clobbered on re-render — only NEW seeds wins.
+  const lastSeedRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (seedDraft !== undefined && seedDraft !== lastSeedRef.current) {
+      lastSeedRef.current = seedDraft;
+      setDraft(seedDraft);
+    }
+  }, [seedDraft]);
 
   const voice = useVoiceCapture({
     onTranscribed: (text) => {

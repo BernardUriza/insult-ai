@@ -72,24 +72,24 @@ export function OnboardingDialog({
     >
       <div className="iai-card-sample w-full max-w-lg flex flex-col gap-4">
         <h2 id="onboarding-title" className="text-2xl font-extrabold text-zinc-100">
-          Antes de empezar
+          Before we start
         </h2>
         <p className="text-zinc-200 leading-relaxed">
-          Soy <span className="iai-brand font-semibold">El Compadre Clínico</span>.
-          Te insulto con cariño, te empujo con coaching. Nada de identidad,
-          nada de crueldad real.
+          I'm the <span className="iai-brand font-semibold">Roast Coach</span>.
+          I roast with affection and push with coaching. No identity attacks.
+          No real cruelty.
         </p>
         <ul className="text-sm text-zinc-300 leading-relaxed space-y-1.5 list-disc pl-5">
-          <li><span className="text-zinc-100">No soy</span> terapeuta, médico, ni línea de crisis.</li>
-          <li><span className="text-zinc-100">Sí soy</span> el compa que ya vio el patrón, llama el bullshit y te deja con UNA acción concreta.</li>
-          <li>Si dices algo grave, suelto el personaje y te paso un recurso real.</li>
-          <li>Tú escoges la intensidad. Puedes bajarla en cualquier momento.</li>
+          <li><span className="text-zinc-100">Not</span> a therapist, not a doctor, not a crisis line.</li>
+          <li><span className="text-zinc-100">Am</span> the friend who's seen the pattern, calls the bullshit, and leaves you with ONE concrete action.</li>
+          <li>If something serious comes up, I drop the persona and hand you a real resource.</li>
+          <li>You pick the intensity. You can lower it at any time.</li>
         </ul>
 
         <div className="rounded-lg border border-iai-border bg-iai-surface/40 p-3">
           <IntensitySelector value={tone} onChange={setTone} />
           <p className="iai-hint mt-2 text-xs">
-            Puedes cambiar la intensidad después, en el header del chat.
+            You can change the intensity later, from the chat header.
           </p>
         </div>
 
@@ -102,14 +102,14 @@ export function OnboardingDialog({
             }}
             className="iai-btn-chip"
           >
-            cerrar
+            close
           </button>
           <button
             type="button"
             onClick={accept}
             className="iai-btn-primary"
           >
-            empezar
+            start
           </button>
         </div>
       </div>

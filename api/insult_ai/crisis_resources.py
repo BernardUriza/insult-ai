@@ -89,6 +89,10 @@ CRISIS_FALLBACK_EN = (
     "anything I can say here."
 )
 
+# Kept for the auto_locale=true future flag — currently unused because
+# the default product surface is English (see personas/clinical_compadre.md
+# LANGUAGE rule + hackathon.md Rule 0). Resource line itself still
+# adapts to detected region via pick_resources().
 CRISIS_FALLBACK_ES = (
     "Lo que me cuentas pesa más de lo que esta conversación puede sostener "
     "sola. Hablar con alguien entrenado, en este momento, importa más que "
@@ -98,6 +102,13 @@ CRISIS_FALLBACK_ES = (
 
 def crisis_fallback(message: str, is_spanish: bool) -> str:
     """Compose the FULL safer fallback (template + resources) when the
-    persona's response can't be salvaged."""
-    template = CRISIS_FALLBACK_ES if is_spanish else CRISIS_FALLBACK_EN
+    persona's response can't be salvaged.
+
+    `is_spanish` toggles ONLY the resource-region selection (MX vs US
+    default). The TEMPLATE itself is always English while the product
+    is `auto_locale=false`. When auto_locale is wired, the template
+    will also flip — see the EN/ES constants above."""
+    # Default to English template regardless of input language — the
+    # Roast Coach persona is English-first per the hackathon decision.
+    template = CRISIS_FALLBACK_EN
     return f"{template}\n\n{pick_resources(message, is_spanish)}"

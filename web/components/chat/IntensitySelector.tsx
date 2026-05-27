@@ -14,10 +14,10 @@ import type { ChatTone } from "./useChat";
  * the chrome too, not just in the responses. */
 
 const TONES: { value: ChatTone; label: string; hint: string }[] = [
-  { value: "soft", label: "suave", hint: "sin jab" },
-  { value: "medium", label: "medio", hint: "una línea punzante" },
-  { value: "spicy", label: "cabrón", hint: "controlado, sin crueldad" },
-  { value: "no_insults", label: "sin insultos", hint: "coach directo" },
+  { value: "soft", label: "Soft", hint: "no jab" },
+  { value: "medium", label: "Medium", hint: "one sharp line" },
+  { value: "spicy", label: "Spicy", hint: "sharper, never cruel" },
+  { value: "no_insults", label: "No insults", hint: "direct coach mode" },
 ];
 
 export function IntensitySelector({
@@ -33,10 +33,10 @@ export function IntensitySelector({
     <div
       className="flex flex-wrap items-center gap-1.5"
       role="radiogroup"
-      aria-label="intensidad del compadre"
+      aria-label="roast intensity"
     >
       <span className="iai-hint mr-1 text-[11px] uppercase tracking-wider">
-        intensidad
+        intensity
       </span>
       {TONES.map((t) => {
         const active = t.value === value;
@@ -83,9 +83,9 @@ export function LowerIntensityButton({
       onClick={() => onLower(next)}
       disabled={disabled}
       className="iai-btn-chip text-xs"
-      title={`bajar a ${next}`}
+      title={`lower to ${next}`}
     >
-      bajar intensidad
+      lower intensity
     </button>
   );
 }

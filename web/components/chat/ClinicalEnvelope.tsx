@@ -116,9 +116,9 @@ export function ClinicalEnvelopeView({
             <WarnIcon className="h-4 w-4 shrink-0 text-amber-400" aria-hidden />
           )}
           {isCrisis ? (
-            <span>El compadre soltó el personaje. Esto necesita un recurso real.</span>
+            <span>The Roast Coach dropped the persona. This needs a real resource.</span>
           ) : (
-            <span>El compadre bajó el tono — lo que cuentas pesa.</span>
+            <span>The Roast Coach lowered the tone — what you said carries weight.</span>
           )}
         </div>
       )}
@@ -140,7 +140,7 @@ export function ClinicalEnvelopeView({
         <div className="rounded-lg border border-iai-fire/30 bg-iai-fire/5 p-3 text-sm">
           <div className="iai-hint mb-1 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-iai-fire">
             <ForwardIcon className="h-3 w-3" aria-hidden />
-            siguiente acción
+            next action
           </div>
           <div className="text-zinc-100 leading-relaxed">{env.micro_action}</div>
         </div>
@@ -166,7 +166,7 @@ export function ClinicalEnvelopeTrace({
 }) {
   return (
     <details className="mt-3 text-[10px] uppercase tracking-wider">
-      <summary className="iai-hint cursor-pointer">cómo pensó el sistema</summary>
+      <summary className="iai-hint cursor-pointer">how the system thought</summary>
       <dl className="iai-hint mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 normal-case tracking-normal text-xs">
         <dt className="text-zinc-500">safety_level</dt>
         <dd className="text-zinc-300">{env.safety_level}</dd>

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AudioPlayer } from "../../components/chat/AudioPlayer";
 import { ChatInput } from "../../components/chat/ChatInput";
 import { ChatView } from "../../components/chat/ChatView";
+import { DemoPrompts } from "../../components/chat/DemoPrompts";
 import {
   IntensitySelector,
   LowerIntensityButton,
@@ -63,6 +64,10 @@ export default function ChatPage() {
   }, []);
 
   const { messages, streaming, send, abort, reset } = useChat({ corpusId, mode, tone });
+
+  // Seed text injected from a DemoPrompts tap. ChatInput reads this once
+  // per change and replaces its draft — user can edit or send.
+  const [seedDraft, setSeedDraft] = useState<string | undefined>(undefined);
 
   // TTS playback lifted to page level: a single <AudioPlayer> floating
   // bar handles ALL bubbles, switching its source when the user hits
@@ -179,10 +184,29 @@ export default function ChatPage() {
         )}
       </header>
 
+      {/* DemoPrompts — only in clinical mode AND only when the chat
+        * is empty (first turn). Tap fills the composer; user can edit
+        * before sending. The crisis prompt is the load-bearing demo
+        * differentiator — comedy as UX, infrastructure as behavior. */}
+      {mode === "clinical" && messages.length === 0 && (
+        <DemoPrompts
+          disabled={streaming}
+          onPick={(p) => {
+            setSeedDraft(p.text);
+            setTone(p.suggested_tone);
+          }}
+        />
+      )}
+
       <ChatView messages={messages} onSpeak={handleSpeak} speakingId={speakingId} />
 
       <div className="sticky bottom-2 mt-2">
-        <ChatInput onSend={send} onAbort={abort} streaming={streaming} />
+        <ChatInput
+          onSend={send}
+          onAbort={abort}
+          streaming={streaming}
+          seedDraft={seedDraft}
+        />
         <div className="mt-2 flex items-center justify-center text-[10px]">
           <PoweredBy />
         </div>

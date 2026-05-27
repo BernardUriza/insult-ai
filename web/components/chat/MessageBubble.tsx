@@ -8,6 +8,7 @@ import {
   ClinicalEnvelopeView,
   parseEnvelope,
 } from "./ClinicalEnvelope";
+import { EnvelopeSkeleton } from "./EnvelopeSkeleton";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { PlanChecklist } from "./PlanChecklist";
 import { ThinkingPanel } from "./ThinkingPanel";
@@ -139,15 +140,26 @@ export function MessageBubble({
         <PlanChecklist plan={message.plan} />
         <ThinkingPanel steps={message.steps} status={message.status} target={target} />
         {/* Rendering rules:
-          *   - Streaming: lighter <RoastText> with a caret. The envelope
-          *     isn't valid mid-stream (partial JSON), so we can't parse it
-          *     yet. Don't try.
-          *   - Settled: try to parse as a clinical envelope (clinical mode).
-          *     If it parses, use <ClinicalEnvelopeView> (roast_line +
-          *     main_response + micro_action + follow-up). If not, fall back
-          *     to <MarkdownRenderer> (roast/brief modes ship plain text).
-          * One bubble renderer, three mode shapes — picked at runtime
-          * without the bubble knowing what mode the page is in. */}
+          *   - Thinking with no content yet: paint the EnvelopeSkeleton so
+          *     the 25-40s clinical wait isn't a blank card. The skeleton
+          *     mirrors the eventual envelope shape (roast line + body bars
+          *     + action box + follow-up) AND surfaces the slow-banner at
+          *     12s / "still going" at 30s. We can't yet tell clinical
+          *     from roast/brief from here, so we show the skeleton on
+          *     ANY in-flight assistant turn that doesn't have content —
+          *     the bars work for both shapes.
+          *   - Streaming with content: lighter <RoastText> with a caret.
+          *     The envelope isn't valid mid-stream (partial JSON), so we
+          *     can't parse it yet. Don't try.
+          *   - Settled: try to parse as a clinical envelope. If it
+          *     parses, use <ClinicalEnvelopeView>. If not, fall back to
+          *     <MarkdownRenderer> (roast/brief modes ship plain text).
+          * One bubble renderer, three mode shapes + a loading mode —
+          * picked at runtime without the bubble knowing what mode the
+          * page is in. */}
+        {!message.content && (message.status === "thinking" || message.status === "streaming") && (
+          <EnvelopeSkeleton />
+        )}
         {message.content && message.status === "streaming" && (
           <RoastText text={message.content} caret={true} />
         )}
