@@ -1,0 +1,142 @@
+# Build the API image and roll it into Azure Container Apps (insultai-demo-api,
+# RG insultai-demo-rg). Companion to azure-static-web-apps.yml which handles
+# the front; together they keep the contract "what's on master IS what's live"
+# for both halves of the product.
+#
+# Triggered on push to master that touches api/ (or this workflow), plus a
+# workflow_dispatch escape hatch. The workflow stays green even on touch-free
+# commits because the paths filter shields it.
+#
+# Auth model: OIDC federated identity, NOT a long-lived service principal
+# secret. The federated credential `insult-ai-master` on the `insult-ai-ci`
+# AAD app trusts GitHub's OIDC issuer when subject==repo:BernardUriza/insult-ai
+# :ref:refs/heads/master — branch protection IS the auth perimeter. To grant
+# CI to another branch (e.g. release), add another federated credential with
+# the new subject; do NOT broaden this one.
+#
+# Registry: GitHub Container Registry (ghcr.io/BernardUriza/insult-ai/api).
+# The package's first push lands as `private`, inheriting from the repo;
+# Container Apps cannot pull a private GHCR package without a PAT-backed
+# registry credential, so after the first successful run the package MUST be
+# flipped to `public` manually (one-time, via the package's UI on github.com
+# or `gh api -X PATCH /user/packages/container/insult-ai%2Fapi/visibility
+# -F visibility=public`). Subsequent runs are fully automatic.
+name: Deploy API to Azure Container Apps
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "api/**"
+      - ".github/workflows/azure-container-apps.yml"
+  workflow_dispatch:
+
+# Cancel an older in-flight deploy when a newer push lands — same policy as
+# the SWA workflow. The Container App revision lifecycle picks up the latest
+# image; racing two deploys risks a half-rolled revision.
+concurrency:
+  group: aca-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read       # checkout
+  id-token: write      # required for OIDC azure/login
+  packages: write      # push to ghcr.io
+
+env:
+  REGISTRY: ghcr.io
+  # Image name follows GHCR convention: lowercase, org/repo nested under
+  # the user/org. `github.repository` ("BernardUriza/insult-ai") capitalizes
+  # B; GHCR rejects uppercase, hence the toLower below in the step.
+  IMAGE_NAME: ${{ github.repository_owner }}/insult-ai/api
+  CONTAINER_APP_NAME: insultai-demo-api
+  RESOURCE_GROUP: insultai-demo-rg
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    name: Build and deploy
+    steps:
+      - uses: actions/checkout@v5
+
+      # Lowercase the image name — GHCR rejects uppercase characters in the
+      # path. github.repository is "BernardUriza/insult-ai" → lowercase form
+      # is what docker push / az containerapp update expect.
+      - name: Compute image tag
+        id: img
+        run: |
+          IMG_LOWER=$(echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+          echo "image=${IMG_LOWER}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "image_latest=${IMG_LOWER}:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build with the Dockerfile at api/Dockerfile, context = api/. The image
+      # is tagged with the commit SHA (immutable, what Container Apps actually
+      # rolls to) AND `:latest` (for human convenience / fallback). Both are
+      # pushed; both land under the same package on GHCR.
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: api
+          file: api/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.img.outputs.image }}
+            ${{ steps.img.outputs.image_latest }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # `az containerapp update --image` creates a new revision and shifts
+      # 100% traffic to it (default single-revision mode). The Container App
+      # already has the env vars wired (AZURE_OPENAI_API_KEY secretref,
+      # AZURE_OPENAI_ENDPOINT plain, etc. — see deploy.md). The image bump is
+      # the only thing the workflow touches; secrets/env config is managed
+      # out-of-band via az CLI so a workflow review doesn't risk leaking them.
+      - name: Update Container App revision
+        run: |
+          az containerapp update \
+            --name "${{ env.CONTAINER_APP_NAME }}" \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
+            --image "${{ steps.img.outputs.image }}" \
+            --output none
+          echo "Rolled ${{ env.CONTAINER_APP_NAME }} to ${{ steps.img.outputs.image }}"
+
+      # Soft probe — the new revision is healthy if /health returns 200 within
+      # 90s. Container Apps' own readiness probe already gates the traffic
+      # shift, so a failure here usually means a regression in /health itself
+      # (e.g. broken import). We log and fail the workflow so the next push
+      # doesn't silently overlay on a broken revision.
+      - name: Smoke /health
+        run: |
+          FQDN=$(az containerapp show \
+            --name "${{ env.CONTAINER_APP_NAME }}" \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          echo "Probing https://$FQDN/health …"
+          for i in $(seq 1 18); do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" "https://$FQDN/health" || echo "000")
+            echo "  attempt $i: HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "OK — revision is live."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "FAIL — /health never returned 200."
+          exit 1
