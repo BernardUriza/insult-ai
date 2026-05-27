@@ -44,17 +44,31 @@ def load_persona(name: str) -> str:
 
 ROAST_PERSONA = load_persona("roast")
 BRIEF_PERSONA = load_persona("brief")
+CLINICAL_PERSONA = load_persona("clinical_compadre")
 
-# The product modes: two personas over the SAME Runner (same backend, same
-# Bright Data MCP, same receipts + grounding). Selected at call time — config,
-# not code (see .claude/rules/personas.md). Adding a new mode = a new file in
-# personas/ + an entry in the three dispatch tables below. NO engine changes.
-Mode = Literal["roast", "brief"]
+# The product modes: three personas over the SAME Runner (same backend, same
+# Bright Data MCP capability, same receipts + grounding contract). Selected at
+# call time — config, not code (see .claude/rules/personas.md). Adding a new
+# mode = a new file in personas/ + an entry in the three dispatch tables
+# below. NO engine changes.
+#
+# `clinical` is the pivot persona: a clinical-informed coach disfrazado de
+# compa insultador. Same Runner, different prompt, different output shape
+# (JSON envelope — see clinical_envelope.py). The tone parameter modulates
+# it within bounds the persona enforces (soft/medium/spicy/no_insults).
+Mode = Literal["roast", "brief", "clinical"]
 
 _PERSONA_BY_MODE: dict[Mode, str] = {
     "roast": ROAST_PERSONA,
     "brief": BRIEF_PERSONA,
+    "clinical": CLINICAL_PERSONA,
 }
+
+# Tone parameter — only meaningful for the `clinical` mode. The other modes
+# ignore it (they have their own voice). The persona reads this from the
+# turn prompt's tone-context wrapper (see `clinical_prompt`).
+Tone = Literal["soft", "medium", "spicy", "no_insults"]
+DEFAULT_TONE: Tone = "medium"
 
 # --- Bright Data MCP (live web data — REQUIRED by the hackathon) -----------
 # Runs as `npx @brightdata/mcp`. It reads its credential from the API_TOKEN env
@@ -221,9 +235,54 @@ def _build_brief_guards(target_hint: str | None) -> list:
     ]
 
 
+def _build_clinical_guards(target_hint: str | None) -> list:
+    """Clinical-mode guards: drop the markdown/summary/stage-direction packs
+    (the persona emits JSON, those would false-positive constantly) and
+    KEEP the four drift surfaces that ARE specific to a clinical-coaching
+    voice — fi-core already catalogs them:
+
+      - ``ASSISTANT_TONE_*``    — "as an AI" / "soy un asistente" leaks
+      - ``THERAPY_SPEAK_*``     — "let's hold space" / "let's unpack that"
+                                  corporate-therapist tone the compadre
+                                  must avoid
+      - ``OVER_VALIDATION_*``   — "your feelings are SO valid", saccharine
+                                  affirmation the persona's `validation`
+                                  move replaces with something terser
+      - ``MORALIZING_*``        — "I want you to know …", lecturing tone
+
+    Adding ES variants on top of EN when the input looks Spanish, same
+    pattern the roast/brief modes use.
+
+    The ETHICS PlanGuard still applies (built separately in
+    `_build_plan_guard`) — heavier defense, pre-execution veto on
+    identity-attribute attacks. `never_attack.md` matches the same shape."""
+    en_packs = [
+        *packs.ASSISTANT_TONE_EN,
+        *packs.THERAPY_SPEAK_EN,
+        *packs.OVER_VALIDATION_EN,
+        *packs.MORALIZING_EN,
+    ]
+    es_packs = [
+        *packs.ASSISTANT_TONE_ES,
+        *packs.THERAPY_SPEAK_ES,
+        *packs.OVER_VALIDATION_ES,
+        *packs.MORALIZING_ES,
+    ]
+    language_packs = list(en_packs)
+    if target_hint and looks_spanish(target_hint):
+        language_packs = [*es_packs, *language_packs]
+    return [
+        antidrift_guard(
+            break_patterns=language_packs,
+            reinforcement=packs.GENERIC_REINFORCEMENT,
+        )
+    ]
+
+
 _GUARDS_BY_MODE: dict[Mode, Callable[[str | None], list]] = {
     "roast": _build_roast_guards,
     "brief": _build_brief_guards,
+    "clinical": _build_clinical_guards,
 }
 
 
@@ -327,21 +386,28 @@ def build_runner(
     agent_backend = _get_backend(backend_name)
 
     # Capabilities (fi-core MCPs, resolved by fi-runner — we never import fi_core):
-    # - task_tracker is ALWAYS ON. The agent calls declare_plan / start_step /
-    #   complete_step|fail_step so fi-runner can re-emit semantic plan/step_started/
-    #   step_done events. UI gets a live checklist instead of an opaque "thinking…".
-    #   Costs ~1 + 2·N extra MCP round-trips per turn (acceptable for the demo;
-    #   re-check against bench/bench_perf.py before tightening latency budgets).
+    # - task_tracker is ON for the agentic modes (roast / brief). The agent calls
+    #   declare_plan / start_step / complete_step|fail_step so fi-runner can re-emit
+    #   semantic plan/step_started/step_done events. UI gets a live checklist instead
+    #   of an opaque "thinking…". Costs ~1 + 2·N extra MCP round-trips per turn.
     # - rag_store opt-in via with_rag — the agent search_documents'es the user's
     #   corpus for extra ammo.
-    capability_names = ["task_tracker"]
+    # - CLINICAL mode is one-shot conversational (no agent plan, no web fetch).
+    #   It SKIPS task_tracker AND Bright Data — the persona just reads the user
+    #   message + tone context and emits the JSON envelope. Wiring those in would
+    #   only burn latency + an MCP round-trip for nothing.
+    is_clinical = mode == "clinical"
+    capability_names: list[str] = []
+    if not is_clinical:
+        capability_names.append("task_tracker")
     if with_rag:
         capability_names.append("rag_store")
+    extra_mcp = [] if is_clinical else [BRIGHTDATA_MCP]
 
     return Runner(
         backend=agent_backend,
         persona=_PERSONA_BY_MODE[mode],
-        extra_mcp_servers=[BRIGHTDATA_MCP],
+        extra_mcp_servers=extra_mcp,
         capabilities=capability_names,
         # BYPASS = auto-approve tool calls (needs non-root user in the container).
         # Block the built-in WebSearch/WebFetch so ALL web access goes through
@@ -426,10 +492,34 @@ def brief_prompt(target: str, corpus_id: str | None = None) -> str:
     return base
 
 
+def clinical_prompt(message: str, corpus_id: str | None = None) -> str:
+    """The turn instruction for the CLINICAL mode.
+
+    Frames the user's message inside a tone-context envelope the persona
+    reads BEFORE generating its JSON output. The tone is appended at call
+    time by `chat_stream` (the only entry point that knows the tone
+    parameter — see app.py:ChatRequest); when the bench calls in directly
+    without a tone, the default (`medium`) wins.
+
+    `corpus_id` is ignored for clinical mode today — the persona doesn't
+    yet read user-document corpus (the future "user mentioned procrasti-
+    nation 3 times in 2 weeks" memory use case). The arg is kept so the
+    dispatch table matches the roast/brief signature."""
+    return f"User message:\n{message}\n\nRespond with the JSON envelope as specified."
+
+
 _PROMPT_BY_MODE: dict[Mode, Callable[[str, str | None], str]] = {
     "roast": roast_prompt,
     "brief": brief_prompt,
+    "clinical": clinical_prompt,
 }
+
+
+def _wrap_with_tone(prompt: str, tone: Tone) -> str:
+    """Prepend a one-line tone directive to the turn prompt. The clinical
+    persona reads `Tone: <value>` and adjusts roast_line accordingly.
+    No-op for roast/brief (those modes ignore tone by design)."""
+    return f"Tone: {tone}\n\n{prompt}"
 
 
 async def roast(
@@ -437,24 +527,33 @@ async def roast(
     backend: str | None = None,
     corpus_id: str | None = None,
     mode: Mode = "roast",
+    tone: Tone = DEFAULT_TONE,
 ):
     """Run one turn against the agent. ``target`` is a URL or a claim.
 
     ``mode`` picks the product persona (see :data:`Mode`):
-      - ``roast`` — abrasive fragment-voice takedown (the hook).
-      - ``brief`` — structured competitive intelligence brief (the business
-        value: GTM battlecards, outreach hooks).
+      - ``roast``    — abrasive fragment-voice takedown (the hook).
+      - ``brief``    — structured competitive intelligence brief (the
+                       business value: GTM battlecards, outreach hooks).
+      - ``clinical`` — clinical-informed coach disfrazado de compa
+                       insultador. Emits a JSON envelope (see
+                       clinical_envelope.py).
 
-    The function is still called ``roast`` for backwards compatibility with
-    the API + bench, but it dispatches both modes. If ``corpus_id`` is given,
-    the agent can also mine the user's document corpus (rag_store)."""
+    ``tone`` only affects ``clinical`` mode (soft / medium / spicy /
+    no_insults). The other modes ignore it.
+
+    The function is still called ``roast`` for backwards compatibility
+    with the API + bench, but it dispatches all three modes."""
     runner = build_runner(
         backend,
         mode=mode,
         with_rag=bool(corpus_id),
         target_hint=target,
     )
-    return await runner.run(_PROMPT_BY_MODE[mode](target, corpus_id))
+    prompt = _PROMPT_BY_MODE[mode](target, corpus_id)
+    if mode == "clinical":
+        prompt = _wrap_with_tone(prompt, tone)
+    return await runner.run(prompt)
 
 
 async def chat_stream(
@@ -464,6 +563,7 @@ async def chat_stream(
     backend: str | None = None,
     corpus_id: str | None = None,
     mode: Mode = "roast",
+    tone: Tone = DEFAULT_TONE,
     on_event: Callable[[str, dict], None] | None = None,
 ):
     """Stream a chat turn as dict events (chain-of-thought).
@@ -506,10 +606,17 @@ async def chat_stream(
     # weirdly; the heuristic gates it. Subsequent turns ALWAYS go raw (the
     # conversation already carries the context via the conversation_store
     # replay).
-    prompt = (
-        _PROMPT_BY_MODE[mode](message, corpus_id)
-        if is_first_turn and looks_like_roast_target(message)
-        else message
-    )
+    # Clinical mode is conversational from turn 1 — there's no "target" to
+    # wrap; the persona just consumes the user message + tone. The roast/
+    # brief modes preserve the legacy "first turn looks like a target →
+    # wrap with the mode prompt" behavior.
+    if mode == "clinical":
+        prompt = _wrap_with_tone(_PROMPT_BY_MODE[mode](message, corpus_id), tone)
+    else:
+        prompt = (
+            _PROMPT_BY_MODE[mode](message, corpus_id)
+            if is_first_turn and looks_like_roast_target(message)
+            else message
+        )
     async for event in runner.run_stream(prompt, session_id=session_id):
         yield event
