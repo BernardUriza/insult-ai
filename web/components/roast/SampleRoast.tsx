@@ -2,6 +2,7 @@
 
 import { SAMPLE_ROAST } from "../../lib/sample_roast";
 import { getStatusIcon, getUIIcon } from "../../lib/icons";
+import { Button } from "../ui/Button";
 import { RoastText } from "./RoastText";
 
 const ReceiptIcon = getUIIcon("receipts");
@@ -54,7 +55,11 @@ export function SampleRoast({ onRunSample }: { onRunSample?: (target: string) =>
       <RoastText text={text} />
 
       <div className="flex flex-col gap-2 border-t border-iai-border pt-3">
-        <div className="inline-flex items-center gap-2 text-xs font-bold text-iai-accent">
+        {/* Receipts header in iai-fire (not iai-accent) — the cyan accent
+         * is semantically reserved for live state (see globals.css). This
+         * panel is pre-rendered, so warm tone marks the difference visually
+         * without contradicting the streaming-emphasis convention. */}
+        <div className="inline-flex items-center gap-2 text-xs font-bold text-iai-fire">
           <ReceiptIcon className="h-3.5 w-3.5" aria-hidden />
           Receipts
           <span className="iai-hint font-normal tabular-nums">({receipts.length})</span>
@@ -85,15 +90,16 @@ export function SampleRoast({ onRunSample }: { onRunSample?: (target: string) =>
           <span className="iai-hint text-xs">
             This was pre-rendered. Want to see the agent do it for real?
           </span>
-          <button
+          <Button
             type="button"
+            variant="primary"
+            size="sm"
             onClick={() => onRunSample(target)}
-            className="iai-btn-primary text-sm"
             title="Fires a live roast against the sample target via the Bright Data MCP"
           >
             Run this live
             <FlameIcon className="h-4 w-4" aria-hidden />
-          </button>
+          </Button>
         </div>
       )}
     </section>

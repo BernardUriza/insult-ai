@@ -44,6 +44,20 @@ jobs:
         working-directory: web
         run: npm ci
 
+      # Cache Next.js's incremental build directory so consecutive builds
+      # (post-cache) drop from ~50s to ~15s. Key buckets:
+      #   - package-lock.json change → fresh cache (deps moved, old cache stale)
+      #   - source change w/ same lockfile → restore-keys lets us inherit the
+      #     previous build's cache and only recompile what changed.
+      # See https://nextjs.org/docs/app/guides/ci-build-caching
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: web/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}-${{ hashFiles('web/**/*.[jt]s', 'web/**/*.[jt]sx', 'web/**/*.css') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}-
+
       - name: Build (next build → web/out)
         working-directory: web
         run: npm run build

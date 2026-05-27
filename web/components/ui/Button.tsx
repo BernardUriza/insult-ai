@@ -6,6 +6,12 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
    *  - ``ghost`` — neutral / secondary (Stop, cancel).
    *  - ``chip`` — small inline pill (example targets, nav chips, ``chat →``). */
   variant?: "primary" | "ghost" | "chip";
+  /** Size modifier. Default ``md``. ``sm`` is used for inline CTAs inside
+   * cards (e.g. SampleRoast's "Run this live") where the standard padding
+   * would dominate the layout. Wired via a `data-size` attribute so the CSS
+   * variant ``.iai-btn-primary[data-size="sm"]`` stacks cleanly on top of
+   * the base class without needing a class-merge helper. */
+  size?: "sm" | "md";
   /** Shows a spinner and disables the button. */
   loading?: boolean;
 }
@@ -20,6 +26,7 @@ const VARIANT: Record<NonNullable<ButtonProps["variant"]>, string> = {
  * layout (w-full, etc.), never for visual styling. */
 export function Button({
   variant = "primary",
+  size = "md",
   loading = false,
   disabled,
   className = "",
@@ -29,6 +36,7 @@ export function Button({
   return (
     <button
       className={`${VARIANT[variant]} ${className}`.trim()}
+      data-size={size === "md" ? undefined : size}
       disabled={disabled || loading}
       {...props}
     >
