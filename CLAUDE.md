@@ -78,6 +78,7 @@ Frontend: see `web/README.md`.
 - `local-dev.md` — environment gotchas: port collisions (5432/Tilt, 3000/Archestra), Docker macOS NAT, Next.js 16 cross-origin, React 19 input quirks, free-intelligence pin discipline
 - `personas.md` — the three product personas (roast = hook, brief = business value, clinical = compa-clínico)
 - `clinical.md` — clinical mode contract: envelope JSON, safety classifier, local judge, crisis fallback, file ownership map
+- `pitch.md` — how to describe the product externally (demo, video, deck, landing copy): the one-liner, naming layers, the 90-second beat sheet
 - `language.md` — system writes English (UI, personas, antidrift packs, comments); only the roast follows the target
 - `working-style.md` — meta rules: use WebFetch/WebSearch/chrome-devtools BEFORE saying "no sé"; don't trickle-ask; investigate before declaring "limitation"
 
