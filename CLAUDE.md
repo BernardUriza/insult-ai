@@ -76,7 +76,8 @@ Frontend: see `web/README.md`.
 - `deploy.md` — Azure (Container Apps + Static Web Apps), pgvector RAG, X-API-Key + rate-limit, non-root
 - `hackathon.md` — Web Data UNLOCKED official judging criteria, deliverables, deadline, mapping to this repo's surfaces
 - `local-dev.md` — environment gotchas: port collisions (5432/Tilt, 3000/Archestra), Docker macOS NAT, Next.js 16 cross-origin, React 19 input quirks, free-intelligence pin discipline
-- `personas.md` — the two product personas (roast = hook, brief = business value)
+- `personas.md` — the three product personas (roast = hook, brief = business value, clinical = compa-clínico)
+- `clinical.md` — clinical mode contract: envelope JSON, safety classifier, local judge, crisis fallback, file ownership map
 - `language.md` — system writes English (UI, personas, antidrift packs, comments); only the roast follows the target
 - `working-style.md` — meta rules: use WebFetch/WebSearch/chrome-devtools BEFORE saying "no sé"; don't trickle-ask; investigate before declaring "limitation"
 

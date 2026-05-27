@@ -94,6 +94,85 @@ exposes it before writing the local version. The thin-consumer rule means
 NEW reusable behavior belongs upstream in fi-runner; we just import and
 configure.
 
+## Voice loop — Azure OpenAI Whisper + TTS, backend-proxied
+
+The app ships a ChatGPT-style voice loop: user holds the mic, `Whisper`
+transcribes, the agent runs, the user clicks "listen", `TTS` (voice
+`onyx` by default) reads the response back. Two endpoints, both on the
+same `X-API-Key` + SlowAPI rate-limit floor as `/roast`:
+
+- `POST /voice/transcribe` — multipart audio → JSON `{text}`. Whisper
+  proxy; the frontend posts the MediaRecorder blob unmodified (webm /
+  mp4 — both accepted by Whisper without transcoding).
+- `POST /voice/speak` — `{text, voice}` → audio/mpeg blob. TTS proxy.
+  `Cache-Control: private, max-age=3600` so a user replaying a roast
+  doesn't re-hit Azure each time.
+
+Wiring: `api/insult_ai/voice.py` (HTTP client to Azure deployments) +
+`api/insult_ai/app.py` (endpoints) + `web/components/chat/AudioPlayer.tsx`
++ `useTtsBlob.ts` + `useVoiceCapture.ts` + `useAudioAnalysis.ts` +
+`PulseRings.tsx` + `RecordingTimer.tsx`.
+
+**Backend proxy, NOT frontend direct.** The Azure OpenAI key never lives
+in the bundle. `NEXT_PUBLIC_API_KEY` is the user-facing gate; the Azure
+key is a Container App secret. Same threat model as `/roast`.
+
+**Quota awareness.** The `whisper` + `tts` deployments on `insult-openai`
+ship with `capacity: 1` by default (1 RPM). We bumped them to capacity 3
+in this session (3 RPM) — the subscription quota cap. Raising past that
+requires an Azure quota-increase request. The frontend hooks +
+backend `voice.py` honor `Retry-After`: 429 from Azure propagates as
+HTTP 429 + `Retry-After` header through the API, and `voiceRetry.ts`
+respects it (max 2 retries, exponential fallback).
+
+## Aurity port pattern — extract essence, not copy-paste
+
+When a useful component lives in another Bernard repo (currently
+`free-intelligence/apps/aurity`), the port discipline is:
+
+1. **Identify the essence** — the load-bearing pattern that solves the
+   problem (e.g. floating-bar player, VAD pulse rings reactive to
+   audioLevel, markdown renderer with GFM).
+2. **Adapt to this repo's design system** — `iai-*` classes, `iai-fire`
+   token, `iai-card-sample`, etc. NOT aurity's `aplay-*` or `rec-*`
+   class system.
+3. **Drop dependencies that aren't load-bearing** — aurity ships a
+   `useChatVoiceRecorder` with 30s chunked Deepgram streaming; we don't
+   need it (our `/voice/transcribe` is single-POST). aurity's
+   `AudioPlayerContext` is multi-player; we lift one floating player to
+   the page level. Cut features that fit aurity's product but not ours.
+4. **Add the deps that ARE load-bearing** — `framer-motion` for
+   animations, `react-markdown` + `remark-gfm` for GFM. Adding two npm
+   deps is fine; vendoring a half-baked replacement is not.
+
+The shipped port (commit `3be2cbc`) is the template — read its diff
+when porting next time.
+
+## Clinical mode — three personas, two output shapes
+
+`roast` + `brief` are agentic (Bright Data MCP, plan + steps, plain
+text output). `clinical` is conversational (no MCP, no plan, JSON
+envelope output). The dispatch is THREE tables in `runner.py`
+(`_PERSONA_BY_MODE`, `_GUARDS_BY_MODE`, `_PROMPT_BY_MODE`) — adding a
+mode is THREE entries + ONE file in `personas/`. Engine untouched.
+
+For the clinical contract (envelope, safety classifier, judge,
+crisis fallback), see `clinical.md`. The judge in
+`api/insult_ai/judge.py` is **local** to this repo — it is NOT a
+consumer of `xair`. xair is repo-automation / CI; this judge is
+conversational-quality, in-process.
+
+## CI/CD — both halves auto-deploy from master
+
+Push to master with `web/**` changes → SWA workflow → live at
+`iai.bernarduriza.com` in ~90s. Push with `api/**` changes →
+Container Apps workflow → API image rolled to a new revision in
+~2min. Details in `deploy.md`.
+
+OIDC federated identity (no long-lived SP secret). GHCR for image
+registry (public package after the first manual flip). Soft `/health`
+probe gates the API workflow green.
+
 ## Reference architecture
 
 This design imitates a proven private Claude-Code-headless-in-a-container setup
