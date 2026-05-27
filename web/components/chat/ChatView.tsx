@@ -1,11 +1,28 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef } from "react";
-import { getUIIcon } from "../../lib/icons";
 import { MessageBubble } from "./MessageBubble";
 import type { ChatMessage } from "./types";
+import type { ChatMode } from "./useChat";
 
-const FlameIcon = getUIIcon("brand");
+const EMPTY_STATE_BY_MODE: Record<ChatMode, { headline: string; subcopy: string }> = {
+  roast: {
+    headline: "What are we roasting today?",
+    subcopy:
+      "Bring a claim, a link, or a thought that's been freeloading in your head.",
+  },
+  brief: {
+    headline: "Who needs a brief?",
+    subcopy:
+      "Drop a company, product, article, or claim. I'll turn signals into a sharp brief.",
+  },
+  clinical: {
+    headline: "What's on your mind?",
+    subcopy:
+      "Bring the messy thought. The roast stays on the pattern, not on you.",
+  },
+};
 
 /** Conversation surface: vertically stacked messages with a **sticky-bottom**
  * auto-scroll. Naïve scroll-on-every-update fires ~30x/s during text streaming
@@ -19,6 +36,7 @@ export function ChatView({
   messages,
   onSpeak,
   speakingId,
+  mode = "roast",
 }: {
   messages: ChatMessage[];
   /** Page-level handler that lifts the TTS playback to a single floating
@@ -26,6 +44,9 @@ export function ChatView({
    * button is hidden in each bubble. */
   onSpeak?: (text: string | null, id: string) => void;
   speakingId?: string | null;
+  /** Drives empty-state headline + subcopy so the conversation surface
+   * tells the truth about what the active mode will do. */
+  mode?: ChatMode;
 }) {
   const tailRef = useRef<HTMLDivElement>(null);
   const lastCountRef = useRef(0);
@@ -42,14 +63,19 @@ export function ChatView({
   }, [messages]);
 
   if (messages.length === 0) {
+    const empty = EMPTY_STATE_BY_MODE[mode];
     return (
-      <div className="iai-card-soft flex flex-col items-center gap-2 py-10 text-center text-zinc-400">
-        <FlameIcon className="h-7 w-7 text-orange-400" aria-hidden />
-        <div className="font-medium text-zinc-300">Drop a URL or a claim to start.</div>
-        <div className="iai-hint text-sm">
-          Try: <span className="font-mono text-zinc-300">acme.com</span> · &nbsp;
-          <span className="font-mono text-zinc-300">&quot;Elon Musk founded OpenAI&quot;</span>
-        </div>
+      <div className="iai-card-soft flex flex-col items-center gap-3 py-12 text-center">
+        <Image
+          src="/logo.png"
+          alt=""
+          width={80}
+          height={80}
+          priority
+          className="opacity-90 drop-shadow-[0_0_24px_rgb(var(--color-iai-fire-rgb)/0.4)]"
+        />
+        <div className="text-base font-semibold text-zinc-100">{empty.headline}</div>
+        <div className="iai-hint max-w-prose text-sm">{empty.subcopy}</div>
       </div>
     );
   }

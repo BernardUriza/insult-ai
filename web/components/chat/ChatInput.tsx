@@ -7,11 +7,31 @@ import { Textarea } from "../ui/Textarea";
 import { PulseRings } from "./PulseRings";
 import { RecordingTimer } from "./RecordingTimer";
 import { useAudioAnalysis } from "./useAudioAnalysis";
+import type { ChatMode } from "./useChat";
 import { useVoiceCapture } from "./useVoiceCapture";
 
 const SendIcon = getUIIcon("send");
 const StopIcon = getUIIcon("stop");
 const MicIcon = getUIIcon("mic");
+
+const PLACEHOLDER_BY_MODE: Record<ChatMode, string> = {
+  roast:
+    "Drop a claim, link, or messy thought. I'll bring receipts and a controlled burn.",
+  brief: "Paste a company URL or claim. I'll fetch live signals and brief you.",
+  clinical: "What's eating you today? I'll listen first, then we work.",
+};
+
+const PRIMARY_LABEL_EMPTY: Record<ChatMode, string> = {
+  roast: "Start Roast",
+  brief: "Start Brief",
+  clinical: "Start",
+};
+
+const PRIMARY_LABEL_DRAFT: Record<ChatMode, string> = {
+  roast: "Roast this",
+  brief: "Brief this",
+  clinical: "Work through this",
+};
 
 /** Composer: textarea + mic + send button. Enter sends, Shift+Enter newline.
  * While streaming, the send becomes "Stop" so the user can cancel mid-roast.
@@ -33,6 +53,7 @@ export function ChatInput({
   streaming,
   placeholder,
   seedDraft,
+  mode = "roast",
 }: {
   onSend: (text: string) => void;
   onAbort: () => void;
@@ -43,6 +64,9 @@ export function ChatInput({
    * Pass an object wrapper or bump a nonce externally if you need to
    * re-seed the SAME text twice in a row. */
   seedDraft?: string;
+  /** Drives placeholder + primary button copy so the composer truthfully
+   * announces what the current mode will do with the draft. */
+  mode?: ChatMode;
 }) {
   const [draft, setDraft] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -105,7 +129,7 @@ export function ChatInput({
           className="min-h-[3rem] flex-1"
           rows={2}
           value={draft}
-          placeholder={placeholder ?? "URL or claim… (Enter sends · Shift+Enter newline)"}
+          placeholder={placeholder ?? PLACEHOLDER_BY_MODE[mode]}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
           disabled={streaming}
@@ -164,7 +188,7 @@ export function ChatInput({
               className="h-12 px-5"
               aria-label="send message"
             >
-              Roast
+              {draft.trim() ? PRIMARY_LABEL_DRAFT[mode] : PRIMARY_LABEL_EMPTY[mode]}
               <SendIcon className="h-4 w-4" aria-hidden />
             </Button>
           )}

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AudioPlayer } from "../../components/chat/AudioPlayer";
 import { ChatInput } from "../../components/chat/ChatInput";
@@ -16,54 +15,45 @@ import {
 } from "../../components/chat/OnboardingDialog";
 import { type ChatMode, type ChatTone, useChat } from "../../components/chat/useChat";
 import { useTtsBlob } from "../../components/chat/useTtsBlob";
-import { Button } from "../../components/ui/Button";
+import { InsultHeader } from "../../components/layout/InsultHeader";
 import { PoweredBy } from "../../components/ui/PoweredBy";
-import { getUIIcon } from "../../lib/icons";
-
-const FlameIcon = getUIIcon("brand");
-const NewIcon = getUIIcon("new");
-const BackIcon = getUIIcon("back");
 
 /** Multi-turn chat with live chain-of-thought. Streams /chat/stream (SSE) and
  * paints every Bright Data call as a step while the roast text arrives token
- * by token. Sister page of the single-shot `/` (kept as the demo's "quick" mode).
+ * by token.
  *
- * Corpus selector: an optional `?corpus=<id>` query arg (set by a "Use →" link
- * on /library) primes the chat to mine that document corpus on every turn.
- * The user can also type the corpus_id manually in the input next to the
- * header — handy for switching between corpora mid-session. Empty = no rag. */
+ * The header (InsultHeader) is the product surface: brand block, the three
+ * primary modes (roast / brief / clinical), the safety badge, and (in
+ * clinical) the tone control. Everything off-mission lives on its own route
+ * — the chat is intentionally focused on the three personas. */
 export default function ChatPage() {
-  // Read ?corpus= from window.location on mount. We do it in an effect (not
-  // during render) because window doesn't exist during the static export
-  // pre-render — Next.js refuses to ship the chunk otherwise.
+  // Mode + tone state. Default mode is "roast" to preserve the existing
+  // demo behavior; `?mode=brief|clinical` on the URL deep-links to the
+  // other personas. Tone only matters for clinical mode (the others
+  // ignore it).
+  const [mode, setMode] = useState<ChatMode>("roast");
+  const [tone, setTone] = useState<ChatTone>("medium");
   const [corpusId, setCorpusId] = useState<string>("");
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Pick up deep-link params on mount. `?corpus=…` primes the agent to
+  // search a document corpus; `?mode=…` lands the user directly in the
+  // requested persona. Done in an effect because `window` doesn't exist
+  // during static export pre-render.
   useEffect(() => {
     const url = new URL(window.location.href);
     const q = url.searchParams.get("corpus");
     if (q) setCorpusId(q);
-  }, []);
-
-  // Mode + tone state. Default mode is "roast" to preserve the existing
-  // demo behavior; `?mode=clinical` on the URL opts into the compadre
-  // persona without breaking deep-links to the old chat. Tone only
-  // matters for clinical mode (the others ignore it).
-  const [mode, setMode] = useState<ChatMode>("roast");
-  const [tone, setTone] = useState<ChatTone>("medium");
-  const [showOnboarding, setShowOnboarding] = useState(false);
-
-  useEffect(() => {
-    const url = new URL(window.location.href);
     const modeParam = url.searchParams.get("mode");
-    if (modeParam === "clinical" || modeParam === "brief") {
+    if (modeParam === "clinical" || modeParam === "brief" || modeParam === "roast") {
       setMode(modeParam);
-      // Onboarding only for clinical mode — and only once per browser.
       if (modeParam === "clinical" && !isOnboarded()) {
         setShowOnboarding(true);
       }
     }
   }, []);
 
-  const { messages, streaming, send, abort, reset } = useChat({ corpusId, mode, tone });
+  const { messages, streaming, send, abort } = useChat({ corpusId, mode, tone });
 
   // Seed text injected from a DemoPrompts tap. ChatInput reads this once
   // per change and replaces its draft — user can edit or send.
@@ -71,14 +61,12 @@ export default function ChatPage() {
 
   // TTS playback lifted to page level: a single <AudioPlayer> floating
   // bar handles ALL bubbles, switching its source when the user hits
-  // "listen" on a different one. This matches aurity's single-player
-  // pattern and avoids the inline-audio-per-bubble we shipped before.
+  // "listen" on a different one.
   const tts = useTtsBlob();
   const [speakingId, setSpeakingId] = useState<string | null>(null);
 
   const handleSpeak = useCallback(
     (text: string | null, id: string) => {
-      // null = the user toggled OFF the same bubble → close the player.
       if (text === null) {
         tts.close();
         setSpeakingId(null);
@@ -95,99 +83,43 @@ export default function ChatPage() {
     setSpeakingId(null);
   }, [tts]);
 
+  // Mode-switch: update state AND the URL (replaceState so back-button
+  // history doesn't fill with every toggle). Onboarding gate only fires
+  // on first-ever clinical landing — never again after the user accepts.
+  const handleModeChange = useCallback((next: ChatMode) => {
+    setMode(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set("mode", next);
+    window.history.replaceState(null, "", url.toString());
+    if (next === "clinical" && !isOnboarded()) {
+      setShowOnboarding(true);
+    }
+  }, []);
+
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-5 py-8">
-      <header className="flex flex-col gap-2">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="inline-flex items-center gap-2 text-2xl font-extrabold tracking-tight">
-              <FlameIcon className="iai-flame h-6 w-6" aria-hidden />
-              Insult <span className="iai-brand">AI</span>
-              <span className="text-zinc-500">·</span>
-              <span className="text-zinc-400">chat</span>
-            </h1>
-            <p className="iai-hint mt-1 text-sm">
-              <span className="iai-accent">The web&apos;s data, unlocked.</span> Then roasted.
-              Every jab traces to a fetched source.
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              type="button"
-              variant="chip"
-              onClick={reset}
-              disabled={streaming || messages.length === 0}
-              title="start a new conversation"
-            >
-              <NewIcon className="h-3.5 w-3.5" aria-hidden />
-              new
-            </Button>
-            <Link
-              href="/library"
-              className="iai-btn-chip"
-              title="add documents to a corpus"
-            >
-              library
-            </Link>
-            <Link
-              href="/"
-              className="iai-btn-chip"
-              title="switch to single-shot mode"
-            >
-              <BackIcon className="h-3.5 w-3.5" aria-hidden />
-              single-shot
-            </Link>
-          </div>
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-5 pb-8">
+      <InsultHeader
+        activeMode={mode}
+        onModeChange={handleModeChange}
+        isLoading={streaming}
+      />
+
+      {/* Tone control — clinical-only, its own row so the global header
+        * stays consistent across modes (and doesn't overflow on the chat's
+        * max-w-3xl frame when the four-chip selector would compete with
+        * the mode switcher). Safety can lower the effective tone server-
+        * side regardless of what's picked here. */}
+      {mode === "clinical" && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <IntensitySelector value={tone} onChange={setTone} disabled={streaming} />
+          <LowerIntensityButton value={tone} onLower={setTone} disabled={streaming} />
         </div>
-        {/* Knowledge-base selector — small inline input. Editable so the user
-         * can switch corpora mid-session WITHOUT leaving /chat. Empty = the
-         * agent skips the document search step entirely. Copy says
-         * "knowledge base" instead of "corpus / rag_store" — the latter is
-         * the implementation detail (rag_store MCP), the former is what the
-         * user actually understands. */}
-        {/* Intensity selector — only meaningful for the clinical mode.
-          * Stays hidden on roast/brief so the existing demo surfaces
-          * don't grow a confusing control. */}
-        {mode === "clinical" && (
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <IntensitySelector value={tone} onChange={setTone} disabled={streaming} />
-            <LowerIntensityButton value={tone} onLower={setTone} disabled={streaming} />
-          </div>
-        )}
+      )}
 
-        {/* Knowledge base selector — kept for roast/brief modes; the
-          * clinical mode doesn't currently search a corpus, so we hide
-          * it there to reduce visual noise. */}
-        {mode !== "clinical" && (
-          <label className="iai-hint flex items-center gap-2 text-xs">
-            <span className="uppercase tracking-wider">Knowledge base</span>
-            <input
-              value={corpusId}
-              onChange={(e) => setCorpusId(e.target.value)}
-              placeholder="Optional — paste an ID from /library"
-              disabled={streaming}
-              className="iai-input flex-1 px-3 py-1.5 text-xs"
-              aria-label="knowledge base id (optional)"
-            />
-            {corpusId && (
-              <button
-                type="button"
-                onClick={() => setCorpusId("")}
-                className="iai-btn-chip text-[10px]"
-                title="clear — next turn searches the web only"
-                disabled={streaming}
-              >
-                clear
-              </button>
-            )}
-          </label>
-        )}
-      </header>
-
-      {/* DemoPrompts — only in clinical mode AND only when the chat
-        * is empty (first turn). Tap fills the composer; user can edit
-        * before sending. The crisis prompt is the load-bearing demo
-        * differentiator — comedy as UX, infrastructure as behavior. */}
+      {/* Demo prompts — only in clinical mode AND only when the chat is
+        * empty (first turn). Tap fills the composer; user can edit before
+        * sending. The crisis prompt is the load-bearing demo differentiator
+        * — comedy as UX, infrastructure as behavior. */}
       {mode === "clinical" && messages.length === 0 && (
         <DemoPrompts
           disabled={streaming}
@@ -198,7 +130,12 @@ export default function ChatPage() {
         />
       )}
 
-      <ChatView messages={messages} onSpeak={handleSpeak} speakingId={speakingId} />
+      <ChatView
+        messages={messages}
+        onSpeak={handleSpeak}
+        speakingId={speakingId}
+        mode={mode}
+      />
 
       <div className="sticky bottom-2 mt-2">
         <ChatInput
@@ -206,6 +143,7 @@ export default function ChatPage() {
           onAbort={abort}
           streaming={streaming}
           seedDraft={seedDraft}
+          mode={mode}
         />
         <div className="mt-2 flex items-center justify-center text-[10px]">
           <PoweredBy />
@@ -226,8 +164,9 @@ export default function ChatPage() {
         />
       )}
 
-      {/* Onboarding dialog — only shown the first time a user lands on
-        * /chat?mode=clinical. localStorage gates re-show. */}
+      {/* Onboarding dialog — shown the first time a user lands on the
+        * clinical persona (whether via deep-link or mode-switch).
+        * localStorage gates re-show. */}
       {showOnboarding && (
         <OnboardingDialog
           initialTone={tone}
