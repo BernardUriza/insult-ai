@@ -4,6 +4,23 @@ Official reference card for prioritization decisions. Source:
 [lablab.ai/ai-hackathons/brightdata-ai-agents-web-data-hackathon](https://lablab.ai/ai-hackathons/brightdata-ai-agents-web-data-hackathon).
 Fetched 2026-05-26. Re-fetch if anything below changes.
 
+## Regla 0 — Producto
+
+El producto debe sentirse como comedia, pero comportarse como
+infraestructura clínica responsable.
+
+Esto significa:
+
+- El humor es la interfaz, no el propósito.
+- El insulto permitido apunta a patrones, hábitos o procrastinación;
+  nunca a identidad, cuerpo, salud mental, trauma, atributos protegidos
+  o valor personal.
+- En señales sensibles o crisis, el personaje abandona el roast y
+  responde con contención, claridad y recursos.
+- Cada respuesta debe cerrar con una microacción útil.
+- La demo debe vender personalidad, pero demostrar arquitectura:
+  safety, trazabilidad, consentimiento de tono y degradación segura.
+
 ## Judging criteria (no published weights — treat as paritarios)
 
 | # | Criterion | Verbatim definition |
