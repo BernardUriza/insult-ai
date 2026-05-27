@@ -8,11 +8,52 @@ mandatory product) instead of Playwright.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
+
+_log = logging.getLogger(__name__)
+
+# Slice 3 — Psychology corpus flags. When ENABLED and mode is "clinical" and
+# the user did not supply their own corpus_id, the runner falls back to the
+# curated public-knowledge corpus identified by INSULT_AI_PSYCH_CORPUS_ID.
+# Default OFF: with ENABLED unset or != "1", clinical mode behaves bit-
+# identically to pre-Slice-3 master. See _resolve_clinical_corpus_id below.
+_PSYCH_CORPUS_ENABLED_ENV = "INSULT_AI_PSYCH_CORPUS_ENABLED"
+_PSYCH_CORPUS_ID_ENV = "INSULT_AI_PSYCH_CORPUS_ID"
+_PSYCH_CORPUS_DEFAULT_ID = "psych_public_v1"
+
+
+def _resolve_clinical_corpus_id(user_corpus_id: str | None, mode: str) -> str | None:
+    """Decide which corpus_id this turn should use.
+
+    Precedence (highest first):
+
+      1. ``user_corpus_id`` — if the user uploaded their own docs and passed
+         a corpus_id on the request, that wins absolutely. Slice 3 does not
+         merge corpora; user choice is sovereign.
+
+      2. ``mode == "clinical"`` AND ``INSULT_AI_PSYCH_CORPUS_ENABLED == "1"``
+         — fall back to ``INSULT_AI_PSYCH_CORPUS_ID`` (default
+         ``"psych_public_v1"``).
+
+      3. Otherwise — None. No RAG wired this turn.
+
+    Returning None means "skip rag_store capability for this turn."
+    Returning a string means "wire rag_store and inject the corpus_id into
+    the prompt." The chosen corpus_id flows uniformly into both
+    ``build_runner(with_rag=...)`` and ``_PROMPT_BY_MODE[mode](..., corpus_id)``.
+    """
+    if user_corpus_id:
+        return user_corpus_id
+    if mode != "clinical":
+        return None
+    if os.environ.get(_PSYCH_CORPUS_ENABLED_ENV) != "1":
+        return None
+    return os.environ.get(_PSYCH_CORPUS_ID_ENV, _PSYCH_CORPUS_DEFAULT_ID)
 
 from fi_runner import (
     ClaudeCodeBackend,
@@ -501,11 +542,31 @@ def clinical_prompt(message: str, corpus_id: str | None = None) -> str:
     parameter — see app.py:ChatRequest); when the bench calls in directly
     without a tone, the default (`medium`) wins.
 
-    `corpus_id` is ignored for clinical mode today — the persona doesn't
-    yet read user-document corpus (the future "user mentioned procrasti-
-    nation 3 times in 2 weeks" memory use case). The arg is kept so the
-    dispatch table matches the roast/brief signature."""
-    return f"User message:\n{message}\n\nRespond with the JSON envelope as specified."
+    When ``corpus_id`` is set (Slice 3 — either user-provided or resolved by
+    ``_resolve_clinical_corpus_id``), an instruction block tells the persona
+    that a knowledge corpus is available via the ``search_documents`` tool
+    and how to populate the envelope's optional ``sources`` field from the
+    in-chunk ``[Source: ... | URL: ... | License: ...]`` header that
+    ``bench/ingest_psychology_corpus.py --commit`` writes. Chunks without
+    that header are uncitable and must be left out of ``sources``."""
+    base = (
+        f"User message:\n{message}\n\nRespond with the JSON envelope as specified."
+    )
+    if corpus_id:
+        base += (
+            f"\n\n[System: A psychology knowledge corpus is available "
+            f"(id: '{corpus_id}'). When grounding a reflection or reframe in "
+            "general psychoeducation, call the search_documents tool over this "
+            "corpus. Chunks you actually use begin with a header line like "
+            "'[Source: NIMH | URL: <url> | License: public-domain-us-federal]'. "
+            "Copy those (max 3) into the envelope's optional `sources` array "
+            "exactly as parsed from the chunk header. Cite only chunks where "
+            "the [Source: ...] header is visible at the top; chunks without it "
+            "are useful for content but uncitable. Omit the `sources` field "
+            "entirely if you did not use the corpus this turn — do not emit "
+            "null and do not emit an empty array.]"
+        )
+    return base
 
 
 _PROMPT_BY_MODE: dict[Mode, Callable[[str, str | None], str]] = {
@@ -544,13 +605,24 @@ async def roast(
 
     The function is still called ``roast`` for backwards compatibility
     with the API + bench, but it dispatches all three modes."""
+    effective_corpus_id = _resolve_clinical_corpus_id(corpus_id, mode)
+    if effective_corpus_id and effective_corpus_id != corpus_id:
+        # Slice 3 telemetry: the public psychology corpus is in play this
+        # turn (the user did NOT supply their own corpus_id and the
+        # INSULT_AI_PSYCH_CORPUS_ENABLED flag is on). This is the per-turn
+        # signal that proves Slice 3's wiring fired without depending on
+        # TurnResult.tool_calls inspection.
+        _log.info(
+            "psych_corpus_resolved entrypoint=roast mode=%s corpus_id=%s",
+            mode, effective_corpus_id,
+        )
     runner = build_runner(
         backend,
         mode=mode,
-        with_rag=bool(corpus_id),
+        with_rag=bool(effective_corpus_id),
         target_hint=target,
     )
-    prompt = _PROMPT_BY_MODE[mode](target, corpus_id)
+    prompt = _PROMPT_BY_MODE[mode](target, effective_corpus_id)
     if mode == "clinical":
         prompt = _wrap_with_tone(prompt, tone)
     return await runner.run(prompt)
@@ -587,10 +659,20 @@ async def chat_stream(
     "first turn" via the shared conversation store. The Runner is built per
     turn (cheap) but shares ``_CHAT_STORE`` so prior turns are replayed for
     context."""
+    effective_corpus_id = _resolve_clinical_corpus_id(corpus_id, mode)
+    if effective_corpus_id and effective_corpus_id != corpus_id:
+        # Slice 3 telemetry: the public psychology corpus is in play this
+        # turn. See _resolve_clinical_corpus_id docstring. Per-turn signal
+        # that proves the wiring fired; tool-call evidence still lives in
+        # the existing on_event observability piped by app.py.
+        _log.info(
+            "psych_corpus_resolved entrypoint=chat_stream session_id=%s mode=%s corpus_id=%s",
+            session_id, mode, effective_corpus_id,
+        )
     runner = build_runner(
         backend,
         mode=mode,
-        with_rag=bool(corpus_id),
+        with_rag=bool(effective_corpus_id),
         conversation_store=_CHAT_STORE,
         on_event=on_event,
         # Per-turn target hint — the language layer of the guards adapts to
@@ -611,10 +693,12 @@ async def chat_stream(
     # brief modes preserve the legacy "first turn looks like a target →
     # wrap with the mode prompt" behavior.
     if mode == "clinical":
-        prompt = _wrap_with_tone(_PROMPT_BY_MODE[mode](message, corpus_id), tone)
+        prompt = _wrap_with_tone(
+            _PROMPT_BY_MODE[mode](message, effective_corpus_id), tone
+        )
     else:
         prompt = (
-            _PROMPT_BY_MODE[mode](message, corpus_id)
+            _PROMPT_BY_MODE[mode](message, effective_corpus_id)
             if is_first_turn and looks_like_roast_target(message)
             else message
         )

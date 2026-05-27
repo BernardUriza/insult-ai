@@ -62,6 +62,34 @@ _VALID_MOVE: set[str] = {
     "boundary",
 }
 
+# Slice 3 — Maximum number of cited sources surfaced in the envelope. The
+# persona prompt also enforces this; the parser is the belt-and-suspenders
+# layer that truncates if the LLM oversteps. Three is enough to attribute
+# without turning the response into a citation page.
+_MAX_SOURCES = 3
+
+
+@dataclass(frozen=True)
+class ClinicalSource:
+    """One cited source. Populated when the LLM used the psychology corpus
+    AND the retrieved chunk carried an in-text ``[Source: ... | URL: ... |
+    License: ...]`` header (written by ``bench/ingest_psychology_corpus.py
+    --commit``). The LLM copies those values into the envelope's optional
+    ``sources`` array; the runner does NOT enrich server-side."""
+
+    name: str  # e.g. "NIMH"
+    url: str  # e.g. "https://www.nimh.nih.gov/health/topics/depression"
+    license: str  # e.g. "public-domain-us-federal"
+
+
+class ClinicalSourceWire(TypedDict):
+    """Wire-side mirror — keep this aligned with the TS
+    ClinicalSource in web/components/chat/ClinicalEnvelope.tsx."""
+
+    name: str
+    url: str
+    license: str
+
 
 @dataclass
 class ClinicalEnvelope:
@@ -80,10 +108,15 @@ class ClinicalEnvelope:
     main_response: str
     micro_action: str | None
     follow_up_question: str | None
+    # Slice 3 — Optional, LLM opt-in. Populated only when the clinical mode
+    # turn was wired with a corpus AND the LLM used it. Omitted entirely
+    # (not null, not empty) when the LLM did not cite. See the persona
+    # prompt + clinical_prompt() in runner.py. Truncated to _MAX_SOURCES.
+    sources: list[ClinicalSource] | None = None
 
     def to_wire(self) -> EnvelopeWire:
         """Project to the SSE wire shape (a plain dict the client reads)."""
-        return {
+        wire: EnvelopeWire = {
             "safety_level": self.safety_level,
             "tone": self.tone,
             "user_state_hypothesis": self.user_state_hypothesis,
@@ -93,13 +126,27 @@ class ClinicalEnvelope:
             "micro_action": self.micro_action,
             "follow_up_question": self.follow_up_question,
         }
+        # Sources are only added when present and non-empty so the wire
+        # contract for non-Slice-3 turns is bit-identical to pre-Slice-3.
+        # The TS mirror also makes the field optional.
+        if self.sources:
+            wire["sources"] = [
+                {"name": s.name, "url": s.url, "license": s.license}
+                for s in self.sources
+            ]
+        return wire
 
 
-class EnvelopeWire(TypedDict):
-    """TS-side mirror — keep this aligned with
-    web/components/chat/types.ts:ClinicalEnvelope. There's no codegen
-    here on purpose; a drift surfaces fast because the UI silently drops
-    unknown fields and the panel goes blank."""
+class EnvelopeWire(TypedDict, total=False):
+    """TS-side mirror — keep this aligned with the ClinicalEnvelopeData
+    interface in web/components/chat/ClinicalEnvelope.tsx. There's no
+    codegen here on purpose; a drift surfaces fast because the UI silently
+    drops unknown fields and the panel goes blank.
+
+    ``total=False`` so the optional ``sources`` field doesn't need to be
+    present in every envelope dict. The required fields are still always
+    populated by ``to_wire``; the type system is just permissive for the
+    optional one."""
 
     safety_level: SafetyLevel
     tone: Tone
@@ -109,6 +156,7 @@ class EnvelopeWire(TypedDict):
     main_response: str
     micro_action: str | None
     follow_up_question: str | None
+    sources: list[ClinicalSourceWire]
 
 
 @dataclass
@@ -235,6 +283,42 @@ def parse_envelope(raw: str) -> ClinicalEnvelope:
             )
         return v.strip()
 
+    # Slice 3 — optional sources array. Tolerant by design: malformed or
+    # over-the-limit entries are silently dropped rather than raising, so a
+    # well-formed envelope is never rejected because of a sloppy citation.
+    # The parser:
+    #   - accepts list of dicts with str name/url/license;
+    #   - drops dict entries missing any required key or with non-str values;
+    #   - **filters first, then truncates** to _MAX_SOURCES so a few
+    #     malformed entries at the head of the array don't crowd out the
+    #     valid ones that follow;
+    #   - returns None when the field is missing, null, [], or every entry
+    #     was dropped.
+    sources: list[ClinicalSource] | None = None
+    raw_sources = data.get("sources")
+    if isinstance(raw_sources, list) and raw_sources:
+        parsed: list[ClinicalSource] = []
+        for item in raw_sources:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            url = item.get("url")
+            lic = item.get("license")
+            if (
+                isinstance(name, str)
+                and isinstance(url, str)
+                and isinstance(lic, str)
+                and name.strip()
+                and url.strip()
+                and lic.strip()
+            ):
+                parsed.append(
+                    ClinicalSource(
+                        name=name.strip(), url=url.strip(), license=lic.strip()
+                    )
+                )
+        sources = parsed[:_MAX_SOURCES] or None
+
     return ClinicalEnvelope(
         safety_level=safety,  # type: ignore[arg-type]
         tone=tone,  # type: ignore[arg-type]
@@ -244,6 +328,7 @@ def parse_envelope(raw: str) -> ClinicalEnvelope:
         main_response=_required_str("main_response"),
         micro_action=_optional_str("micro_action"),
         follow_up_question=_optional_str("follow_up_question"),
+        sources=sources,
     )
 
 

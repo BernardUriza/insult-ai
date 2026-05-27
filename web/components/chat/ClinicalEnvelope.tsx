@@ -12,6 +12,12 @@ const ErrorIcon = getStatusIcon("error");
  * api/insult_ai/clinical_envelope.py:EnvelopeWire). Keep these aligned;
  * there's no codegen — the UI silently drops unknown fields and the
  * panel goes blank when they drift. */
+export interface ClinicalSource {
+  name: string;
+  url: string;
+  license: string;
+}
+
 export interface ClinicalEnvelopeData {
   safety_level: "normal" | "sensitive" | "crisis";
   tone: "soft" | "medium" | "spicy" | "no_insults";
@@ -27,6 +33,10 @@ export interface ClinicalEnvelopeData {
   main_response: string;
   micro_action: string | null;
   follow_up_question: string | null;
+  /** Slice 3 — Optional citations. Present only when the LLM used the
+   * configured knowledge corpus AND copied the in-chunk header into the
+   * envelope. Omitted (not null, not []) when no corpus was used. */
+  sources?: ClinicalSource[];
 }
 
 /** Try to parse a clinical envelope out of a raw assistant content
@@ -150,6 +160,33 @@ export function ClinicalEnvelopeView({
       {env.follow_up_question && (
         <div className="iai-hint italic text-sm text-zinc-400">
           {env.follow_up_question}
+        </div>
+      )}
+
+      {/* Sources — Slice 3. Discreet attribution, never a disclaimer.
+        * Renders only when the LLM included at least one cited source
+        * (i.e. corpus was used). Small text, opaque, separated by a
+        * thin border. Capped at 3 entries to match the persona contract;
+        * the parser truncates beyond that. */}
+      {env.sources && env.sources.length > 0 && (
+        <div className="mt-2 border-t border-white/10 pt-2 text-[11px] text-zinc-500">
+          <div className="mb-1 uppercase tracking-wider opacity-80">
+            Sources
+          </div>
+          <ul className="space-y-0.5">
+            {env.sources.slice(0, 3).map((s, i) => (
+              <li key={`${s.url}-${i}`}>
+                <a
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline"
+                >
+                  {s.name}
+                </a>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

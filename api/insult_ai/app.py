@@ -136,6 +136,52 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # ingested here is searchable by the agent during a roast.
 _rag = RagStoreClient()
 
+# Slice 3 — Psychology corpus probe.
+#
+# When INSULT_AI_PSYCH_CORPUS_ENABLED=1, the clinical mode runner will fall
+# back to the curated public-knowledge corpus (default id `psych_public_v1`)
+# whenever the user did not supply their own corpus_id. The probe runs at
+# import time, asks the live store whether that corpus has any documents,
+# and:
+#   - logs success with the document count when the corpus is reachable;
+#   - logs a warning AND flips the env flag to "0" when it isn't, so the
+#     runtime stops trying to use a non-existent corpus. The chat path
+#     keeps working without RAG (graceful degradation, no traceback).
+#
+# The probe is a single async call to list_documents. With the default
+# HDF5 backend it's effectively free (<10ms). With pgvector it's one
+# round-trip.
+_psych_logger = logging.getLogger("insult_ai.psych_corpus")
+if os.environ.get("INSULT_AI_PSYCH_CORPUS_ENABLED") == "1":
+    _psych_corpus_id = os.environ.get(
+        "INSULT_AI_PSYCH_CORPUS_ID", "psych_public_v1"
+    )
+    try:
+        _docs = asyncio.run(_rag.list_documents(_psych_corpus_id))
+        _doc_count = len(_docs) if _docs else 0
+        if _doc_count == 0:
+            raise RuntimeError(
+                f"corpus '{_psych_corpus_id}' has 0 documents - "
+                "run `python bench/ingest_psychology_corpus.py --commit`"
+            )
+        _psych_logger.info(
+            "probe_ok corpus_id=%s doc_count=%d",
+            _psych_corpus_id, _doc_count,
+        )
+    except Exception as exc:  # noqa: BLE001 - startup probe is intentionally broad
+        _psych_logger.warning(
+            "probe_failed corpus_id=%s err=%s -- "
+            "flipping INSULT_AI_PSYCH_CORPUS_ENABLED to 0 to avoid runtime "
+            "errors. Clinical mode will run WITHOUT corpus until the ingest "
+            "is fixed. Run: python bench/ingest_psychology_corpus.py --commit",
+            _psych_corpus_id, exc,
+        )
+        os.environ["INSULT_AI_PSYCH_CORPUS_ENABLED"] = "0"
+else:
+    _psych_logger.info(
+        "psych_corpus disabled (INSULT_AI_PSYCH_CORPUS_ENABLED != 1)"
+    )
+
 
 class RoastRequest(BaseModel):
     target: str  # a URL or a claim to roast + fact-check
