@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useLibrary } from "../../components/library/useLibrary";
+import { InsultHeader } from "../../components/layout/InsultHeader";
 import { Button } from "../../components/ui/Button";
-import { Textarea } from "../../components/ui/Textarea";
 import { PoweredBy } from "../../components/ui/PoweredBy";
-import { getStatusIcon, getUIIcon } from "../../lib/icons";
+import { Textarea } from "../../components/ui/Textarea";
+import { getStatusIcon } from "../../lib/icons";
+import type { ChatMode } from "../../components/chat/useChat";
 
-const FlameIcon = getUIIcon("brand");
-const BackIcon = getUIIcon("back");
 const DoneIcon = getStatusIcon("done");
 const WarnIcon = getStatusIcon("warning");
 
@@ -17,11 +18,21 @@ const WarnIcon = getStatusIcon("warning");
  * roast/brief. Thin wrapper around the /documents endpoint + a session-local
  * list of what's been ingested so the user sees confirmation immediately.
  *
+ * Shares the app shell (InsultHeader) with /chat so the identity holds
+ * across the route boundary. /library is the corpus surface, not a mode of
+ * the agent — but the header's mode switcher is still useful here because
+ * the natural next action AFTER ingesting a doc is "now go talk to it",
+ * which means picking a mode. So the switcher routes to /chat?mode=<next>
+ * instead of swapping local state. Default-displayed mode is `brief`
+ * because the brief persona is the one that uses the corpus most directly
+ * (cited intelligence over ingested research).
+ *
  * The corpus_id input is sticky across ingests (one corpus, many docs in
  * sequence). After ingesting, the user goes to /chat?corpus={id} so the
  * next turn's agent can `search_documents` over that corpus via the
  * rag_store MCP capability (already wired in runner.py). */
 export default function LibraryPage() {
+  const router = useRouter();
   const { corpusId, setCorpusId, docs, busy, error, ingest } = useLibrary();
   const [text, setText] = useState("");
 
@@ -30,31 +41,26 @@ export default function LibraryPage() {
     if (doc) setText("");
   }
 
+  // /library has no "active" mode of its own — the header's switcher is a
+  // teleport, not a state toggle. Picking a mode hard-navigates to /chat
+  // with that mode pre-selected. Brief is the visual default because the
+  // corpus surface and the brief persona are the most directly linked.
+  const handleModeChange = (next: ChatMode) => {
+    router.push(`/chat?mode=${next}`);
+  };
+
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 py-10">
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="inline-flex items-center gap-2 text-3xl font-extrabold tracking-tight">
-            <FlameIcon className="iai-flame h-8 w-8" aria-hidden />
-            Insult <span className="iai-brand">AI</span>
-            <span className="text-zinc-500">·</span>
-            <span className="text-zinc-400">library</span>
-          </h1>
-          <p className="mt-1 text-zinc-400">
-            Feed the agent a document corpus. Paste bios, press releases,
-            internal notes — the agent can mine them during a later roast or
-            brief, alongside live web data.
-          </p>
-        </div>
-        <Link
-          href="/chat"
-          className="iai-btn-chip shrink-0"
-          title="back to chat"
-        >
-          <BackIcon className="h-3.5 w-3.5" aria-hidden />
-          chat
-        </Link>
-      </header>
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 py-8">
+      <InsultHeader activeMode="brief" onModeChange={handleModeChange} />
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-xl font-bold text-zinc-100">Knowledge base</h2>
+        <p className="iai-hint text-sm">
+          Feed the agent a document corpus. Paste bios, press releases,
+          internal notes — the agent can mine them during a later roast or
+          brief, alongside live web data.
+        </p>
+      </section>
 
       {/* Form — corpus id + text. corpus_id is sticky so dropping multiple
        * docs into the same corpus doesn't require re-typing it. */}
