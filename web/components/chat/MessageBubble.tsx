@@ -8,6 +8,7 @@ import {
   ClinicalEnvelopeView,
   parseEnvelope,
 } from "./ClinicalEnvelope";
+import { AgenticSkeleton } from "./AgenticSkeleton";
 import { EnvelopeSkeleton } from "./EnvelopeSkeleton";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { PlanChecklist } from "./PlanChecklist";
@@ -151,14 +152,14 @@ export function MessageBubble({
           mode={mode}
         />
         {/* Rendering rules:
-          *   - Thinking with no content yet: paint the EnvelopeSkeleton so
-          *     the 25-40s clinical wait isn't a blank card. The skeleton
-          *     mirrors the eventual envelope shape (roast line + body bars
-          *     + action box + follow-up) AND surfaces the slow-banner at
-          *     12s / "still going" at 30s. We can't yet tell clinical
-          *     from roast/brief from here, so we show the skeleton on
-          *     ANY in-flight assistant turn that doesn't have content —
-          *     the bars work for both shapes.
+          *   - Thinking with no content yet: paint a mode-shaped skeleton.
+          *     Clinical → <EnvelopeSkeleton> (full envelope scaffolding,
+          *     persona-voiced slow-banner at 12s, "still going" at 30s).
+          *     Roast/brief → <AgenticSkeleton> (status line + plain text
+          *     bars). Painting the envelope shape for roast/brief lied
+          *     about the eventual output (markdown text, no
+          *     micro-action box) and surfaced the clinical guardrails
+          *     copy in modes that aren't clinical.
           *   - Streaming with content: lighter <RoastText> with a caret.
           *     The envelope isn't valid mid-stream (partial JSON), so we
           *     can't parse it yet. Don't try.
@@ -169,7 +170,7 @@ export function MessageBubble({
           * picked at runtime without the bubble knowing what mode the
           * page is in. */}
         {!message.content && (message.status === "thinking" || message.status === "streaming") && (
-          <EnvelopeSkeleton />
+          mode === "clinical" ? <EnvelopeSkeleton /> : <AgenticSkeleton />
         )}
         {message.content && message.status === "streaming" && (
           <RoastText text={message.content} caret={true} />
