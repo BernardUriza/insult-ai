@@ -249,7 +249,7 @@ export function useChat(opts?: {
         abortRef.current = null;
       }
     },
-    [streaming, patchAssistant, corpusId],
+    [streaming, patchAssistant, corpusId, mode, tone],
   );
 
   const abort = useCallback(() => {
