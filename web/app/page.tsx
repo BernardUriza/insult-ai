@@ -1,88 +1,245 @@
-"use client";
-
+import Image from "next/image";
 import Link from "next/link";
-import { ReceiptsPanel } from "../components/roast/ReceiptsPanel";
-import { RoastInput } from "../components/roast/RoastInput";
-import { RoastSkeleton } from "../components/roast/RoastSkeleton";
-import { RoastView } from "../components/roast/RoastView";
-import { SampleRoast } from "../components/roast/SampleRoast";
-import { useRoast } from "../components/roast/useRoast";
 import { PoweredBy } from "../components/ui/PoweredBy";
-import { getStatusIcon, getUIIcon } from "../lib/icons";
 
-const FlameIcon = getUIIcon("brand");
-const ForwardIcon = getUIIcon("forward");
-const WarnIcon = getStatusIcon("warning");
+// Editorial landing — explicitly NOT a chat surface. The root page sells
+// the product in 10 seconds; /chat is where the conversation happens. If
+// you find yourself adding a composer here, stop — that belongs in /chat.
+//
+// Mobile-first: every grid collapses to 1 column under md, the hero scales
+// down two type steps, and CTAs stack vertically. The dark-glass aesthetic
+// is intentional — it matches the chat shell so the brand identity holds
+// across the route boundary, but the chrome is editorial (cards, sections,
+// no input field) so the surface reads as marketing, not app.
+//
+// CTAs route to /chat?mode=<roast|brief|clinical>. The chat page already
+// reads ?mode= from searchParams and switches persona. No seed-draft route
+// is supported yet — the demo prompts route to the right mode and the
+// user picks up the conversation from the composer.
+
+type Mode = "roast" | "brief" | "clinical";
+
+interface SegmentCard {
+  mode: Mode;
+  badge: string;
+  title: string;
+  copy: string;
+  cta: string;
+}
+
+const SEGMENTS: SegmentCard[] = [
+  {
+    mode: "roast",
+    badge: "Witty Roast",
+    title: "Roast",
+    copy: "Claims, links, and messy thoughts — roasted with receipts.",
+    cta: "Start Roast",
+  },
+  {
+    mode: "brief",
+    badge: "Intelligence Brief",
+    title: "Brief",
+    copy: "Live signals turned into a sharp, cited brief.",
+    cta: "Get Briefed",
+  },
+  {
+    mode: "clinical",
+    badge: "Clinical Roast",
+    title: "Clinical",
+    copy: "Sharp coaching for bad patterns. Never cruel.",
+    cta: "Work through it",
+  },
+];
+
+interface DemoChip {
+  mode: Mode;
+  text: string;
+  badge: string;
+}
+
+const DEMO_CHIPS: DemoChip[] = [
+  {
+    mode: "clinical",
+    badge: "Clinical",
+    text: "I've avoided a two-paragraph email for three weeks.",
+  },
+  {
+    mode: "roast",
+    badge: "Roast",
+    text: "This article sounds fake.",
+  },
+  {
+    mode: "brief",
+    badge: "Brief",
+    text: "Brief this competitor.",
+  },
+  {
+    mode: "clinical",
+    badge: "Clinical",
+    text: "I'm spiraling about a meeting tomorrow.",
+  },
+];
+
+const HOW_STEPS = [
+  "Drop a claim, link, or messy thought.",
+  "Pick the mode and intensity.",
+  "Get a roast, brief, or micro-action with guardrails.",
+];
+
+const GUARDRAILS = [
+  "No identity attacks.",
+  "No crisis jokes.",
+  "Clinical mode lowers intensity when needed.",
+  "Micro-actions over moral lectures.",
+];
 
 export default function Home() {
-  const { target, setTarget, roast, loading, error, run, receipts, apiUrl } = useRoast();
-  const idle = !roast && !loading && !error;
-
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 py-10">
-      <header className="flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="inline-flex items-center gap-2.5 text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
-            <FlameIcon className="iai-flame h-8 w-8 sm:h-10 sm:w-10 md:h-11 md:w-11" aria-hidden />
-            Insult <span className="iai-brand">AI</span>
-          </h1>
-          <nav className="flex shrink-0 items-center gap-2">
-            <Link
-              href="/library"
-              className="iai-btn-chip"
-              title="feed the agent a document corpus"
-            >
-              library
-              <ForwardIcon className="h-3.5 w-3.5" aria-hidden />
-            </Link>
-            <Link
-              href="/chat"
-              className="iai-btn-chip"
-              title="multi-turn chat with live chain-of-thought"
-            >
-              chat
-              <ForwardIcon className="h-3.5 w-3.5" aria-hidden />
-            </Link>
-          </nav>
-        </div>
-        {/* Hero copy — split in two: the punch line first (loud), then the
-         * mechanic (quieter). The old paragraph buried the promise under a
-         * Bright Data attribution; this version puts the voice up front. */}
-        <p className="text-xl font-bold leading-tight text-zinc-100 md:text-2xl">
-          Don't trust the pitch.{" "}
-          <span className="text-iai-fire">We scraped it.</span>
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-20 px-5 py-12 md:py-20">
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
+      <section className="flex flex-col items-center gap-6 text-center">
+        <Image
+          src="/logo.png"
+          alt=""
+          width={160}
+          height={160}
+          priority
+          className="drop-shadow-[0_0_40px_rgb(var(--color-iai-fire-rgb)/0.5)]"
+        />
+        <h1 className="text-4xl font-extrabold tracking-tight text-zinc-100 sm:text-5xl md:text-6xl">
+          Insult <span className="iai-brand">AI</span>
+        </h1>
+        <p className="max-w-2xl text-xl font-bold leading-tight text-zinc-100 md:text-3xl">
+          AI that roasts the pattern,{" "}
+          <span className="text-iai-fire">not the person.</span>
         </p>
-        <p className="iai-hint text-base">
-          Live web data via{" "}
-          <span className="iai-brand font-semibold">Bright Data</span>. Every
-          roast comes with receipts.
+        <p className="iai-hint max-w-xl text-base md:text-lg">
+          Choose a mode: get roasted, get briefed, or work through the mess with
+          guardrails.
         </p>
-      </header>
-
-      <RoastInput target={target} loading={loading} onChange={setTarget} onRun={run} />
-
-      {error && (
-        <div className="iai-error inline-flex flex-col">
-          <span className="inline-flex items-center gap-2">
-            <WarnIcon className="h-4 w-4 shrink-0 text-amber-400" aria-hidden />
-            {error}
-          </span>
-          <span className="mt-1 block text-xs text-red-400/70">
-            Is the API running at {apiUrl}?
-          </span>
+        <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+          <Link
+            href="/chat?mode=roast"
+            className="iai-btn-primary"
+            aria-label="Start a roast session"
+          >
+            Start roasting
+          </Link>
+          <Link
+            href="/chat?mode=clinical"
+            className="iai-btn-chip text-base px-5 py-3"
+            aria-label="Try clinical coaching mode"
+          >
+            Try Clinical
+          </Link>
         </div>
-      )}
+      </section>
 
-      {/* Idle / loading / done — three exclusive states.
-       * Idle now shows a REAL sample roast (text + receipts) instead of a
-       * placeholder card that just echoed the input. Demo proof above-the-fold:
-       * a judge sees the format before typing anything. */}
-      {idle && <SampleRoast onRunSample={run} />}
-      {loading && !roast && <RoastSkeleton />}
-      {roast && <RoastView text={roast} />}
-      <ReceiptsPanel urls={receipts} />
+      {/* ── Segment cards ────────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-6">
+        <header className="flex flex-col items-center gap-2 text-center">
+          <h2 className="text-2xl font-extrabold text-zinc-100 md:text-3xl">
+            Three modes, one engine.
+          </h2>
+          <p className="iai-hint text-base">Pick the surface that matches the mess.</p>
+        </header>
+        <div className="grid gap-4 md:grid-cols-3">
+          {SEGMENTS.map((s) => (
+            <article
+              key={s.mode}
+              className="iai-card flex flex-col gap-4 transition hover:border-iai-fire/40 hover:bg-iai-surface/30"
+            >
+              <span className="iai-tag self-start">{s.badge}</span>
+              <h3 className="text-xl font-bold text-zinc-100">{s.title}</h3>
+              <p className="iai-hint flex-1 text-sm leading-relaxed text-zinc-400">
+                {s.copy}
+              </p>
+              <Link
+                href={`/chat?mode=${s.mode}`}
+                className="iai-btn-primary"
+                data-size="sm"
+              >
+                {s.cta}
+              </Link>
+            </article>
+          ))}
+        </div>
+      </section>
 
-      <footer className="mt-auto flex flex-col items-center gap-2 pt-6 text-center text-xs text-zinc-600">
+      {/* ── How it works ─────────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-6">
+        <header className="flex flex-col items-center gap-2 text-center">
+          <h2 className="text-2xl font-extrabold text-zinc-100 md:text-3xl">
+            How it works
+          </h2>
+        </header>
+        <ol className="grid gap-4 md:grid-cols-3">
+          {HOW_STEPS.map((step, i) => (
+            <li
+              key={i}
+              className="iai-card-soft flex flex-col items-start gap-3"
+            >
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-iai-fire/40 bg-iai-fire/10 text-base font-bold text-iai-fire">
+                {i + 1}
+              </span>
+              <p className="text-base leading-relaxed text-zinc-200">{step}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* ── Guardrails ───────────────────────────────────────────────────── */}
+      <section className="iai-card-sample flex flex-col gap-4">
+        <header className="flex flex-col gap-1">
+          <p className="iai-tag self-start">Guardrails</p>
+          <h2 className="text-2xl font-extrabold text-zinc-100 md:text-3xl">
+            Funny does not mean reckless.
+          </h2>
+        </header>
+        <ul className="grid gap-2 text-base leading-relaxed text-zinc-200 sm:grid-cols-2">
+          {GUARDRAILS.map((g) => (
+            <li key={g} className="flex items-start gap-2">
+              <span aria-hidden className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-iai-fire" />
+              <span>{g}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* ── Demo prompts ─────────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-4">
+        <header className="flex flex-col items-center gap-2 text-center">
+          <h2 className="text-2xl font-extrabold text-zinc-100 md:text-3xl">
+            Try one of these.
+          </h2>
+          <p className="iai-hint text-base">
+            Click a prompt — it routes you into the right mode.
+          </p>
+        </header>
+        <div className="flex flex-wrap justify-center gap-3">
+          {DEMO_CHIPS.map((chip) => (
+            <Link
+              key={chip.text}
+              href={`/chat?mode=${chip.mode}`}
+              className="group flex max-w-md flex-col gap-1.5 rounded-xl border border-iai-border bg-iai-surface/40 px-4 py-3 text-left transition hover:border-iai-fire/50 hover:bg-iai-surface"
+            >
+              <span className="iai-hint text-[10px] font-semibold uppercase tracking-wider text-iai-fire/80 group-hover:text-iai-fire">
+                {chip.badge}
+              </span>
+              <span className="text-sm leading-snug text-zinc-200">
+                &ldquo;{chip.text}&rdquo;
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Footer ───────────────────────────────────────────────────────── */}
+      <footer className="mt-auto flex flex-col items-center gap-3 pt-6 text-center text-xs text-zinc-600">
+        <p className="text-sm font-semibold text-zinc-400">
+          Insult <span className="iai-brand">AI</span>
+        </p>
+        <p className="iai-hint">Roasts with receipts. Boundaries included.</p>
         <PoweredBy />
         <span>Insult AI · Web Data UNLOCKED Hackathon</span>
       </footer>
