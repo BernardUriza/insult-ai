@@ -15,6 +15,7 @@ import {
   Flame,
   ListChecks,
   Mic,
+  Paperclip,
   Pause,
   Receipt,
   Send,
@@ -54,6 +55,10 @@ export const UI_ICONS: Record<string, LucideIcon> = {
   mic: Mic, // microphone button in the composer (hold/toggle to record)
   speaker: Volume2, // 'listen to this' button on assistant bubbles (TTS playback)
   pause: Pause, // pauses TTS playback while keeping the buffered blob
+  // File attach — paperclip in the composer reads .txt/.md locally and
+  // inlines the text into the draft. No backend round-trip; the agent
+  // sees the file content as part of the user message.
+  attach: Paperclip,
 } as const;
 
 export function getUIIcon(key: string): LucideIcon {

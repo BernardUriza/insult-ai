@@ -1,6 +1,6 @@
 "use client";
 
-import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import { type ChangeEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { getUIIcon } from "../../lib/icons";
 import { Button } from "../ui/Button";
 import { Textarea } from "../ui/Textarea";
@@ -13,6 +13,9 @@ import { useVoiceCapture } from "./useVoiceCapture";
 const SendIcon = getUIIcon("send");
 const StopIcon = getUIIcon("stop");
 const MicIcon = getUIIcon("mic");
+const AttachIcon = getUIIcon("attach");
+
+const ATTACH_MAX_BYTES = 256 * 1024; // 256 KB — text/md only; anything bigger should go through /library's pgvector path.
 
 const PLACEHOLDER_BY_MODE: Record<ChatMode, string> = {
   roast:
@@ -105,6 +108,42 @@ export function ChatInput({
     setDraft("");
   };
 
+  // Attach: a paperclip that reads a `.txt` or `.md` locally and APPENDS its
+  // text to the current draft (fenced block + filename label). No backend
+  // round-trip — the agent sees the file content as part of the user
+  // message. For large RAG docs use /library instead; this is the inline
+  // "drop one bio / snippet into the conversation" path.
+  const attachRef = useRef<HTMLInputElement>(null);
+  const [attachError, setAttachError] = useState<string | null>(null);
+
+  const handleAttachChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset so re-picking the SAME file fires onChange again.
+    e.target.value = "";
+    if (!file) return;
+    setAttachError(null);
+    const lower = file.name.toLowerCase();
+    if (!lower.endsWith(".txt") && !lower.endsWith(".md")) {
+      setAttachError(`only .txt and .md supported (got ${file.name})`);
+      return;
+    }
+    if (file.size > ATTACH_MAX_BYTES) {
+      setAttachError(
+        `file too large (${(file.size / 1024).toFixed(0)} KB). Use /library for bigger docs.`,
+      );
+      return;
+    }
+    void file.text().then((content) => {
+      const trimmed = content.trim();
+      if (!trimmed) {
+        setAttachError("file is empty");
+        return;
+      }
+      const block = `\n\n--- ${file.name} ---\n${trimmed}\n--- end ---\n`;
+      setDraft((prev) => (prev ? prev + block : block.trimStart()));
+    });
+  };
+
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -136,6 +175,31 @@ export function ChatInput({
           aria-label="message to the agent"
         />
         <div className="flex items-stretch gap-2">
+          {/* Hidden file input + paperclip button. Reads .txt/.md locally
+            * and inlines the text into the draft — no backend call. The
+            * /library page is the place to push a doc into the pgvector
+            * corpus; this is the inline "drop a bio into the conversation"
+            * shortcut. */}
+          <input
+            ref={attachRef}
+            type="file"
+            accept=".txt,.md"
+            className="hidden"
+            onChange={handleAttachChange}
+            aria-hidden
+            tabIndex={-1}
+          />
+          <Button
+            type="button"
+            variant="chip"
+            onClick={() => attachRef.current?.click()}
+            disabled={streaming}
+            className="h-12 w-12 justify-center px-0"
+            title="attach a .txt or .md file (inline into your draft)"
+            aria-label="attach a file"
+          >
+            <AttachIcon className="h-5 w-5" aria-hidden />
+          </Button>
           {/* Mic button — wrapped in a relative shell so PulseRings can
             * paint on top while recording. Rings respond to the live
             * audioLevel; color flips between green (voice landing) and
@@ -212,8 +276,10 @@ export function ChatInput({
         ) : (
           <span />
         )}
-        {voiceError && (
-          <span className="iai-hint text-xs text-amber-400">{voiceError}</span>
+        {(voiceError || attachError) && (
+          <span className="iai-hint text-xs text-amber-400">
+            {voiceError ?? attachError}
+          </span>
         )}
       </div>
     </div>

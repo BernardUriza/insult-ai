@@ -94,6 +94,67 @@ export function useLibrary() {
     [corpusId, busy],
   );
 
+  /** Upload a `.txt` or `.md` file as a corpus document. Mirrors `ingest`
+   * but posts multipart instead of JSON — same downstream chunking +
+   * embedding path on the backend, indistinguishable to the agent later.
+   * Validates extension client-side so a bad file gives feedback before
+   * even round-tripping. */
+  const uploadFile = useCallback(
+    async (file: File): Promise<IngestedDoc | null> => {
+      const corpus = corpusId.trim();
+      if (!corpus || busy) return null;
+      const lower = file.name.toLowerCase();
+      const ok = lower.endsWith(".txt") || lower.endsWith(".md");
+      if (!ok) {
+        setError(`unsupported file type — only .txt and .md are accepted (got ${file.name})`);
+        return null;
+      }
+      setBusy(true);
+      setError("");
+      const docId = `doc-${newId()}`;
+      try {
+        const form = new FormData();
+        form.append("corpus_id", corpus);
+        form.append("doc_id", docId);
+        form.append("file", file);
+        // NOTE: deliberately NOT setting Content-Type — the browser sets
+        // multipart/form-data + the boundary string for us. Setting it
+        // manually drops the boundary and FastAPI rejects the body.
+        const res = await fetch(apiUrl("/documents/upload"), {
+          method: "POST",
+          headers: apiHeaders(),
+          body: form,
+        });
+        if (!res.ok) {
+          let detail = `${res.status}`;
+          try {
+            const j = (await res.json()) as { detail?: string };
+            if (j?.detail) detail = j.detail;
+          } catch {
+            /* not JSON */
+          }
+          throw new Error(detail);
+        }
+        const data = (await res.json()) as { chunks?: number };
+        const doc: IngestedDoc = {
+          docId,
+          corpusId: corpus,
+          preview: `📎 ${file.name}`,
+          chunks: data.chunks ?? 0,
+          at: Date.now(),
+        };
+        setDocs((prev) => [doc, ...prev]);
+        return doc;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "upload failed");
+        return null;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [corpusId, busy],
+  );
+
   return {
     corpusId,
     setCorpusId,
@@ -101,5 +162,6 @@ export function useLibrary() {
     busy,
     error,
     ingest,
+    uploadFile,
   };
 }

@@ -12,7 +12,7 @@ import os
 import time
 from typing import Literal
 
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from fi_runner.rag_store import RagStoreClient
@@ -277,6 +277,60 @@ async def ingest_document(request: Request, req: IngestRequest) -> IngestRespons
     # Low min_chunk_size so short pastes (a paragraph, a bio) still get stored,
     # not silently dropped.
     chunks = await _rag.ingest(req.corpus_id, req.doc_id, req.text, min_chunk_size=30)
+    return IngestResponse(chunks=chunks)
+
+
+# Whitelist of file extensions the upload endpoint accepts. Text-only on
+# purpose for v1 — adding PDFs is one `pypdf` dependency and a few lines
+# below, but the demo flow ("paste a bio, drop a press release") rarely
+# needs PDF parsing. When the asks come in, wire pypdf and add ".pdf" here.
+_UPLOAD_ALLOWED_EXTENSIONS = {".txt", ".md"}
+# 5 MB raw upload ceiling. Generous for a .md or .txt corpus document; tight
+# enough that an attacker can't park a 1 GB blob in a multipart frame and
+# burn process memory. Returned as a 413 with a helpful detail.
+_UPLOAD_MAX_BYTES = 5 * 1024 * 1024
+
+
+@app.post("/documents/upload", response_model=IngestResponse, dependencies=[Depends(verify_api_key)])
+@limiter.limit("60/hour")
+async def upload_document(
+    request: Request,
+    corpus_id: str = Form(...),
+    doc_id: str = Form(...),
+    file: UploadFile = File(...),
+) -> IngestResponse:
+    """Multipart sibling of /documents — accepts a `.txt` or `.md` file
+    instead of a JSON-pasted body. Same chunking + embedding + pgvector
+    path downstream as the paste flow, so a doc ingested here is
+    indistinguishable to the agent from a doc pasted there.
+
+    PDFs aren't supported here yet — adding `pypdf` and an extra branch
+    would handle them, but the v1 demo target ("paste a bio / drop a
+    .md") doesn't need it. Adding it later is one dep + ~6 lines."""
+    filename = file.filename or "uploaded.txt"
+    dot = filename.rfind(".")
+    ext = filename[dot:].lower() if dot >= 0 else ""
+    if ext not in _UPLOAD_ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=415,
+            detail=(
+                f"unsupported file type {ext!r}; "
+                f"allowed: {sorted(_UPLOAD_ALLOWED_EXTENSIONS)}"
+            ),
+        )
+    raw = await file.read()
+    if len(raw) > _UPLOAD_MAX_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"file too large ({len(raw)} bytes); max {_UPLOAD_MAX_BYTES} bytes",
+        )
+    # `errors="replace"` rather than strict — the demo's "paste a bio" flow
+    # doesn't gain from being strict about bad bytes in a corpus doc. Bad
+    # bytes become U+FFFD; the doc is still useful for the agent's search.
+    text = raw.decode("utf-8", errors="replace")
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="file contains no text")
+    chunks = await _rag.ingest(corpus_id, doc_id, text, min_chunk_size=30)
     return IngestResponse(chunks=chunks)
 
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { FileDropzone } from "../../components/library/FileDropzone";
 import { useLibrary } from "../../components/library/useLibrary";
 import { InsultHeader } from "../../components/layout/InsultHeader";
 import { Button } from "../../components/ui/Button";
@@ -33,7 +34,7 @@ const WarnIcon = getStatusIcon("warning");
  * rag_store MCP capability (already wired in runner.py). */
 export default function LibraryPage() {
   const router = useRouter();
-  const { corpusId, setCorpusId, docs, busy, error, ingest } = useLibrary();
+  const { corpusId, setCorpusId, docs, busy, error, ingest, uploadFile } = useLibrary();
   const [text, setText] = useState("");
 
   async function onIngest() {
@@ -77,6 +78,27 @@ export default function LibraryPage() {
             disabled={busy}
           />
         </label>
+        <div className="flex flex-col gap-1">
+          <span className="iai-hint text-xs uppercase tracking-wide">Upload a file</span>
+          <FileDropzone
+            onFile={(f) => {
+              void uploadFile(f);
+            }}
+            disabled={busy || !corpusId.trim()}
+          />
+          {!corpusId.trim() && (
+            <span className="iai-hint text-[11px]">
+              Set a knowledge base name above before uploading.
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 text-[11px] uppercase tracking-wider text-zinc-500">
+          <span className="h-px flex-1 bg-iai-border" />
+          <span>or paste text</span>
+          <span className="h-px flex-1 bg-iai-border" />
+        </div>
+
         <label className="flex flex-col gap-1 text-sm">
           <span className="iai-hint text-xs uppercase tracking-wide">Document text</span>
           <Textarea

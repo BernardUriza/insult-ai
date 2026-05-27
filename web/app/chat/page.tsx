@@ -156,8 +156,16 @@ export default function ChatPage() {
           seedDraft={seedDraft}
           mode={mode}
         />
-        <div className="mt-2 flex items-center justify-center text-[10px]">
+        <div className="mt-2 flex items-center justify-center gap-3 text-[10px]">
           <PoweredBy />
+          <span className="text-zinc-700">·</span>
+          <a
+            href="/library"
+            className="iai-hint hover:text-zinc-300"
+            title="Manage uploaded documents and corpora"
+          >
+            Knowledge base →
+          </a>
         </div>
       </div>
 
