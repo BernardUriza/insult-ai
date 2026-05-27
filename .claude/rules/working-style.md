@@ -74,6 +74,41 @@ because I didn't check `lsof -i :5432` first. There was a co-resident
 Postgres (Tilt) eating the port. The lesson: check the bottom of the
 stack BEFORE blaming the top.
 
+## External-channel posts: draft → pbcopy → user posts
+
+When the user wants to share something on a third-party platform (Discord,
+X / Twitter, LinkedIn, lablab.ai forms, dev.to, etc.), the workflow is:
+
+1. **Draft in product voice.** Match the tone the product already speaks
+   (for insult-ai: dry, sharp, warm, no corporate-speak, no emoji excess,
+   not slangy). One short hook line, then the body, then the URLs. No
+   marketing fluff.
+2. **Tailor per channel.** A `#participants-chat` post reads differently
+   than a `#track-1` post: the first is casual, the second is
+   technical/business. If multiple channels, draft multiple.
+3. **`pbcopy` it.** Use heredoc → `pbcopy`, then verify with `pbpaste |
+   head -3` + char count. Don't make the user retype anything you wrote.
+4. **Report the platform limits.** Discord 2000, X 280, LinkedIn 3000,
+   etc. Cap or split if over. Show the user the char count so they know
+   it fits before pasting.
+5. **Never auto-post to user-visible channels.** Even with browser
+   access (chrome-devtools MCP), leave the message in the composer
+   UN-SENT or hand it via clipboard. Posting to a real audience is a
+   "state visible to others" action — user keeps the Send button.
+
+How NOT to do this:
+- Don't propose three variants when the user asked for "a draft" — ship
+  ONE focused version. Variants come if the user asks.
+- Don't include the channel name / platform header inside the message
+  body itself ("**Post A — for #participants-chat**" doesn't belong on
+  the clipboard).
+- Don't add emojis the product wouldn't use, even if "Discord culture"
+  suggests them. The product's voice is the same in chat and on Discord.
+
+The concrete failure that triggered this rule: I almost asked Bernard
+to retype the post from the chat into Discord by hand. He pointed at
+`pbcopy`. That was friction I should have absorbed automatically.
+
 ## Match scope to ask — don't trickle-ask
 
 When the user picks an option, EXECUTE the option. Don't follow up with
