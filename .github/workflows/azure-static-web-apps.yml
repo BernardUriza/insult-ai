@@ -45,18 +45,25 @@ jobs:
         run: npm ci
 
       # Cache Next.js's incremental build directory so consecutive builds
-      # (post-cache) drop from ~50s to ~15s. Key buckets:
-      #   - package-lock.json change → fresh cache (deps moved, old cache stale)
-      #   - source change w/ same lockfile → restore-keys lets us inherit the
-      #     previous build's cache and only recompile what changed.
+      # (post-cache) drop from ~50s to ~15s. Key buckets, in order of
+      # invalidation cost:
+      #   - "v2" prefix — bump this manually to nuke ALL prior caches when a
+      #     cache poisoning is suspected (e.g. the 2026-05-26 incident where
+      #     env-derived chunks were reused despite changed env vars).
+      #   - vars.NEXT_PUBLIC_API_URL — Turbopack inlines this into chunks; if
+      #     the URL ever moves, the cached chunks point at the OLD backend.
+      #     Including it in the key guarantees a fresh build per backend.
+      #   - package-lock.json hash — deps moved → fresh cache.
+      #   - source-file hash — incremental change → restore-keys inherits the
+      #     previous bucket's cache, Turbopack recompiles only deltas.
       # See https://nextjs.org/docs/app/guides/ci-build-caching
       - name: Cache Next.js build
         uses: actions/cache@v5
         with:
           path: web/.next/cache
-          key: nextjs-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}-${{ hashFiles('web/**/*.[jt]s', 'web/**/*.[jt]sx', 'web/**/*.css') }}
+          key: nextjs-v2-${{ runner.os }}-${{ vars.NEXT_PUBLIC_API_URL }}-${{ hashFiles('web/package-lock.json') }}-${{ hashFiles('web/**/*.[jt]s', 'web/**/*.[jt]sx', 'web/**/*.css') }}
           restore-keys: |
-            nextjs-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}-
+            nextjs-v2-${{ runner.os }}-${{ vars.NEXT_PUBLIC_API_URL }}-${{ hashFiles('web/package-lock.json') }}-
 
       # NEXT_PUBLIC_* is inlined at build time, not read at runtime — so the
       # API URL and the X-API-Key gate MUST be set before `next build` runs,
