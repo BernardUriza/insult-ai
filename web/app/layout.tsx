@@ -19,7 +19,13 @@ const TITLE = "Insult AI — roast & fact-check with live receipts";
 const DESCRIPTION =
   "Feed it a URL or a claim. Insult AI pulls live web data via Bright Data and roasts the target — every jab backed by a real, cited source.";
 
+// Without metadataBase, Next.js resolves OG image URLs against the build-time
+// host — which is localhost:3000 in CI. That puts `content="http://localhost
+// :3000/og-image.png"` into the head, and Slack/Twitter/iMessage fail to
+// fetch the preview. Hardcoding the production host fixes social previews
+// without needing a build-time env var. If we ever move the host, edit here.
 export const metadata: Metadata = {
+  metadataBase: new URL("https://iai.bernarduriza.com"),
   title: TITLE,
   description: DESCRIPTION,
   icons: {
