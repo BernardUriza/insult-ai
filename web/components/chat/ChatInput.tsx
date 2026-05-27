@@ -4,18 +4,29 @@ import { type KeyboardEvent, useId, useState } from "react";
 import { getUIIcon } from "../../lib/icons";
 import { Button } from "../ui/Button";
 import { Textarea } from "../ui/Textarea";
+import { PulseRings } from "./PulseRings";
+import { RecordingTimer } from "./RecordingTimer";
+import { useAudioAnalysis } from "./useAudioAnalysis";
 import { useVoiceCapture } from "./useVoiceCapture";
 
 const SendIcon = getUIIcon("send");
 const StopIcon = getUIIcon("stop");
 const MicIcon = getUIIcon("mic");
 
-/** Composer: textarea + send button. Enter sends, Shift+Enter newline. While
- * streaming, the button becomes "Stop" so the user can cancel mid-roast.
+/** Composer: textarea + mic + send button. Enter sends, Shift+Enter newline.
+ * While streaming, the send becomes "Stop" so the user can cancel mid-roast.
  *
- * Built from the shared `<Textarea>` + `<Button>` primitives (single source for
- * iai-input / iai-btn-* styling); a previous version inlined the raw HTML which
- * was the only place in the app that diverged from the design-system surface. */
+ * Voice input wiring (aurity-style):
+ *   - `useVoiceCapture` owns the mic lifecycle (MediaRecorder → POST
+ *     /voice/transcribe → onTranscribed).
+ *   - `useAudioAnalysis` reads the live MediaStream's FFT for VAD: gives
+ *     us `audioLevel` (0-255) and `isSilent`.
+ *   - `<PulseRings>` paints the VAD around the button (green for voice,
+ *     red for silence) so the user knows the mic actually heard them.
+ *   - `<RecordingTimer>` shows MM:SS while recording, with a pulsing dot.
+ *
+ * The mic input APPENDS to the existing draft (with a space separator)
+ * — multi-sentence dictation across taps. */
 export function ChatInput({
   onSend,
   onAbort,
@@ -29,21 +40,21 @@ export function ChatInput({
 }) {
   const [draft, setDraft] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
-  // useId so a second ChatInput on the same page can't clash. Was hardcoded
-  // "chat-input" which would have collided in any multi-chat surface.
   const inputId = useId();
 
-  // Voice input — mic captures audio → Whisper → text appends to the draft.
-  // We APPEND (with a leading space when the draft already has content)
-  // instead of replacing, so a user can dictate multiple sentences in a row
-  // by tapping the mic between each. Mic is disabled while the turn streams
-  // — letting a user dictate over a live response would just queue confusion.
   const voice = useVoiceCapture({
     onTranscribed: (text) => {
       setDraft((prev) => (prev.trim() ? `${prev.trimEnd()} ${text}` : text));
       setVoiceError(null);
     },
     onError: (msg) => setVoiceError(msg),
+  });
+
+  // Pipe the live stream into the FFT analyser only while recording.
+  // When the recorder stops the stream becomes null and `isActive` flips
+  // false — the AudioContext is closed by the cleanup effect.
+  const { audioLevel, isSilent } = useAudioAnalysis(voice.stream, {
+    isActive: voice.state === "recording",
   });
 
   const submit = () => {
@@ -84,33 +95,38 @@ export function ChatInput({
           aria-label="message to the agent"
         />
         <div className="flex items-stretch gap-2">
-          {/* Mic button — toggles recording. While recording, the icon
-            * pulses red to make the active state unmistakable (browsers also
-            * show a tab-level mic indicator, but the in-UI feedback is what
-            * the user notices first). */}
-          <Button
-            type="button"
-            variant="chip"
-            onClick={voice.toggle}
-            disabled={streaming || voice.state === "transcribing"}
-            className={`h-12 w-12 justify-center px-0 ${
-              voice.state === "recording"
-                ? "border-red-500/60 bg-red-500/15 text-red-300 animate-pulse"
-                : ""
-            }`}
-            title={micTitle}
-            aria-label={micTitle}
-            aria-pressed={voice.state === "recording"}
-          >
-            {voice.state === "transcribing" ? (
-              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
-              </svg>
-            ) : (
-              <MicIcon className="h-5 w-5" aria-hidden />
+          {/* Mic button — wrapped in a relative shell so PulseRings can
+            * paint on top while recording. Rings respond to the live
+            * audioLevel; color flips between green (voice landing) and
+            * red (silent — user might not realize). */}
+          <div className="relative h-12 w-12">
+            {voice.state === "recording" && (
+              <PulseRings audioLevel={audioLevel} isSilent={isSilent} />
             )}
-          </Button>
+            <Button
+              type="button"
+              variant="chip"
+              onClick={voice.toggle}
+              disabled={streaming || voice.state === "transcribing"}
+              className={`relative z-10 h-12 w-12 justify-center px-0 ${
+                voice.state === "recording"
+                  ? "border-iai-fire/60 bg-iai-fire/15 text-iai-fire"
+                  : ""
+              }`}
+              title={micTitle}
+              aria-label={micTitle}
+              aria-pressed={voice.state === "recording"}
+            >
+              {voice.state === "transcribing" ? (
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
+                </svg>
+              ) : (
+                <MicIcon className="h-5 w-5" aria-hidden />
+              )}
+            </Button>
+          </div>
           {streaming ? (
             <Button
               type="button"
@@ -137,9 +153,19 @@ export function ChatInput({
           )}
         </div>
       </div>
-      {voiceError && (
-        <span className="iai-hint text-xs text-amber-400">{voiceError}</span>
-      )}
+      {/* Status row: timer when recording, error when something failed. */}
+      <div className="flex items-center justify-between gap-2 px-1 min-h-[18px]">
+        {voice.state === "recording" ? (
+          <RecordingTimer time={voice.recordingTime} />
+        ) : voice.state === "transcribing" ? (
+          <span className="iai-hint iai-hint-live text-xs">transcribing…</span>
+        ) : (
+          <span />
+        )}
+        {voiceError && (
+          <span className="iai-hint text-xs text-amber-400">{voiceError}</span>
+        )}
+      </div>
     </div>
   );
 }

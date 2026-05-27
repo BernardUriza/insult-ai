@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { AudioPlayer } from "../../components/chat/AudioPlayer";
 import { ChatInput } from "../../components/chat/ChatInput";
 import { ChatView } from "../../components/chat/ChatView";
 import { useChat } from "../../components/chat/useChat";
+import { useTtsBlob } from "../../components/chat/useTtsBlob";
 import { Button } from "../../components/ui/Button";
 import { PoweredBy } from "../../components/ui/PoweredBy";
 import { getUIIcon } from "../../lib/icons";
@@ -33,6 +35,32 @@ export default function ChatPage() {
   }, []);
 
   const { messages, streaming, send, abort, reset } = useChat({ corpusId });
+
+  // TTS playback lifted to page level: a single <AudioPlayer> floating
+  // bar handles ALL bubbles, switching its source when the user hits
+  // "listen" on a different one. This matches aurity's single-player
+  // pattern and avoids the inline-audio-per-bubble we shipped before.
+  const tts = useTtsBlob();
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+
+  const handleSpeak = useCallback(
+    (text: string | null, id: string) => {
+      // null = the user toggled OFF the same bubble → close the player.
+      if (text === null) {
+        tts.close();
+        setSpeakingId(null);
+        return;
+      }
+      setSpeakingId(id);
+      void tts.synthesize(text, "onyx");
+    },
+    [tts],
+  );
+
+  const handlePlayerClose = useCallback(() => {
+    tts.close();
+    setSpeakingId(null);
+  }, [tts]);
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-5 py-8">
@@ -108,18 +136,27 @@ export default function ChatPage() {
         </label>
       </header>
 
-      <ChatView messages={messages} />
+      <ChatView messages={messages} onSpeak={handleSpeak} speakingId={speakingId} />
 
       <div className="sticky bottom-2 mt-2">
         <ChatInput onSend={send} onAbort={abort} streaming={streaming} />
         <div className="mt-2 flex items-center justify-center text-[10px]">
-          {/* Just the badge — the API URL used to live here too, but on mobile
-           * (and even on desktop with a long Container App hostname) it broke
-           * the layout into two crooked lines. The URL is still discoverable
-           * via DevTools / the title attr on PoweredBy for anyone curious. */}
           <PoweredBy />
         </div>
       </div>
+
+      {/* Floating audio player — visible while a TTS request is in-flight
+        * or playing. Position is fixed (out of normal flow); rendered as
+        * a sibling of the chat so its z-index sits above messages. */}
+      {(speakingId || tts.isLoading || tts.error) && (
+        <AudioPlayer
+          audioUrl={tts.audioUrl}
+          isLoading={tts.isLoading}
+          error={tts.error}
+          onClose={handlePlayerClose}
+          voiceLabel="onyx"
+        />
+      )}
     </main>
   );
 }

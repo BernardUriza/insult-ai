@@ -15,7 +15,18 @@ const FlameIcon = getUIIcon("brand");
  * Policy: scroll iff (a) a NEW message landed (turn boundary — always honor),
  * or (b) the user is already near the bottom (within one viewport + a margin).
  * If they scrolled up to read, deltas don't drag them down. */
-export function ChatView({ messages }: { messages: ChatMessage[] }) {
+export function ChatView({
+  messages,
+  onSpeak,
+  speakingId,
+}: {
+  messages: ChatMessage[];
+  /** Page-level handler that lifts the TTS playback to a single floating
+   * AudioPlayer (see chat/page.tsx). Optional — when absent the listen
+   * button is hidden in each bubble. */
+  onSpeak?: (text: string | null, id: string) => void;
+  speakingId?: string | null;
+}) {
   const tailRef = useRef<HTMLDivElement>(null);
   const lastCountRef = useRef(0);
 
@@ -58,7 +69,15 @@ export function ChatView({ messages }: { messages: ChatMessage[] }) {
             }
           }
         }
-        return <MessageBubble key={m.id} message={m} target={target} />;
+        return (
+          <MessageBubble
+            key={m.id}
+            message={m}
+            target={target}
+            onSpeak={onSpeak}
+            speakingId={speakingId}
+          />
+        );
       })}
       <div ref={tailRef} />
     </div>
