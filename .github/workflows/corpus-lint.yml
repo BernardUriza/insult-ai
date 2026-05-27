@@ -1,0 +1,83 @@
+name: Corpus lint
+
+# Slice 1.5 — runs the dry-run validator in CI for every change that
+# touches the psychology corpus, the license registry, or the validator
+# itself. The dry-run script is self-contained: it parses frontmatter,
+# checks the license allowlist, PHI screening, attribution presence, body
+# non-emptiness, and doc_id collisions. It does NOT instantiate the
+# fi-runner RagStoreClient and does NOT touch any RAG store.
+#
+# The workflow deliberately does NOT install fi-runner. The validator
+# already handles the absence gracefully (the import is wrapped in a
+# try/except; dry-run still runs). Installing fi-runner would slow CI
+# without changing the validation outcome.
+#
+# A failure here blocks the PR. That's the intent: a malformed
+# frontmatter, a missing attribution, a phi_screened: false, or a license
+# outside the allowlist must not silently land in master.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "corpus/**"
+      - "docs/research/**"
+      - "bench/ingest_psychology_corpus.py"
+      - ".github/workflows/corpus-lint.yml"
+  pull_request:
+    paths:
+      - "corpus/**"
+      - "docs/research/**"
+      - "bench/ingest_psychology_corpus.py"
+      - ".github/workflows/corpus-lint.yml"
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Validate psychology corpus
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run corpus dry-run validator
+        id: dryrun
+        run: |
+          set -o pipefail
+          python bench/ingest_psychology_corpus.py --verbose | tee /tmp/corpus-lint.out
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Corpus lint"
+            echo ""
+            if [ "${{ steps.dryrun.outcome }}" = "success" ]; then
+              echo "PASS: every candidate document was accepted by the dry-run validator."
+              echo ""
+              echo "Validated:"
+              echo "- YAML frontmatter present and parseable"
+              echo "- All 8 required fields present per document"
+              echo "- license value in ALLOWED_LICENSES allowlist"
+              echo "- phi_screened is true"
+              echo "- attribution_text non-empty when attribution_required is true"
+              echo "- Document body is non-empty after stripping frontmatter"
+              echo "- doc_id (sha1 of relative path) is unique across the corpus"
+              echo "- corpus/golden_conversations/ is excluded from ingest"
+            else
+              echo "FAIL: the dry-run validator rejected one or more documents."
+              echo ""
+              echo "See the dry-run step above for per-document reasons. Common causes:"
+              echo "- Missing or malformed YAML frontmatter (must begin with '---' and end with '---')"
+              echo "- license slug not in the allowlist (docs/research/psychology_sources.md)"
+              echo "- phi_screened set to false or missing"
+              echo "- attribution_required is true but attribution_text is empty"
+            fi
+            echo ""
+            echo "Full validator output is in the previous step's log."
+          } >> "$GITHUB_STEP_SUMMARY"
