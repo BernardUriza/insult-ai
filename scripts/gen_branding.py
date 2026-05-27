@@ -9,6 +9,10 @@ front-end:
   web/public/apple-touch-icon.png   180×180 PNG, transparent
   web/public/icon.png          256×256 PNG, transparent (Next.js metadata)
   web/public/logo.png          512×512 PNG, transparent (in-product use)
+  web/public/icon-192.png      192×192 PNG, transparent (PWA manifest, Android)
+  web/public/icon-512.png      512×512 PNG, transparent (PWA manifest, splash)
+  web/public/icon-512-maskable.png   512×512 PNG, iai-bg filled + 60% safe zone
+                                     (PWA adaptive icon — Android masks shapes)
   web/public/og-image.png      1200×630 social card (dark bg + tagline)
 
 Decisions:
@@ -166,14 +170,35 @@ def main() -> None:
     PUBLIC.mkdir(parents=True, exist_ok=True)
 
     # PNGs in descending size — same source, different fits.
+    # icon-192/icon-512 are PWA-manifest siblings of icon.png/logo.png; same
+    # transparent-mark treatment but at the exact pixel sizes the spec wants
+    # (web.dev's PWA guide: 192 + 512 are the two required entries).
     for name, size in [
         ("logo.png", 512),
         ("icon.png", 256),
         ("apple-touch-icon.png", 180),
+        ("icon-192.png", 192),
+        ("icon-512.png", 512),
     ]:
         out = PUBLIC / name
         fit_square(alpha, size, padding_frac=0.08).save(out, "PNG", optimize=True)
         print(f"  → web/public/{name}  {size}×{size}")
+
+    # Maskable icon — Android adaptive-icon spec. Unlike the transparent PNGs
+    # above, this one MUST have a solid background and the mark must fit
+    # inside the central 80% safe zone (radius 40% of width, per web.dev
+    # guidance). We use 60% inner content for extra margin: aggressive
+    # mask shapes (squircle, leaf) still don't clip the flame. Background is
+    # iai-bg so the mask matches the product's dark chrome on install.
+    maskable_size = 512
+    maskable = Image.new("RGBA", (maskable_size, maskable_size), BG_DARK + (255,))
+    inner = int(maskable_size * 0.60)
+    mark = fit_square(alpha, inner, padding_frac=0)
+    offset = (maskable_size - inner) // 2
+    maskable.paste(mark, (offset, offset), mark)
+    maskable_out = PUBLIC / "icon-512-maskable.png"
+    maskable.save(maskable_out, "PNG", optimize=True)
+    print(f"  → web/public/icon-512-maskable.png  {maskable_size}×{maskable_size} (safe zone 60%)")
 
     # ICO multi-size — Pillow embeds all `sizes` into one file.
     ico_sizes = [(16, 16), (32, 32), (48, 48)]
