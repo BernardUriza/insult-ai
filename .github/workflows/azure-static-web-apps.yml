@@ -51,15 +51,24 @@ jobs:
       #     previous build's cache and only recompile what changed.
       # See https://nextjs.org/docs/app/guides/ci-build-caching
       - name: Cache Next.js build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: web/.next/cache
           key: nextjs-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}-${{ hashFiles('web/**/*.[jt]s', 'web/**/*.[jt]sx', 'web/**/*.css') }}
           restore-keys: |
             nextjs-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}-
 
+      # NEXT_PUBLIC_* is inlined at build time, not read at runtime — so the
+      # API URL and the X-API-Key gate MUST be set before `next build` runs,
+      # otherwise the production bundle defaults to http://localhost:8080
+      # and forgets to send the X-API-Key header (the API will 401). The
+      # URL is a repo VARIABLE (it's already public DNS); the key is a repo
+      # SECRET (no logs of its value, even though it ships in the bundle).
       - name: Build (next build → web/out)
         working-directory: web
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_API_KEY: ${{ secrets.NEXT_PUBLIC_API_KEY }}
         run: npm run build
 
       - name: Deploy to Azure Static Web Apps
