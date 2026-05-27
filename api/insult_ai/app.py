@@ -12,9 +12,9 @@ import os
 import time
 from typing import Literal
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from fi_runner.rag_store import RagStoreClient
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -22,6 +22,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from .runner import chat_stream, roast
+from .voice import DEFAULT_VOICE, TTSVoice, VoiceError, synthesize_speech, transcribe_audio
 from .wire import (
     plan_rejected_to_wire,
     plan_to_wire,
@@ -157,6 +158,18 @@ class IngestRequest(BaseModel):
 
 class IngestResponse(BaseModel):
     chunks: int
+
+
+class SpeakRequest(BaseModel):
+    text: str
+    # Curated to the three voices the product exposes (see voice.py). Default
+    # is onyx — the deadpan-anchor tone that matches the roast persona's
+    # voice. Adding more is a one-line change in voice.py + here.
+    voice: TTSVoice = DEFAULT_VOICE
+
+
+class TranscribeResponse(BaseModel):
+    text: str
 
 
 class ChatRequest(BaseModel):
@@ -352,4 +365,58 @@ async def chat_stream_endpoint(request: Request, req: ChatRequest) -> StreamingR
             "X-Accel-Buffering": "no",
             "Connection": "keep-alive",
         },
+    )
+
+
+# --- Voice mode: Whisper (audio in) + TTS (audio out) ----------------------
+# Two thin proxies to the `whisper` and `tts` deployments on Bernard's
+# `insult-openai` Azure resource. Same X-API-Key gate + per-IP rate limit
+# as /roast and /chat/stream. The frontend uses these to turn the demo
+# from text-in-text-out into a ChatGPT-style voice loop: user holds mic,
+# whisper transcribes → /chat/stream fires, roast returns → user clicks
+# play, tts streams the roast back in the onyx voice.
+
+
+@app.post("/voice/transcribe", response_model=TranscribeResponse, dependencies=[Depends(verify_api_key)])
+@limiter.limit("60/hour")
+async def voice_transcribe(
+    request: Request, audio: UploadFile = File(...)
+) -> TranscribeResponse:
+    """Multipart upload → Whisper → text. The frontend posts the
+    MediaRecorder blob directly; no client-side transcoding."""
+    try:
+        audio_bytes = await audio.read()
+        if not audio_bytes:
+            raise HTTPException(status_code=400, detail="empty audio payload")
+        text = await transcribe_audio(
+            audio_bytes, filename=audio.filename or "audio.webm"
+        )
+    except VoiceError as exc:
+        # 502 = upstream (Azure) failure. Distinguishes from a 4xx caller
+        # error (bad audio, missing key) so the frontend can decide whether
+        # to retry or surface as user-facing error.
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return TranscribeResponse(text=text)
+
+
+@app.post("/voice/speak", dependencies=[Depends(verify_api_key)])
+@limiter.limit("60/hour")
+async def voice_speak(request: Request, req: SpeakRequest) -> Response:
+    """Text → TTS (onyx by default) → audio/mpeg blob. Returns the raw
+    MP3 bytes so the browser can play it via `new Audio(URL.createObjectURL(blob))`
+    without a streaming protocol on top."""
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="text is empty")
+    try:
+        audio_bytes = await synthesize_speech(req.text, voice=req.voice)
+    except VoiceError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    # Cache-Control: short cache per (text, voice) — same input twice in a
+    # row would hit Azure twice without this. 1h covers a user replaying
+    # a roast a few times. Keyed by the URL + body so different roasts
+    # don't collide.
+    return Response(
+        content=audio_bytes,
+        media_type="audio/mpeg",
+        headers={"Cache-Control": "private, max-age=3600"},
     )
