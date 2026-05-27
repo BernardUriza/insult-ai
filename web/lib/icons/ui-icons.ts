@@ -14,10 +14,13 @@ import {
   ExternalLink,
   Flame,
   ListChecks,
+  Mic,
+  Pause,
   Receipt,
   Send,
   Sparkles,
   Square,
+  Volume2,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -47,6 +50,10 @@ export const UI_ICONS: Record<string, LucideIcon> = {
   // Outgoing-link arrow — shown on hover next to each receipt URL so the user
   // sees the row is clickable AND that it leaves the site.
   external: ExternalLink,
+  // Voice mode (whisper input + tts output).
+  mic: Mic, // microphone button in the composer (hold/toggle to record)
+  speaker: Volume2, // 'listen to this' button on assistant bubbles (TTS playback)
+  pause: Pause, // pauses TTS playback while keeping the buffered blob
 } as const;
 
 export function getUIIcon(key: string): LucideIcon {
