@@ -153,12 +153,21 @@ export function ChatInput({
           )}
         </div>
       </div>
-      {/* Status row: timer when recording, error when something failed. */}
+      {/* Status row: timer when recording, error when something failed.
+        * Retry feedback gets its own line ("rate-limited, retrying in
+        * 32s") so a multi-second backoff doesn't look like a hang. */}
       <div className="flex items-center justify-between gap-2 px-1 min-h-[18px]">
         {voice.state === "recording" ? (
           <RecordingTimer time={voice.recordingTime} />
         ) : voice.state === "transcribing" ? (
-          <span className="iai-hint iai-hint-live text-xs">transcribing…</span>
+          voice.retryStatus ? (
+            <span className="iai-hint text-xs text-amber-300">
+              rate-limited — retry {voice.retryStatus.attempt} in{" "}
+              {Math.ceil(voice.retryStatus.waitMs / 1000)}s…
+            </span>
+          ) : (
+            <span className="iai-hint iai-hint-live text-xs">transcribing…</span>
+          )
         ) : (
           <span />
         )}

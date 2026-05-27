@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import Literal
 
 import httpx
@@ -50,6 +51,40 @@ _HTTP_TIMEOUT = httpx.Timeout(60.0, connect=10.0)
 
 class VoiceError(RuntimeError):
     """Upstream (Azure OpenAI) call failed — caller should surface as 502."""
+
+
+class VoiceRateLimitError(VoiceError):
+    """Azure returned 429 (rate-limit / capacity exceeded).
+
+    Carries the retry-after hint when the upstream surfaces one — either via
+    the `Retry-After` HTTP header (preferred, RFC 9110) or via the
+    "retry after N seconds" string Azure embeds in the JSON body when the
+    header is absent. The FastAPI layer maps this to HTTP 429 with the
+    Retry-After header so the frontend can back off intelligently instead
+    of an opaque 502.
+    """
+
+    def __init__(self, message: str, retry_after_seconds: int | None = None):
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
+
+
+_RETRY_AFTER_BODY_RE = re.compile(r"retry after (\d+) sec", re.IGNORECASE)
+
+
+def _extract_retry_after(resp: httpx.Response) -> int | None:
+    """Pull a retry-after hint off a 429 response. Prefer the header; fall
+    back to scraping the Azure message body when the header isn't set."""
+    header = resp.headers.get("retry-after")
+    if header:
+        try:
+            return int(float(header))
+        except ValueError:
+            pass  # could be an HTTP-date — Azure rarely sends that, ignore
+    match = _RETRY_AFTER_BODY_RE.search(resp.text)
+    if match:
+        return int(match.group(1))
+    return None
 
 
 def _require_key() -> str:
@@ -93,6 +128,12 @@ async def transcribe_audio(audio_bytes: bytes, filename: str = "audio.webm") -> 
         except httpx.HTTPError as exc:
             raise VoiceError(f"whisper request failed: {exc}") from exc
 
+    if resp.status_code == 429:
+        retry_after = _extract_retry_after(resp)
+        raise VoiceRateLimitError(
+            f"whisper rate-limited: {resp.text[:200]}",
+            retry_after_seconds=retry_after,
+        )
     if resp.status_code != 200:
         raise VoiceError(
             f"whisper returned {resp.status_code}: {resp.text[:300]}"
@@ -137,6 +178,12 @@ async def synthesize_speech(text: str, voice: TTSVoice = DEFAULT_VOICE) -> bytes
         except httpx.HTTPError as exc:
             raise VoiceError(f"tts request failed: {exc}") from exc
 
+    if resp.status_code == 429:
+        retry_after = _extract_retry_after(resp)
+        raise VoiceRateLimitError(
+            f"tts rate-limited: {resp.text[:200]}",
+            retry_after_seconds=retry_after,
+        )
     if resp.status_code != 200:
         raise VoiceError(
             f"tts returned {resp.status_code}: {resp.text[:300]}"

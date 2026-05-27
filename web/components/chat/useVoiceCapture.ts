@@ -2,8 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiHeaders, apiUrl } from "../../lib/api";
+import { fetchWithRetry } from "./voiceRetry";
 
 type CaptureState = "idle" | "recording" | "transcribing";
+
+export interface TranscribeRetryStatus {
+  attempt: number;
+  waitMs: number;
+}
 
 /** Owns the mic flow end-to-end: getUserMedia → MediaRecorder → POST
  * /voice/transcribe → onTranscribed(text).
@@ -28,6 +34,7 @@ export function useVoiceCapture(opts: {
   const [state, setState] = useState<CaptureState>("idle");
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [retryStatus, setRetryStatus] = useState<TranscribeRetryStatus | null>(null);
 
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -74,14 +81,26 @@ export function useVoiceCapture(opts: {
           return;
         }
         setState("transcribing");
+        setRetryStatus(null);
         try {
-          const fd = new FormData();
-          fd.append("audio", blob, `recording.${ext}`);
-          const res = await fetch(apiUrl("/voice/transcribe"), {
-            method: "POST",
-            headers: apiHeaders(),
-            body: fd,
-          });
+          // The blob is captured once; retries re-send the SAME bytes.
+          // FormData is rebuilt each attempt so the boundary header
+          // stays valid (browsers regenerate it per fetch).
+          const res = await fetchWithRetry(
+            () => {
+              const fd = new FormData();
+              fd.append("audio", blob, `recording.${ext}`);
+              return fetch(apiUrl("/voice/transcribe"), {
+                method: "POST",
+                headers: apiHeaders(),
+                body: fd,
+              });
+            },
+            {
+              onRetry: ({ attempt, waitMs }) =>
+                setRetryStatus({ attempt, waitMs }),
+            },
+          );
           if (!res.ok) {
             const detail = await res.text().catch(() => "");
             throw new Error(`HTTP ${res.status}: ${detail || res.statusText}`);
@@ -95,6 +114,7 @@ export function useVoiceCapture(opts: {
         } finally {
           setState("idle");
           setRecordingTime(0);
+          setRetryStatus(null);
         }
       };
       recorder.start();
@@ -129,5 +149,5 @@ export function useVoiceCapture(opts: {
     else if (state === "recording") stop();
   }, [state, start, stop]);
 
-  return { state, stream, recordingTime, start, stop, toggle };
+  return { state, stream, recordingTime, retryStatus, start, stop, toggle };
 }

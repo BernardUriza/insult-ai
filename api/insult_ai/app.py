@@ -22,7 +22,14 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from .runner import chat_stream, roast
-from .voice import DEFAULT_VOICE, TTSVoice, VoiceError, synthesize_speech, transcribe_audio
+from .voice import (
+    DEFAULT_VOICE,
+    TTSVoice,
+    VoiceError,
+    VoiceRateLimitError,
+    synthesize_speech,
+    transcribe_audio,
+)
 from .wire import (
     plan_rejected_to_wire,
     plan_to_wire,
@@ -391,10 +398,17 @@ async def voice_transcribe(
         text = await transcribe_audio(
             audio_bytes, filename=audio.filename or "audio.webm"
         )
+    except VoiceRateLimitError as exc:
+        # 429 = upstream rate-limit. Propagate AS 429 (not 502) and surface
+        # the retry-after hint as the standard header so the frontend hook
+        # can back off intelligently instead of guessing or showing a
+        # generic error.
+        headers = {"Retry-After": str(exc.retry_after_seconds)} if exc.retry_after_seconds else {}
+        raise HTTPException(status_code=429, detail=str(exc), headers=headers) from exc
     except VoiceError as exc:
-        # 502 = upstream (Azure) failure. Distinguishes from a 4xx caller
-        # error (bad audio, missing key) so the frontend can decide whether
-        # to retry or surface as user-facing error.
+        # 502 = upstream (Azure) failure other than rate-limit. Distinguishes
+        # from a 4xx caller error (bad audio, missing key) so the frontend
+        # can decide whether to retry or surface as user-facing error.
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return TranscribeResponse(text=text)
 
@@ -409,6 +423,9 @@ async def voice_speak(request: Request, req: SpeakRequest) -> Response:
         raise HTTPException(status_code=400, detail="text is empty")
     try:
         audio_bytes = await synthesize_speech(req.text, voice=req.voice)
+    except VoiceRateLimitError as exc:
+        headers = {"Retry-After": str(exc.retry_after_seconds)} if exc.retry_after_seconds else {}
+        raise HTTPException(status_code=429, detail=str(exc), headers=headers) from exc
     except VoiceError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     # Cache-Control: short cache per (text, voice) — same input twice in a

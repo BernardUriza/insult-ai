@@ -62,6 +62,9 @@ export interface AudioPlayerProps {
   isLoading: boolean;
   /** Surfaced if synthesis or playback fails. */
   error?: string | null;
+  /** Retry-in-progress status from `useTtsBlob`. When set during loading,
+   * the player labels the wait so the user knows it's rate-limit, not stuck. */
+  retryStatus?: { attempt: number; waitMs: number } | null;
   /** Closes the bar — caller is responsible for revoking the blob URL. */
   onClose: () => void;
   /** Optional label rendered next to the speaker icon. Defaults to "onyx". */
@@ -72,6 +75,7 @@ export function AudioPlayer({
   audioUrl,
   isLoading,
   error,
+  retryStatus,
   onClose,
   voiceLabel = "onyx",
 }: AudioPlayerProps) {
@@ -186,8 +190,20 @@ export function AudioPlayer({
         <div className="flex items-center gap-3">
           <PulsingDots />
           <span className="flex-1 text-sm text-zinc-200">
-            Generating audio…{" "}
-            <span className="text-zinc-500">voice: {voiceLabel}</span>
+            {retryStatus ? (
+              <>
+                <span className="text-amber-300">
+                  Rate-limited — retry {retryStatus.attempt} in{" "}
+                  {Math.ceil(retryStatus.waitMs / 1000)}s…
+                </span>{" "}
+                <span className="text-zinc-500">voice: {voiceLabel}</span>
+              </>
+            ) : (
+              <>
+                Generating audio…{" "}
+                <span className="text-zinc-500">voice: {voiceLabel}</span>
+              </>
+            )}
           </span>
           <button
             type="button"

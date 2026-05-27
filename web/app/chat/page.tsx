@@ -153,6 +153,7 @@ export default function ChatPage() {
           audioUrl={tts.audioUrl}
           isLoading={tts.isLoading}
           error={tts.error}
+          retryStatus={tts.retryStatus}
           onClose={handlePlayerClose}
           voiceLabel="onyx"
         />
