@@ -63,6 +63,10 @@ export function ChatView({
   }, [messages]);
 
   if (messages.length === 0) {
+    // Clinical mode renders DemoPrompts as its empty-state surface (a richer
+    // grid of curated cases). Painting the generic empty-state card on top
+    // would duplicate the "what should I say?" prompt without adding info.
+    if (mode === "clinical") return null;
     const empty = EMPTY_STATE_BY_MODE[mode];
     return (
       <div className="iai-card-soft flex flex-col items-center gap-3 py-12 text-center">
@@ -100,6 +104,7 @@ export function ChatView({
             key={m.id}
             message={m}
             target={target}
+            mode={mode}
             onSpeak={onSpeak}
             speakingId={speakingId}
           />

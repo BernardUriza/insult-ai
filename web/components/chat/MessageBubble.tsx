@@ -13,6 +13,7 @@ import { MarkdownRenderer } from "./MarkdownRenderer";
 import { PlanChecklist } from "./PlanChecklist";
 import { ThinkingPanel } from "./ThinkingPanel";
 import type { ChatMessage, ChatMeta } from "./types";
+import type { ChatMode } from "./useChat";
 
 const DoneIcon = getStatusIcon("done");
 const WarnIcon = getStatusIcon("warning");
@@ -105,11 +106,16 @@ function ListenButton({
 export function MessageBubble({
   message,
   target,
+  mode = "roast",
   onSpeak,
   speakingId,
 }: {
   message: ChatMessage;
   target?: string;
+  /** The active chat mode — forwarded to <ThinkingPanel> so the slow-response
+   *  banner only fires for the agentic modes (roast / brief). Clinical mode
+   *  has its own slow-banner inside <EnvelopeSkeleton>. */
+  mode?: ChatMode;
   /** Called when the user hits "listen" on this bubble. Pass null to stop. */
   onSpeak?: (text: string | null, id: string) => void;
   /** The id of the message whose text is currently in the floating player. */
@@ -138,7 +144,12 @@ export function MessageBubble({
             Both can be present — they read different events (plan vs tool_call)
             and one of them may be empty depending on the backend. */}
         <PlanChecklist plan={message.plan} />
-        <ThinkingPanel steps={message.steps} status={message.status} target={target} />
+        <ThinkingPanel
+          steps={message.steps}
+          status={message.status}
+          target={target}
+          mode={mode}
+        />
         {/* Rendering rules:
           *   - Thinking with no content yet: paint the EnvelopeSkeleton so
           *     the 25-40s clinical wait isn't a blank card. The skeleton

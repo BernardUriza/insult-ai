@@ -1,5 +1,6 @@
 "use client";
 
+import { type KeyboardEvent, useRef } from "react";
 import { getUIIcon } from "../../lib/icons";
 import type { ChatMode } from "../chat/useChat";
 
@@ -119,6 +120,42 @@ function ModeSwitcher({
   onChange: (next: ChatMode) => void;
   disabled?: boolean;
 }) {
+  // Refs per radio so the WAI-ARIA radiogroup keyboard pattern can move
+  // focus directly to the new option after arrow / Home / End keys.
+  // Initialised on first render via ref-callback below; never resized
+  // because MODES is a static three-tuple.
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const focusAndActivate = (index: number) => {
+    const wrapped = (index + MODES.length) % MODES.length;
+    const next = MODES[wrapped];
+    onChange(next);
+    refs.current[wrapped]?.focus();
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
+    switch (event.key) {
+      case "ArrowRight":
+      case "ArrowDown":
+        event.preventDefault();
+        focusAndActivate(currentIndex + 1);
+        return;
+      case "ArrowLeft":
+      case "ArrowUp":
+        event.preventDefault();
+        focusAndActivate(currentIndex - 1);
+        return;
+      case "Home":
+        event.preventDefault();
+        focusAndActivate(0);
+        return;
+      case "End":
+        event.preventDefault();
+        focusAndActivate(MODES.length - 1);
+        return;
+    }
+  };
+
   return (
     <nav aria-label="Mode" className="self-start lg:self-auto">
       <div
@@ -126,21 +163,30 @@ function ModeSwitcher({
         aria-label="active mode"
         className="inline-flex items-center gap-1 rounded-full border border-iai-border bg-iai-surface/30 p-1"
       >
-        {MODES.map((m) => {
+        {MODES.map((m, i) => {
           const isActive = m === active;
           return (
             <button
               key={m}
+              ref={(el) => {
+                refs.current[i] = el;
+              }}
               type="button"
               role="radio"
               aria-checked={isActive}
               aria-current={isActive ? "page" : undefined}
+              // Only the active radio sits in the natural tab sequence —
+              // arrow keys then walk inside the group. This is the canonical
+              // WAI-ARIA radiogroup behavior; without it, Tab visits every
+              // radio individually which fights with the arrow-key model.
+              tabIndex={isActive ? 0 : -1}
               disabled={disabled}
               onClick={() => {
                 if (!isActive) onChange(m);
               }}
+              onKeyDown={(e) => onKeyDown(e, i)}
               className={[
-                "inline-flex min-h-[40px] items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition",
+                "inline-flex min-h-[44px] items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iai-fire",
                 isActive
                   ? "bg-iai-fire text-black shadow-[0_2px_12px_-3px_rgb(var(--color-iai-fire-rgb)/0.7)]"

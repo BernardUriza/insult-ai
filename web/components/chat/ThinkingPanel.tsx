@@ -1,10 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getStatusIcon, getToolIcon, getUIIcon, shortToolName, stepStatusKey } from "../../lib/icons";
 import type { Step } from "./types";
+import type { ChatMode } from "./useChat";
 
 const BotIcon = getUIIcon("bot");
+const WarnIcon = getStatusIcon("warning");
+
+/** When a roast/brief turn drags past this threshold, surface a quiet
+ *  reassurance line so the dead air doesn't read as broken. Clinical mode
+ *  has its own slow-banner inside <EnvelopeSkeleton> — this one only fires
+ *  for the agentic modes. */
+const SLOW_THRESHOLD_MS = 12_000;
 
 /** Collapsible "thinking" panel that lists every Bright Data / RAG step
  * as it happens. Auto-expands while the turn is streaming and collapses on
@@ -20,15 +28,35 @@ export function ThinkingPanel({
   steps,
   status,
   target,
+  mode = "roast",
 }: {
   steps: Step[];
   status: "thinking" | "streaming" | "done" | "error";
   target?: string;
+  /** Drives the slow-response banner: only fires when mode !== "clinical".
+   *  Clinical mode delegates the slow-banner to <EnvelopeSkeleton>, whose
+   *  voice + shape are tuned to that persona. */
+  mode?: ChatMode;
 }) {
   // Default expanded while live; user can override either way after.
   const live = status === "thinking" || status === "streaming";
   const [openOverride, setOpenOverride] = useState<boolean | null>(null);
   const open = openOverride ?? live;
+
+  // Elapsed-time tick only matters for the agentic modes (roast / brief).
+  // The interval is cleared the moment the turn settles or the panel
+  // unmounts; no leaked timers across turns.
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!live || mode === "clinical") {
+      setElapsed(0);
+      return;
+    }
+    const start = Date.now();
+    const t = setInterval(() => setElapsed(Date.now() - start), 500);
+    return () => clearInterval(t);
+  }, [live, mode]);
+  const showSlowBanner = live && mode !== "clinical" && elapsed >= SLOW_THRESHOLD_MS;
 
   if (steps.length === 0 && status === "done") return null;
 
@@ -60,6 +88,15 @@ export function ThinkingPanel({
         </span>
         <span className="iai-hint text-xs">{open ? "hide" : "show"}</span>
       </button>
+      {showSlowBanner && (
+        <div
+          className="mt-2 inline-flex items-start gap-2 rounded-lg border border-amber-700/40 bg-amber-950/20 p-2.5 text-xs text-amber-200"
+          role="status"
+        >
+          <WarnIcon className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-400" aria-hidden />
+          <span>Still working. Receipts take a second.</span>
+        </div>
+      )}
       {open && steps.length > 0 && (
         <ol className="mt-2 space-y-1">
           {steps.map((s, i) => {
