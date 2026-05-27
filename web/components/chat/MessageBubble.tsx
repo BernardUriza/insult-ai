@@ -3,6 +3,11 @@
 import { getStatusIcon, getUIIcon } from "../../lib/icons";
 import { ReceiptsPanel } from "../roast/ReceiptsPanel";
 import { RoastText } from "../roast/RoastText";
+import {
+  ClinicalEnvelopeTrace,
+  ClinicalEnvelopeView,
+  parseEnvelope,
+} from "./ClinicalEnvelope";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { PlanChecklist } from "./PlanChecklist";
 import { ThinkingPanel } from "./ThinkingPanel";
@@ -133,16 +138,32 @@ export function MessageBubble({
             and one of them may be empty depending on the backend. */}
         <PlanChecklist plan={message.plan} />
         <ThinkingPanel steps={message.steps} status={message.status} target={target} />
-        {/* While streaming, keep the lighter <RoastText> with its caret —
-          * MarkdownRenderer doesn't render the cursor and re-rendering an
-          * incomplete tree each token is wasteful. On settle (status !==
-          * "streaming"), swap to MarkdownRenderer for full GFM support. */}
+        {/* Rendering rules:
+          *   - Streaming: lighter <RoastText> with a caret. The envelope
+          *     isn't valid mid-stream (partial JSON), so we can't parse it
+          *     yet. Don't try.
+          *   - Settled: try to parse as a clinical envelope (clinical mode).
+          *     If it parses, use <ClinicalEnvelopeView> (roast_line +
+          *     main_response + micro_action + follow-up). If not, fall back
+          *     to <MarkdownRenderer> (roast/brief modes ship plain text).
+          * One bubble renderer, three mode shapes — picked at runtime
+          * without the bubble knowing what mode the page is in. */}
+        {message.content && message.status === "streaming" && (
+          <RoastText text={message.content} caret={true} />
+        )}
         {message.content &&
-          (message.status === "streaming" ? (
-            <RoastText text={message.content} caret={true} />
-          ) : (
-            <MarkdownRenderer content={message.content} />
-          ))}
+          message.status !== "streaming" &&
+          (() => {
+            const env = parseEnvelope(message.content);
+            return env ? (
+              <>
+                <ClinicalEnvelopeView env={env} />
+                <ClinicalEnvelopeTrace env={env} />
+              </>
+            ) : (
+              <MarkdownRenderer content={message.content} />
+            );
+          })()}
         {message.status === "error" && (
           <div className="iai-error mt-2 inline-flex items-center gap-2 text-sm">
             <ErrorIcon className="h-4 w-4 shrink-0 text-red-400" aria-hidden />

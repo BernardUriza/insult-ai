@@ -36,8 +36,17 @@ function parseFrame(frame: string): { event: string; data: unknown } | null {
  * (rag_store MCP) for extra ammo before composing the roast/brief. Wired
  * from the /library page (sticky) and the ``?corpus=`` query param on /chat
  * so a "Use →" click from the library lands in chat with the corpus armed. */
-export function useChat(opts?: { corpusId?: string }) {
+export type ChatMode = "roast" | "brief" | "clinical";
+export type ChatTone = "soft" | "medium" | "spicy" | "no_insults";
+
+export function useChat(opts?: {
+  corpusId?: string;
+  mode?: ChatMode;
+  tone?: ChatTone;
+}) {
   const corpusId = opts?.corpusId?.trim() || undefined;
+  const mode = opts?.mode ?? "roast";
+  const tone = opts?.tone ?? "medium";
   // One id per browser session so the API folds prior turns into the prompt.
   // Held in a ref so re-renders don't churn it.
   const sessionRef = useRef<string>(newId());
@@ -94,6 +103,8 @@ export function useChat(opts?: { corpusId?: string }) {
           body: JSON.stringify({
             session_id: sessionRef.current,
             message: trimmed,
+            mode,
+            tone,
             ...(corpusId ? { corpus_id: corpusId } : {}),
           }),
           signal: controller.signal,

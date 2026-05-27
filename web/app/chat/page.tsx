@@ -5,7 +5,15 @@ import { useCallback, useEffect, useState } from "react";
 import { AudioPlayer } from "../../components/chat/AudioPlayer";
 import { ChatInput } from "../../components/chat/ChatInput";
 import { ChatView } from "../../components/chat/ChatView";
-import { useChat } from "../../components/chat/useChat";
+import {
+  IntensitySelector,
+  LowerIntensityButton,
+} from "../../components/chat/IntensitySelector";
+import {
+  OnboardingDialog,
+  isOnboarded,
+} from "../../components/chat/OnboardingDialog";
+import { type ChatMode, type ChatTone, useChat } from "../../components/chat/useChat";
 import { useTtsBlob } from "../../components/chat/useTtsBlob";
 import { Button } from "../../components/ui/Button";
 import { PoweredBy } from "../../components/ui/PoweredBy";
@@ -34,7 +42,27 @@ export default function ChatPage() {
     if (q) setCorpusId(q);
   }, []);
 
-  const { messages, streaming, send, abort, reset } = useChat({ corpusId });
+  // Mode + tone state. Default mode is "roast" to preserve the existing
+  // demo behavior; `?mode=clinical` on the URL opts into the compadre
+  // persona without breaking deep-links to the old chat. Tone only
+  // matters for clinical mode (the others ignore it).
+  const [mode, setMode] = useState<ChatMode>("roast");
+  const [tone, setTone] = useState<ChatTone>("medium");
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const modeParam = url.searchParams.get("mode");
+    if (modeParam === "clinical" || modeParam === "brief") {
+      setMode(modeParam);
+      // Onboarding only for clinical mode — and only once per browser.
+      if (modeParam === "clinical" && !isOnboarded()) {
+        setShowOnboarding(true);
+      }
+    }
+  }, []);
+
+  const { messages, streaming, send, abort, reset } = useChat({ corpusId, mode, tone });
 
   // TTS playback lifted to page level: a single <AudioPlayer> floating
   // bar handles ALL bubbles, switching its source when the user hits
@@ -112,28 +140,43 @@ export default function ChatPage() {
          * "knowledge base" instead of "corpus / rag_store" — the latter is
          * the implementation detail (rag_store MCP), the former is what the
          * user actually understands. */}
-        <label className="iai-hint flex items-center gap-2 text-xs">
-          <span className="uppercase tracking-wider">Knowledge base</span>
-          <input
-            value={corpusId}
-            onChange={(e) => setCorpusId(e.target.value)}
-            placeholder="Optional — paste an ID from /library"
-            disabled={streaming}
-            className="iai-input flex-1 px-3 py-1.5 text-xs"
-            aria-label="knowledge base id (optional)"
-          />
-          {corpusId && (
-            <button
-              type="button"
-              onClick={() => setCorpusId("")}
-              className="iai-btn-chip text-[10px]"
-              title="clear — next turn searches the web only"
+        {/* Intensity selector — only meaningful for the clinical mode.
+          * Stays hidden on roast/brief so the existing demo surfaces
+          * don't grow a confusing control. */}
+        {mode === "clinical" && (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <IntensitySelector value={tone} onChange={setTone} disabled={streaming} />
+            <LowerIntensityButton value={tone} onLower={setTone} disabled={streaming} />
+          </div>
+        )}
+
+        {/* Knowledge base selector — kept for roast/brief modes; the
+          * clinical mode doesn't currently search a corpus, so we hide
+          * it there to reduce visual noise. */}
+        {mode !== "clinical" && (
+          <label className="iai-hint flex items-center gap-2 text-xs">
+            <span className="uppercase tracking-wider">Knowledge base</span>
+            <input
+              value={corpusId}
+              onChange={(e) => setCorpusId(e.target.value)}
+              placeholder="Optional — paste an ID from /library"
               disabled={streaming}
-            >
-              clear
-            </button>
-          )}
-        </label>
+              className="iai-input flex-1 px-3 py-1.5 text-xs"
+              aria-label="knowledge base id (optional)"
+            />
+            {corpusId && (
+              <button
+                type="button"
+                onClick={() => setCorpusId("")}
+                className="iai-btn-chip text-[10px]"
+                title="clear — next turn searches the web only"
+                disabled={streaming}
+              >
+                clear
+              </button>
+            )}
+          </label>
+        )}
       </header>
 
       <ChatView messages={messages} onSpeak={handleSpeak} speakingId={speakingId} />
@@ -156,6 +199,19 @@ export default function ChatPage() {
           retryStatus={tts.retryStatus}
           onClose={handlePlayerClose}
           voiceLabel="onyx"
+        />
+      )}
+
+      {/* Onboarding dialog — only shown the first time a user lands on
+        * /chat?mode=clinical. localStorage gates re-show. */}
+      {showOnboarding && (
+        <OnboardingDialog
+          initialTone={tone}
+          onAccept={(t) => {
+            setTone(t);
+            setShowOnboarding(false);
+          }}
+          onDismiss={() => setShowOnboarding(false)}
         />
       )}
     </main>
