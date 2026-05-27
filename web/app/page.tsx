@@ -12,10 +12,10 @@ import { PoweredBy } from "../components/ui/PoweredBy";
 // across the route boundary, but the chrome is editorial (cards, sections,
 // no input field) so the surface reads as marketing, not app.
 //
-// CTAs route to /chat?mode=<roast|brief|clinical>. The chat page already
-// reads ?mode= from searchParams and switches persona. No seed-draft route
-// is supported yet — the demo prompts route to the right mode and the
-// user picks up the conversation from the composer.
+// CTAs route to /chat?mode=<roast|brief|clinical>. The chat page also
+// reads ?seed=<text> and pre-fills the composer with it (used by the
+// demo chips below). After applying the seed, /chat strips it from the
+// URL so a refresh doesn't re-seed.
 
 type Mode = "roast" | "brief" | "clinical";
 
@@ -220,7 +220,7 @@ export default function Home() {
           {DEMO_CHIPS.map((chip) => (
             <Link
               key={chip.text}
-              href={`/chat?mode=${chip.mode}`}
+              href={`/chat?mode=${chip.mode}&seed=${encodeURIComponent(chip.text)}`}
               className="group flex max-w-md flex-col gap-1.5 rounded-xl border border-iai-border bg-iai-surface/40 px-4 py-3 text-left transition hover:border-iai-fire/50 hover:bg-iai-surface"
             >
               <span className="iai-hint text-[10px] font-semibold uppercase tracking-wider text-iai-fire/80 group-hover:text-iai-fire">

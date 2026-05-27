@@ -38,8 +38,13 @@ export default function ChatPage() {
 
   // Pick up deep-link params on mount. `?corpus=…` primes the agent to
   // search a document corpus; `?mode=…` lands the user directly in the
-  // requested persona. Done in an effect because `window` doesn't exist
-  // during static export pre-render.
+  // requested persona; `?seed=…` pre-fills the composer (used by the
+  // landing's demo prompt chips so a click teleports the user into the
+  // chat with the prompt already typed). Done in an effect because
+  // `window` doesn't exist during static export pre-render.
+  //
+  // After seeding we strip `?seed` from the URL with replaceState so a
+  // refresh doesn't re-seed (and the address bar stays clean for sharing).
   useEffect(() => {
     const url = new URL(window.location.href);
     const q = url.searchParams.get("corpus");
@@ -50,6 +55,12 @@ export default function ChatPage() {
       if (modeParam === "clinical" && !isOnboarded()) {
         setShowOnboarding(true);
       }
+    }
+    const seedParam = url.searchParams.get("seed");
+    if (seedParam) {
+      setSeedDraft(seedParam);
+      url.searchParams.delete("seed");
+      window.history.replaceState(null, "", url.toString());
     }
   }, []);
 
