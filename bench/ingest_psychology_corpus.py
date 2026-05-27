@@ -258,6 +258,33 @@ def discover_documents() -> list[Path]:
     return out
 
 
+def build_attribution_header(fm: "Frontmatter") -> str:
+    """Single-line attribution block prepended to every chunk body.
+
+    The header exists because ``RagStoreClient.search(...)`` returns only
+    ``{doc_id, similarity, text}`` — no metadata. Without an in-body header,
+    the LLM that consumes ``search_documents`` results cannot tell which
+    upstream source a chunk came from, which makes the clinical envelope's
+    LLM-opt-in ``sources`` field impossible to populate without a server-side
+    enrich pass (which is intentionally out of scope; see Slice 3 design).
+
+    Putting the header in the body trades a small embedding-signal dilution
+    (~5% on hashing, less on Azure) for cite-ability. The shape is stable
+    so the LLM's parser can rely on it:
+
+        [Source: <source> | URL: <source_url> | License: <license>]
+
+    The header is uniform across all documents (NIMH and project-original).
+    The decision about whether to externalize a given source in the envelope
+    lives in the persona prompt, not in the embedder.
+    """
+    return (
+        f"[Source: {fm.fields.get('source', 'unknown')}"
+        f" | URL: {fm.fields.get('source_url', 'unknown')}"
+        f" | License: {fm.fields.get('license', 'unknown')}]\n\n"
+    )
+
+
 async def _commit_documents_async(
     client: object,
     corpus_id: str,
@@ -272,9 +299,12 @@ async def _commit_documents_async(
     than duplicating it.
 
     The frontmatter is stripped before the body reaches the embedder/chunker,
-    so YAML keys do not leak into retrieval. The fields are kept as
-    ``metadata`` instead, where the consumer (insult-ai runner, Slice 3) can
-    surface them as the ``sources`` array of the clinical envelope.
+    so YAML keys do not leak into retrieval. An attribution header (see
+    ``build_attribution_header``) is then prepended to the stripped body so
+    the source / URL / license travel inside the embedded text and are
+    visible to any LLM that consumes ``search_documents``. The structured
+    metadata is also passed separately for the deploy-side admin tools
+    (``list_documents``) that need it as fields.
     """
     total_chunks = 0
     for docv in accepted:
@@ -282,6 +312,7 @@ async def _commit_documents_async(
         body = strip_frontmatter(text).strip()
         fm = parse_frontmatter(text)
         assert fm is not None, "validated earlier; cannot be None here"
+        body_with_attribution = build_attribution_header(fm) + body
         metadata = {
             "source": fm.fields.get("source", ""),
             "source_url": fm.fields.get("source_url", ""),
@@ -294,7 +325,7 @@ async def _commit_documents_async(
         result = client.ingest(  # type: ignore[attr-defined]
             corpus_id=corpus_id,
             doc_id=docv.doc_id,
-            text=body,
+            text=body_with_attribution,
             metadata=metadata,
             strategy="paragraph_aware",
             chunk_size=400,
@@ -448,10 +479,45 @@ def main() -> int:
     print(f"  collisions: {len(collisions)}")
 
     by_source: dict[str, int] = {}
+    sample_doc_by_source: dict[str, "DocValidation"] = {}
     for v in accepted:
         by_source[v.source] = by_source.get(v.source, 0) + 1
+        sample_doc_by_source.setdefault(v.source, v)
     for src in sorted(by_source):
         print(f"    by source: {src} -> {by_source[src]} doc(s)")
+    print()
+
+    print("--- attribution header preview (one sample per source) ---")
+    print(
+        "  --commit prepends this header to the body BEFORE the chunker runs."
+    )
+    print(
+        "  Single-chunk documents: header lives in the only chunk (citable)."
+    )
+    print(
+        "  Multi-chunk documents: header lives in the FIRST chunk only;"
+    )
+    print(
+        "  subsequent chunks have body content but no in-text source info."
+    )
+    print(
+        "  The consumer LLM (Slice 3) must treat header-less chunks as"
+    )
+    print(
+        "  uncitable -- use their content, omit from the envelope's sources."
+    )
+    print(
+        "  Dry-run does NOT touch any store; this is the exact string format."
+    )
+    for src in sorted(sample_doc_by_source):
+        v = sample_doc_by_source[src]
+        header = (
+            f"[Source: {v.source}"
+            f" | URL: {v.source_url}"
+            f" | License: {v.license}]"
+        )
+        print(f"  source={src!r}  example_rel_path={v.rel_path}")
+        print(f"    header: {header}")
     print()
 
     if rejected or collisions:
