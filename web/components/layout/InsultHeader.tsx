@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { type KeyboardEvent, useRef } from "react";
 import { getUIIcon } from "../../lib/icons";
-import type { ChatMode } from "../chat/useChat";
+import type { ChatMode } from "../chat/types";
 
 const FlameIcon = getUIIcon("brand");
 
@@ -19,14 +19,14 @@ type ModeMeta = {
 const MODE_META: Record<ChatMode, ModeMeta> = {
   roast: {
     label: "Roast",
-    badge: "Witty Roast",
-    tagline: "Roasts with receipts. Boundaries included.",
+    badge: "Cross-Examination",
+    tagline: "Every claim, cross-examined. Boundaries hold.",
     badgeTone: "border-iai-fire/40 bg-iai-fire/10 text-iai-fire",
   },
   brief: {
     label: "Brief",
     badge: "Intelligence Brief",
-    tagline: "Live web intelligence, cited and ready.",
+    tagline: "Pressure-tested intelligence, cited live.",
     badgeTone: "border-iai-accent/40 bg-iai-accent/10 text-iai-accent",
   },
   clinical: {

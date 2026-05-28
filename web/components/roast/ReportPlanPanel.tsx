@@ -3,16 +3,16 @@
 import {
   getToolIcon,
   shortToolName,
-  stepStatusKey,
 } from "../../lib/icons";
 import { PlanChecklist } from "../chat/PlanChecklist";
+import { latestOpenToolIndex, toolStatusLabel, toolVisualStatus } from "../chat/toolStatus";
 import type { ChatMessage } from "../chat/types";
 
 const EMPTY_STEPS = [
   "Read the target",
   "Search for context",
   "Collect receipts",
-  "Write the burn",
+  "Cross-examine the claim",
 ];
 
 /** Left column of the report view: the agent's plan + the raw tool calls it
@@ -61,6 +61,8 @@ export function ReportPlanPanel({ message }: { message: ChatMessage | null }) {
   const meta = message.meta;
   const totalMs = typeof meta?.latency_ms === "number" ? meta.latency_ms : null;
   const toolCount = typeof meta?.tool_count === "number" ? meta.tool_count : steps.length;
+  const live = message.status === "thinking" || message.status === "streaming";
+  const latestPendingIndex = live ? latestOpenToolIndex(steps) : -1;
 
   return (
     <div className="flex flex-col gap-4">
@@ -75,10 +77,9 @@ export function ReportPlanPanel({ message }: { message: ChatMessage | null }) {
           <ol className="iai-kinetic-content space-y-1">
             {steps.map((s, i) => {
               const ToolIcon = getToolIcon(s.name);
-              const statusKey = stepStatusKey(s.isError);
+              const statusKey = toolVisualStatus(s, i, latestPendingIndex, live);
               const errored = statusKey === "error";
-              const pending = statusKey === "pending";
-              const done = statusKey === "done";
+              const active = statusKey === "active";
               // Bright Data steps are the live-web fetches — the hackathon's
               // "Application of Technology" proof. Make them UNMISSABLE: a
               // brand-blue left rail + the "Bright Data" wordmark badge (the
@@ -110,15 +111,17 @@ export function ReportPlanPanel({ message }: { message: ChatMessage | null }) {
                   )}
                   <span
                     className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${
-                      pending
+                      active
                         ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+                        : statusKey === "sent"
+                          ? "border-zinc-500/25 bg-zinc-500/10 text-zinc-400"
                         : errored
                           ? "border-red-400/30 bg-red-400/10 text-red-300"
                           : "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
                     }`}
                     aria-label={statusKey}
                   >
-                    {pending ? "running" : done ? "done" : "error"}
+                    {toolStatusLabel(statusKey)}
                   </span>
                 </li>
               );

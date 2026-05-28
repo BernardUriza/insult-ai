@@ -42,7 +42,7 @@ const STRUCTURED_DATA = {
     priceCurrency: "USD",
   },
   featureList: [
-    "AI roasts with guardrails",
+    "Cross-examines claims with guardrails",
     "Live-source intelligence briefs",
     "Clinical coaching mode",
     "Knowledge base ingestion",

@@ -33,16 +33,16 @@ interface SegmentCard {
 const SEGMENTS: SegmentCard[] = [
   {
     mode: "roast",
-    badge: "Witty Roast",
+    badge: "Cross-Examination",
     title: "Roast",
-    copy: "Claims, links, and messy thoughts — roasted with receipts.",
+    copy: "Claims, links, and arguments — pressured until they hold or break, every jab sourced.",
     cta: "Start Roast",
   },
   {
     mode: "brief",
     badge: "Intelligence Brief",
     title: "Brief",
-    copy: "Live signals turned into a sharp, cited brief.",
+    copy: "Live signals pressure-tested into a sharp, cited brief.",
     cta: "Get Briefed",
   },
   {
@@ -156,8 +156,8 @@ export function LandingClient() {
           transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
           className="max-w-xl text-base font-semibold leading-relaxed text-zinc-100 drop-shadow-[0_2px_16px_rgb(0_0_0/0.75)] md:text-lg"
         >
-          Choose a mode: get roasted, get briefed, or work through the mess with
-          guardrails.
+          Put a claim under pressure: cross-examine it, brief it, or work through
+          the mess — with guardrails.
         </motion.p>
         <motion.div
           variants={fadeUp}
@@ -263,7 +263,7 @@ export function LandingClient() {
         <header className="flex flex-col gap-1">
           <p className="iai-tag self-start">Guardrails</p>
           <h2 className="text-2xl font-extrabold text-zinc-100 md:text-3xl">
-            Funny does not mean reckless.
+            Sharp does not mean reckless.
           </h2>
         </header>
         <ul className="grid gap-2 text-base leading-relaxed text-zinc-200 sm:grid-cols-2">
@@ -321,7 +321,7 @@ export function LandingClient() {
         <p className="text-sm font-semibold text-zinc-400">
           Insult <span className="iai-brand">AI</span>
         </p>
-        <p className="text-sm text-zinc-300">Roasts with receipts. Boundaries included.</p>
+        <p className="text-sm text-zinc-300">Every claim, cross-examined. Boundaries hold.</p>
         <PoweredBy />
         <span>Insult AI · Web Data UNLOCKED Hackathon</span>
       </footer>

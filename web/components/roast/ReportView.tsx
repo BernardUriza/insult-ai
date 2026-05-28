@@ -18,11 +18,11 @@ const HEADER: Record<"roast" | "brief", string> = { roast: "Roast", brief: "Brie
 const EMPTY: Record<"roast" | "brief", { headline: string; subcopy: string }> = {
   roast: {
     headline: "What are we roasting today?",
-    subcopy: "Paste a URL or a claim above. I'll bring receipts and a controlled burn.",
+    subcopy: "Paste a URL or a claim above. I'll fetch the evidence and see if it survives.",
   },
   brief: {
     headline: "Who needs a brief?",
-    subcopy: "Drop a company or claim above. I'll turn live signals into a sharp brief.",
+    subcopy: "Drop a company or claim above. I'll pressure-test it against live signals.",
   },
 };
 
