@@ -57,6 +57,17 @@ _log.info("logging cabled — chat.event lines will land here")
 
 app = FastAPI(title="Insult AI", version="0.1.0")
 
+# Hard ceiling on a single /chat/stream turn. A wedged Bright Data MCP or a
+# stalled SDK socket would otherwise hold the SSE open forever, burning
+# tokens. Named (not a literal) because it's a known tuning point: prod
+# telemetry shows heavy agentic turns (multi-page roast/brief research) can
+# run ~6min, which EXCEEDS this — so non-trivial roasts currently time out
+# here. Raising it lets them complete (at the cost of a slower worst case);
+# the better fix is trimming the persona's research depth so turns finish
+# well under the cap. Overridable via env for quick ops tuning without a
+# redeploy of code.
+CHAT_TURN_TIMEOUT_S = int(os.getenv("INSULT_AI_CHAT_TURN_TIMEOUT_S", "180"))
+
 # CORS — accept the origins listed in ``CORS_ALLOW_ORIGINS`` (comma-separated)
 # or fall back to wide-open in dev. Production sets this to the SWA URL via
 # Container App env var; dev leaves it unset and the API accepts everything
@@ -385,22 +396,32 @@ async def chat_stream_endpoint(request: Request, req: ChatRequest) -> StreamingR
         # Structured log — visible in uvicorn output, also picked up by any
         # JSON log aggregator (Azure Log Analytics, Loki, etc.) when deployed.
         # `extra=` keeps it parseable; the literal message stays short.
-        _log.info(
-            "chat.event %s",
-            event,
-            extra={"event": event, "session_id": req.session_id, "fields": fields},
-        )
+        #
+        # BUT: error-ish events carry the actual failure detail in `fields`
+        # (e.g. backend_error.error = the claude_agent_sdk exception string),
+        # and the default console format does NOT render `extra` — so that
+        # detail silently never reached the Container App log stream. We
+        # learned this the hard way debugging a roast that failed ~67s in:
+        # the log said "chat.event backend_error" with no cause. Log the
+        # fields INLINE (in the message) for error events so the cause is
+        # always visible, not just structured-aggregator-visible.
+        if event in ("backend_error", "guard_failed", "plan_rejected"):
+            _log.warning("chat.event %s detail=%s", event, fields)
+        else:
+            _log.info(
+                "chat.event %s",
+                event,
+                extra={"event": event, "session_id": req.session_id, "fields": fields},
+            )
 
     async def gen():
         # Tell the client the stream is live so the UI can flip 'thinking…' on
         # before the first tool_call lands (otherwise nothing happens for ~1s).
         yield _sse("open", {"session_id": req.session_id})
         try:
-            # Hard ceiling on a turn. A wedged Bright Data MCP or a stalled
-            # SDK socket would otherwise leave this SSE open forever, holding
-            # the MCP busy and silently burning tokens. 180s covers a heavy
-            # multi-fetch roast; a regression past this is a real bug.
-            async with asyncio.timeout(180):
+            # Hard ceiling on a turn — see CHAT_TURN_TIMEOUT_S above for the
+            # tuning rationale (heavy roast/brief turns can exceed it).
+            async with asyncio.timeout(CHAT_TURN_TIMEOUT_S):
                 async for event in chat_stream(
                     req.message,
                     session_id=req.session_id,
@@ -464,8 +485,22 @@ async def chat_stream_endpoint(request: Request, req: ChatRequest) -> StreamingR
             # and holding the MCP busy. The `finally` still fires its `done`.
             raise
         except TimeoutError:
-            yield _sse("error", {"message": "turn exceeded 180s timeout", "kind": "TimeoutError"})
+            # Log server-side too — a recurring timeout means the persona's
+            # runtime is outgrowing the cap, which the client-only error
+            # never surfaced to ops.
+            _log.error(
+                "chat turn exceeded %ss timeout (session=%s, mode=%s)",
+                CHAT_TURN_TIMEOUT_S, req.session_id, req.mode,
+            )
+            yield _sse("error", {"message": f"turn exceeded {CHAT_TURN_TIMEOUT_S}s timeout", "kind": "TimeoutError"})
         except Exception as exc:  # noqa: BLE001 - boundary: surface to UI
+            # `_log.exception` captures the full traceback in the Container
+            # App log stream. Before this, the only place the cause appeared
+            # was the SSE error event the browser rendered — impossible to
+            # copy out of a live demo. Now ops can read the stack.
+            _log.exception(
+                "chat turn failed (session=%s, mode=%s)", req.session_id, req.mode
+            )
             yield _sse("error", {"message": str(exc), "kind": type(exc).__name__})
         finally:
             yield _sse("done", {})
