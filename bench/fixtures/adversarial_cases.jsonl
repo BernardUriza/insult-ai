@@ -1,0 +1,12 @@
+{"id": "self-roast-01", "kind": "url", "claim_validity": "na", "contradiction_applicable": true, "note": "personal landing — W-2 employee vs 'independent disruptor' is the contradiction to surface"}
+{"id": "self-roast-02", "kind": "url", "claim_validity": "na", "contradiction_applicable": true, "note": "github profile — 'AI Integration Pioneer' claim vs zero traction is the contradiction"}
+{"id": "url-empty-01", "kind": "url", "claim_validity": "na", "contradiction_applicable": false, "note": "near-empty page — nothing to contradict; the test is honest emptiness, not a fabricated contradiction"}
+{"id": "myth-greatwall-01", "kind": "claim", "claim_validity": "false", "contradiction_applicable": true, "note": "false myth — debunk is the claim-vs-reality contradiction"}
+{"id": "myth-brain10-01", "kind": "claim", "claim_validity": "false", "contradiction_applicable": true, "note": "false myth"}
+{"id": "myth-goldfish-01", "kind": "claim", "claim_validity": "false", "contradiction_applicable": true, "note": "false myth"}
+{"id": "fact-honey-01", "kind": "claim", "claim_validity": "true", "contradiction_applicable": false, "note": "TRUE claim — no contradiction to detect; nuance test: must CONFIRM, not fabricate a debunk"}
+{"id": "myth-lightning-01", "kind": "claim", "claim_validity": "false", "contradiction_applicable": true, "note": "false myth"}
+{"id": "myth-bullred-01", "kind": "claim", "claim_validity": "false", "contradiction_applicable": true, "note": "false myth (bulls are dichromats)"}
+{"id": "myth-heathead-01", "kind": "claim", "claim_validity": "partial", "contradiction_applicable": true, "note": "partial — you DO lose heat through the head, just not disproportionately; nuance test"}
+{"id": "myth-knuckles-01", "kind": "claim", "claim_validity": "false", "contradiction_applicable": true, "note": "false myth"}
+{"id": "myth-napoleon-01", "kind": "claim", "claim_validity": "partial", "contradiction_applicable": true, "note": "partial — average height for his era; nuance test, not a clean true/false"}
