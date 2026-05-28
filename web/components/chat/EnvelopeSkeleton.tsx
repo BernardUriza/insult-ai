@@ -16,9 +16,10 @@ const WarnIcon = getStatusIcon("warning");
  * where the wait is in the pipeline.
  *
  * Plus: a slow-response banner that flips on after 12 seconds with the
- * persona's voice intact ("sigo cocinando, no me abandones como a ese
- * correo"). After 30s the banner switches to a reassuring "casi listo"
- * line. Both keep the persona consistent during the dead air. */
+ * persona's voice intact (a jab at the user's procrastination — "unlike
+ * that email you keep dodging, I won't leave you hanging"). After 30s the
+ * banner switches to a reassuring "almost there" line. Both keep the
+ * persona consistent during the dead air. */
 const SLOW_THRESHOLD_MS = 12_000;
 const STILL_GOING_THRESHOLD_MS = 30_000;
 
@@ -51,8 +52,8 @@ export function EnvelopeSkeleton() {
         >
           <WarnIcon className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-400" aria-hidden />
           <span>
-            still cooking. I won't abandon you like that email. promise: worth
-            the wait.
+            still cooking — and unlike that email you keep dodging, I won't
+            leave you hanging. worth the wait.
           </span>
         </div>
       )}

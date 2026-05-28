@@ -9,9 +9,8 @@ import type { ChatTone } from "./types";
  * — meant to sit under the chat header without competing with the
  * conversation surface.
  *
- * The label triple is "compa-tone" first ("medio / cabrón controlado") then
- * the en-US gloss in parentheses — the user gets the persona's voice in
- * the chrome too, not just in the responses. */
+ * Each tone carries a short hint describing what the persona does at that
+ * level (no jab / one sharp line / sharper / direct coach mode). */
 
 const TONES: { value: ChatTone; label: string; hint: string }[] = [
   { value: "soft", label: "Soft", hint: "no jab" },

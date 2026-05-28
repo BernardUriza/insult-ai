@@ -10,6 +10,17 @@ import {
 } from "../../lib/api";
 import { newId } from "../../lib/id";
 
+function sourceIdFromName(name: string): string {
+  const slug = name
+    .trim()
+    .replace(/[^A-Za-z0-9_.:-]+/g, "-")
+    .replace(/^[^A-Za-z0-9]+/, "")
+    .replace(/-+/g, "-")
+    .slice(0, 72);
+  const base = slug || "source";
+  return `${base}-${newId()}`.slice(0, 128);
+}
+
 /** One document that's been ingested into the active corpus. */
 export type IngestedDoc = {
   /** Stable id we mint client-side so the same doc_id can't collide with a
@@ -92,7 +103,7 @@ export function useLibrary() {
   }, [corpusId]);
 
   const ingest = useCallback(
-    async (text: string): Promise<IngestedDoc | null> => {
+    async (text: string, sourceName = ""): Promise<IngestedDoc | null> => {
       const trimmed = text.trim();
       const corpus = corpusId.trim();
       if (!trimmed || !corpus || busy) return null;
@@ -102,7 +113,7 @@ export function useLibrary() {
       }
       setBusy(true);
       setError("");
-      const docId = `doc-${newId()}`;
+      const docId = sourceIdFromName(sourceName);
       try {
         const res = await fetchApi("/documents", {
           method: "POST",
@@ -140,7 +151,7 @@ export function useLibrary() {
    * Validates extension client-side so a bad file gives feedback before
    * even round-tripping. */
   const uploadFile = useCallback(
-    async (file: File): Promise<IngestedDoc | null> => {
+    async (file: File, sourceName = ""): Promise<IngestedDoc | null> => {
       const corpus = corpusId.trim();
       if (!corpus || busy) return null;
       const lower = file.name.toLowerCase();
@@ -161,7 +172,7 @@ export function useLibrary() {
       }
       setBusy(true);
       setError("");
-      const docId = `doc-${newId()}`;
+      const docId = sourceIdFromName(sourceName || file.name.replace(/\.[^.]+$/, ""));
       try {
         const form = new FormData();
         form.append("corpus_id", corpus);

@@ -31,12 +31,14 @@ const WarnIcon = getStatusIcon("warning");
 export default function LibraryPage() {
   const { corpusId, setCorpusId, docs, busy, error, ingest, uploadFile } = useLibrary();
   const [text, setText] = useState("");
+  const [sourceName, setSourceName] = useState("");
   const [editingBase, setEditingBase] = useState(false);
 
   async function onIngest() {
-    const doc = await ingest(text);
+    const doc = await ingest(text, sourceName);
     if (doc) {
       setText("");
+      setSourceName("");
       setEditingBase(false);
     }
   }
@@ -49,12 +51,12 @@ export default function LibraryPage() {
   const ingestedPanel =
     docs.length === 0 ? (
       <div className="iai-card-soft text-center text-sm text-zinc-500">
-        Nothing ingested in this session yet.
+        No sources saved in this knowledge base yet.
       </div>
     ) : (
       <section className="flex flex-col gap-2">
         <h2 className="iai-hint text-xs uppercase tracking-wide">
-          Ingested this session ({docs.length})
+          Sources in this knowledge base ({docs.length})
         </h2>
         <ul className="flex flex-col gap-2">
           {docs.map((d) => (
@@ -110,14 +112,14 @@ export default function LibraryPage() {
         <section className="flex flex-col gap-2">
           <h2 className="text-xl font-bold text-zinc-100">Knowledge base</h2>
           <p className="iai-hint text-sm">
-            Feed the agent a document corpus. Paste bios, press releases,
-            internal notes — the agent can mine them during a later roast or
+            Save multiple sources into one knowledge base. Paste bios, press
+            releases, internal notes — the agent can mine them during a later roast or
             brief, alongside live web data.
           </p>
         </section>
 
         {/* Form — corpus id + text. corpus_id is sticky so dropping multiple
-         * docs into the same corpus doesn't require re-typing it. */}
+         * sources into the same corpus doesn't require re-typing it. */}
         <section className="iai-card flex flex-col gap-3">
           <div className="flex flex-col gap-1 text-sm">
             <span className="iai-hint text-xs uppercase tracking-wide">
@@ -143,12 +145,27 @@ export default function LibraryPage() {
               )}
             </div>
           </div>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="iai-hint text-xs uppercase tracking-wide">
+              Source name
+            </span>
+            <input
+              value={sourceName}
+              onChange={(e) => setSourceName(e.target.value)}
+              placeholder="e.g. founder-bio, q2-report, pitch-notes"
+              className="iai-input text-sm"
+              disabled={busy}
+            />
+          </label>
           <div className="flex flex-col gap-1">
             <span className="iai-hint text-xs uppercase tracking-wide">Upload a file</span>
             <FileDropzone
               onFile={(f) => {
-                void uploadFile(f).then((doc) => {
-                  if (doc) setEditingBase(false);
+                void uploadFile(f, sourceName).then((doc) => {
+                  if (doc) {
+                    setSourceName("");
+                    setEditingBase(false);
+                  }
                 });
               }}
               disabled={busy || !corpusId.trim()}
