@@ -52,7 +52,6 @@ export function PlanChecklist({ plan }: { plan: Plan | null }) {
       )}
       <ol className="mt-2 space-y-1.5">
         {plan.steps.map((step, i) => {
-          const Icon = getStatusIcon(step.status);
           const isRunning = step.status === "running";
           const isPending = step.status === "pending";
           const isDone = step.status === "done";
@@ -67,22 +66,30 @@ export function PlanChecklist({ plan }: { plan: Plan | null }) {
                 : isRunning
                   ? "text-zinc-100"
                   : "text-zinc-500";
-          const iconTone = isFailed
+          const railTone = isFailed
             ? "text-red-400"
             : isDone
-              ? "text-emerald-400"
+              ? "text-emerald-400 bg-emerald-400"
               : isRunning
-                ? "text-amber-300 animate-spin"
-                // pending is also Loader2 by mapping — keep it still & dim so the
-                // running step is the only one spinning (single point of motion).
-                : "text-zinc-600";
+                ? "text-amber-300 bg-amber-300"
+                : "text-zinc-600 bg-zinc-700";
           return (
             <li key={i} className="flex flex-col gap-0.5">
               <div className="flex items-center gap-2 text-xs">
-                <Icon className={`h-3.5 w-3.5 shrink-0 ${iconTone}`} aria-label={step.status} />
+                <span
+                  className={`h-5 w-1 shrink-0 rounded-full ${railTone} ${
+                    isRunning ? "shadow-[0_0_10px_rgb(251_191_36/0.45)]" : ""
+                  }`}
+                  aria-label={step.status}
+                />
                 <span className={`flex-1 truncate ${labelTone}`}>{step.label}</span>
                 {isPending && (
                   <span className="iai-hint text-[10px] uppercase tracking-wide">queued</span>
+                )}
+                {isRunning && (
+                  <span className="text-[10px] uppercase tracking-wide text-amber-300">
+                    running
+                  </span>
                 )}
               </div>
               {/* Summary / error renders under the row to keep the checklist

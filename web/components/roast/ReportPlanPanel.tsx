@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  getStatusIcon,
   getToolIcon,
   shortToolName,
   stepStatusKey,
@@ -77,34 +76,50 @@ export function ReportPlanPanel({ message }: { message: ChatMessage | null }) {
             {steps.map((s, i) => {
               const ToolIcon = getToolIcon(s.name);
               const statusKey = stepStatusKey(s.isError);
-              const StatusIcon = getStatusIcon(statusKey);
               const errored = statusKey === "error";
               const pending = statusKey === "pending";
+              const done = statusKey === "done";
+              // Bright Data steps are the live-web fetches — the hackathon's
+              // "Application of Technology" proof. Make them UNMISSABLE: a
+              // brand-blue left rail + the "Bright Data" wordmark badge (the
+              // product has no logo asset; the wordmark in BD's Pantone blue
+              // IS the brand identity, same as PoweredBy). Other steps
+              // (task_tracker, ToolSearch) stay quiet.
+              const isBrightData = s.server === "brightdata";
               return (
                 <li
                   key={s.id ?? `${s.name}-${i}`}
-                  className={`flex items-center gap-2 text-xs ${errored ? "text-red-400" : "text-zinc-400"}`}
+                  className={`flex items-center gap-2 rounded-md text-xs ${
+                    errored ? "text-red-400" : "text-zinc-400"
+                  } ${isBrightData ? "border-l-2 border-iai-brand/60 bg-iai-brand/5 pl-1.5" : ""}`}
                 >
                   <span className="iai-hint w-4 shrink-0 text-right tabular-nums">{i + 1}</span>
-                  <ToolIcon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <ToolIcon
+                    className={`h-3.5 w-3.5 shrink-0 ${isBrightData ? "text-iai-brand" : ""}`}
+                    aria-hidden
+                  />
                   <span className="flex-1 truncate">{shortToolName(s.name)}</span>
-                  {s.server && s.server !== "brightdata" && (
-                    <span className="iai-hint text-[10px] uppercase">{s.server}</span>
+                  {isBrightData ? (
+                    <span className="inline-flex shrink-0 items-center rounded-full border border-iai-brand/40 bg-iai-brand/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-iai-brand">
+                      Bright Data
+                    </span>
+                  ) : (
+                    s.server && (
+                      <span className="iai-hint text-[10px] uppercase">{s.server}</span>
+                    )
                   )}
-                  <StatusIcon
-                    className={`h-3.5 w-3.5 shrink-0 ${
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${
                       pending
-                        ? "animate-spin text-zinc-500"
+                        ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
                         : errored
-                          ? "text-red-400"
-                          // Done steps are STATIC — a finished step that keeps
-                          // pulsing reads as "still working". Motion belongs to
-                          // pending (spin) only; iai-pulse-dot here looped
-                          // forever on settled reports.
-                          : "text-emerald-400"
+                          ? "border-red-400/30 bg-red-400/10 text-red-300"
+                          : "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
                     }`}
                     aria-label={statusKey}
-                  />
+                  >
+                    {pending ? "running" : done ? "done" : "error"}
+                  </span>
                 </li>
               );
             })}
