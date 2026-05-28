@@ -59,6 +59,7 @@ sys.path.insert(0, str(_API))
 
 from fi_runner import ToolCall  # noqa: E402  (reconstruct tool_calls on --rescore)
 from insult_ai.prompts import roast_prompt  # noqa: E402
+from insult_ai.receipts import ensure_result_receipts  # noqa: E402
 from insult_ai.runner import BRIGHTDATA_MCP, build_runner  # noqa: E402
 
 EVAL_SET = _HERE / "eval_set.jsonl"
@@ -233,6 +234,7 @@ async def run_eval(cases: list[dict]) -> list[dict]:
                     rows.append(score(case, "", [], error=f"{type(exc).__name__}: {exc}"))
                     print(f"    ✗ FAILED: {type(exc).__name__}: {str(exc)[:120]}", flush=True)
                     continue
+                result = ensure_result_receipts(result)
                 raw_f.write(
                     json.dumps(
                         {

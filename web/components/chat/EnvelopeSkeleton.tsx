@@ -15,15 +15,16 @@ const WarnIcon = getStatusIcon("warning");
  * action box, follow-up — so the user knows what's coming and roughly
  * where the wait is in the pipeline.
  *
- * Plus: a slow-response banner that flips on after 12 seconds with the
- * persona's voice intact (a jab at the user's procrastination — "unlike
- * that email you keep dodging, I won't leave you hanging"). After 30s the
- * banner switches to a reassuring "almost there" line. Both keep the
- * persona consistent during the dead air. */
+ * The status line shows a `quip` when present — a cheap-tier line generated
+ * in parallel reacting to the user's own message (see useChat → /chat/quip).
+ * When no quip landed (safety-gated, failed, or still in flight) it falls
+ * back to a hardcoded slow-banner at 12s ("slow, I know — but I won't leave
+ * you on read") and a reassuring "almost there" line at 30s. The hardcoded
+ * banners are suppressed once a quip is showing. */
 const SLOW_THRESHOLD_MS = 12_000;
 const STILL_GOING_THRESHOLD_MS = 30_000;
 
-export function EnvelopeSkeleton() {
+export function EnvelopeSkeleton({ quip }: { quip?: string | null }) {
   const [elapsed, setElapsed] = useState(0);
 
   // Tick every 500ms. Cheap, accurate enough for the banner switching.
@@ -41,23 +42,23 @@ export function EnvelopeSkeleton() {
       {/* Status line — quiet, persona-consistent. */}
       <div className="iai-hint iai-hint-live inline-flex items-center gap-2 text-xs">
         <FlameIcon className="iai-flame h-3.5 w-3.5" aria-hidden />
-        <span>cooking a roast with clinical guardrails…</span>
+        <span>{quip || "cooking a roast with clinical guardrails…"}</span>
       </div>
 
-      {/* Slow-banner — kicks in at 12s with the persona's voice. */}
-      {slow && !stillGoing && (
+      {/* Hardcoded fallback — only when no quip landed. Slow-banner at 12s. */}
+      {!quip && slow && !stillGoing && (
         <div
           className="inline-flex items-start gap-2 rounded-lg border border-amber-700/40 bg-amber-950/20 p-2.5 text-xs text-amber-200"
           role="status"
         >
           <WarnIcon className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-400" aria-hidden />
           <span>
-            still cooking — and unlike that email you keep dodging, I won't
-            leave you hanging. worth the wait.
+            still cooking. slow, I know — but I won't leave you on read. worth
+            the wait.
           </span>
         </div>
       )}
-      {stillGoing && (
+      {!quip && stillGoing && (
         <div
           className="inline-flex items-start gap-2 rounded-lg border border-amber-700/40 bg-amber-950/20 p-2.5 text-xs text-amber-200"
           role="status"

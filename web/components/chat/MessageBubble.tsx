@@ -171,7 +171,7 @@ export function MessageBubble({
           * picked at runtime without the bubble knowing what mode the
           * page is in. */}
         {!message.content && (message.status === "thinking" || message.status === "streaming") && (
-          mode === "clinical" ? <EnvelopeSkeleton /> : <AgenticSkeleton />
+          mode === "clinical" ? <EnvelopeSkeleton quip={message.quip} /> : <AgenticSkeleton />
         )}
         {message.content && message.status === "streaming" && (
           mode === "clinical" ? (

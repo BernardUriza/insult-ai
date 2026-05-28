@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useState } from "react";
 import { FileDropzone } from "../../components/library/FileDropzone";
+import { SuggestedQuestions } from "../../components/library/SuggestedQuestions";
 import { useLibrary } from "../../components/library/useLibrary";
 import { ConversationShell } from "../../components/layout/ConversationShell";
 import { InsultHeader } from "../../components/layout/InsultHeader";
@@ -75,6 +76,7 @@ export default function LibraryPage() {
                 <p className="truncate font-mono text-[11px] text-zinc-500">
                   {d.preview}…
                 </p>
+                <SuggestedQuestions corpusId={d.corpusId} questions={d.suggestedQuestions} />
               </div>
               <Link
                 href={`/chat?corpus=${encodeURIComponent(d.corpusId)}`}

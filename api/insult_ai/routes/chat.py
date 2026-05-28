@@ -10,7 +10,8 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from ..auth import limiter, verify_api_key
-from ..models import ChatRequest
+from ..clinical.quip import waiting_quip
+from ..models import ChatRequest, QuipRequest, QuipResponse
 from ..runner import chat_stream
 from ..validation import (
     CHAT_TURN_TIMEOUT_S,
@@ -168,3 +169,26 @@ async def chat_stream_endpoint(request: Request, req: ChatRequest) -> StreamingR
             "Connection": "keep-alive",
         },
     )
+
+
+@router.post("/chat/quip", dependencies=[Depends(verify_api_key)])
+@limiter.limit("30/hour")
+async def chat_quip_endpoint(request: Request, req: QuipRequest) -> QuipResponse:
+    """One-line "waiting room" quip for the clinical skeleton.
+
+    A cheap-tier one-shot (no MCP, no agent loop) that reacts to the user's
+    message so the ~30s clinical wait feels alive instead of broken. Fired
+    in parallel with /chat/stream by the frontend; purely decorative.
+
+    Returns ``{"quip": null}`` when the message is sensitive/crisis (a joke
+    over a crisis signal would break Rule 0) or when generation fails — the
+    UI then keeps its hardcoded fallback line. Never blocks the real turn.
+    """
+    message = clean_text(req.message, field="message", max_chars=REQUEST_TEXT_MAX_CHARS)
+    backend = validate_backend(req.backend)
+    try:
+        quip = await waiting_quip(message, backend=backend, tone=req.tone)
+    except Exception:  # noqa: BLE001 - decorative: a quip failure is never an error
+        _log.info("quip endpoint swallowed an error; returning null quip")
+        quip = None
+    return QuipResponse(quip=quip)

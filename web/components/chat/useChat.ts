@@ -196,12 +196,43 @@ export function useChat(opts?: {
       setMessages((prev) => [
         ...prev,
         { id: newId(), role: "user", content: trimmed },
-        { id: assistantId, role: "assistant", content: "", steps: [], plan: null, receipts: [], usage: null, meta: null, status: "thinking" },
+        { id: assistantId, role: "assistant", content: "", steps: [], plan: null, receipts: [], usage: null, meta: null, status: "thinking", quip: null },
       ]);
       setStreaming(true);
 
       const controller = new AbortController();
       abortRef.current = controller;
+
+      // Clinical mode: fire a parallel cheap-tier quip so the ~30s wait shows a
+      // line reacting to the user's message instead of a static banner. Purely
+      // decorative — fire-and-forget, shares the turn's abort signal, and any
+      // failure is dropped silently (the skeleton keeps its hardcoded line).
+      if (mode === "clinical") {
+        void (async () => {
+          try {
+            const qres = await fetch(apiUrl("/chat/quip"), {
+              method: "POST",
+              headers: apiHeaders({ "Content-Type": "application/json" }),
+              body: JSON.stringify({
+                message: trimmed,
+                tone,
+                ...(backend ? { backend } : {}),
+              }),
+              signal: controller.signal,
+            });
+            if (!qres.ok) return;
+            const { quip } = (await qres.json()) as { quip?: string | null };
+            if (!quip) return;
+            // Only paint while the envelope is still loading — never overwrite
+            // anything after the turn settled.
+            patchAssistant(assistantId, (m) =>
+              m.status === "thinking" || m.status === "streaming" ? { quip } : {},
+            );
+          } catch {
+            // decorative: abort / network / parse failures are all fine to drop
+          }
+        })();
+      }
       let timedOut = false;
       const timeout = window.setTimeout(() => {
         timedOut = true;

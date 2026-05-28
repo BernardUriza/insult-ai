@@ -5,8 +5,9 @@ import logging
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
+from ..document_questions import generate_source_questions, get_document_questions
 from ..auth import limiter, verify_api_key
-from ..models import DocumentInfo, DocumentListResponse, IngestRequest, IngestResponse
+from ..models import DocumentInfo, DocumentListResponse, DocumentQuestion, IngestRequest, IngestResponse
 from ..startup import _rag
 from ..validation import (
     INGEST_TEXT_MAX_BYTES,
@@ -25,6 +26,25 @@ router = APIRouter()
 _UPLOAD_ALLOWED_EXTENSIONS = {".txt", ".md"}
 # 5 MB raw upload ceiling.
 _UPLOAD_MAX_BYTES = 5 * 1024 * 1024
+
+
+def _clean_source_name(value: str | None, fallback: str) -> str:
+    cleaned = " ".join((value or "").strip().split())
+    return (cleaned or fallback)[:128]
+
+
+def _question_models(records: list[dict[str, str]]) -> list[DocumentQuestion]:
+    return [
+        DocumentQuestion(
+            question_id=i + 1,
+            question=record.get("question", ""),
+            image_query=record.get("image_query", ""),
+            image_url=record.get("image_url", ""),
+            image_source_url=record.get("image_source_url", ""),
+        )
+        for i, record in enumerate(records)
+        if record.get("question")
+    ]
 
 
 @router.post("/documents", response_model=IngestResponse, dependencies=[Depends(verify_api_key)])
@@ -47,7 +67,13 @@ async def ingest_document(request: Request, req: IngestRequest) -> IngestRespons
         raise HTTPException(
             status_code=502, detail="document store failed while ingesting text"
         ) from exc
-    return IngestResponse(chunks=chunks)
+    questions = await generate_source_questions(
+        corpus_id=corpus_id,
+        doc_id=doc_id,
+        text=text,
+        source_name=_clean_source_name(req.source_name, doc_id),
+    )
+    return IngestResponse(chunks=chunks, suggested_questions=_question_models(questions))
 
 
 @router.post(
@@ -60,6 +86,7 @@ async def upload_document(
     request: Request,
     corpus_id: str = Form(...),
     doc_id: str = Form(...),
+    source_name: str | None = Form(None),
     file: UploadFile = File(...),
 ) -> IngestResponse:
     """Multipart sibling of /documents — accepts a `.txt` or `.md` file.
@@ -95,7 +122,13 @@ async def upload_document(
             ) from exc
     finally:
         await file.close()
-    return IngestResponse(chunks=chunks)
+    questions = await generate_source_questions(
+        corpus_id=corpus_id,
+        doc_id=doc_id,
+        text=text,
+        source_name=_clean_source_name(source_name, filename),
+    )
+    return IngestResponse(chunks=chunks, suggested_questions=_question_models(questions))
 
 
 @router.get(
@@ -108,10 +141,31 @@ async def list_documents_endpoint(request: Request, corpus_id: str) -> DocumentL
     """List documents ingested into a corpus — straight from pgvector."""
     corpus = validate_id(corpus_id, field="corpus_id")
     docs = await _rag.list_documents(corpus)
-    return DocumentListResponse(
-        corpus_id=corpus,
-        documents=[
-            DocumentInfo(doc_id=d["doc_id"], chunk_count=d["chunk_count"], status=d.get("status", ""))
-            for d in docs
-        ],
-    )
+    documents: list[DocumentInfo] = []
+    for d in docs:
+        doc_id = d["doc_id"]
+        documents.append(
+            DocumentInfo(
+                doc_id=doc_id,
+                chunk_count=d["chunk_count"],
+                status=d.get("status", ""),
+                suggested_questions=_question_models(await get_document_questions(corpus, doc_id)),
+            )
+        )
+    return DocumentListResponse(corpus_id=corpus, documents=documents)
+
+
+@router.get(
+    "/documents/{doc_id}/questions",
+    response_model=list[DocumentQuestion],
+    dependencies=[Depends(verify_api_key)],
+)
+@limiter.limit("60/hour")
+async def document_questions_endpoint(
+    request: Request, doc_id: str, corpus_id: str
+) -> list[DocumentQuestion]:
+    """Return LLM-generated starter questions for one document source."""
+    corpus = validate_id(corpus_id, field="corpus_id")
+    doc = validate_id(doc_id, field="doc_id")
+    questions = await get_document_questions(corpus, doc)
+    return _question_models(questions)

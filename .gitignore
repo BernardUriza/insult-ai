@@ -30,6 +30,8 @@ bench/.roasts_review.html
 # Materialized by fi_runner.rag_store on first ingest; never committed.
 fi_rag_store.h5
 fi_rag_store.h5.lock
+# Document-question sidecar metadata generated during local ingest/tests.
+storage/
 
 # Local verification screenshots (chrome-devtools runs during dev).
 .tmp-screenshots/

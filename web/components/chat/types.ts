@@ -101,6 +101,11 @@ export type ChatMessage =
       meta: ChatMeta | null;
       status: "thinking" | "streaming" | "done" | "error";
       errorMessage?: string;
+      /** Decorative one-line "waiting room" quip for clinical mode, fetched
+       * in parallel with the turn (see useChat → /chat/quip). Reacts to the
+       * user's message; shown in <EnvelopeSkeleton> while the envelope is
+       * in-flight. Null/undefined → the skeleton keeps its hardcoded line. */
+      quip?: string | null;
     };
 
 // Note: `receiptsFrom` now lives in `lib/text.ts` and is imported by both

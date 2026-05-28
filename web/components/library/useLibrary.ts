@@ -4,43 +4,15 @@ import { useCallback, useEffect, useState } from "react";
 import {
   MAX_LIBRARY_TEXT_CHARS,
   MAX_LIBRARY_UPLOAD_BYTES,
+  API_REQUEST_TIMEOUT_MS,
   apiErrorMessage,
   apiHeaders,
   fetchApi,
 } from "../../lib/api";
-import { newId } from "../../lib/id";
+import { sourceIdFromName } from "./sourceIds";
+import type { DocumentListPayload, IngestPayload, IngestedDoc } from "./types";
 
-function sourceIdFromName(name: string): string {
-  const slug = name
-    .trim()
-    .replace(/[^A-Za-z0-9_.:-]+/g, "-")
-    .replace(/^[^A-Za-z0-9]+/, "")
-    .replace(/-+/g, "-")
-    .slice(0, 72);
-  const base = slug || "source";
-  return `${base}-${newId()}`.slice(0, 128);
-}
-
-/** One document that's been ingested into the active corpus. */
-export type IngestedDoc = {
-  /** Stable id we mint client-side so the same doc_id can't collide with a
-   * future one on a fresh ingest. The backend uses `doc_id` as part of the
-   * PRIMARY KEY ON (namespace, document_id) so the caller controls it. */
-  docId: string;
-  /** The corpus this doc lives under — keys multi-tenant isolation in
-   * fi_core.rag's pgvector schema. */
-  corpusId: string;
-  /** First ~80 chars of the ingested text — UI preview. */
-  preview: string;
-  /** How many chunks fi-core's chunker produced. Returned by the API as
-   * IngestResponse.chunks. Zero means the text was too short to chunk
-   * (below `min_chunk_size=30`); the row is still kept so the user can
-   * see why the corpus didn't grow. */
-  chunks: number;
-  /** When this doc was ingested this session, for sort order. Persisted rows
-   * loaded from the backend use 0 because the list endpoint has no timestamp. */
-  at: number;
-};
+const LIBRARY_INGEST_TIMEOUT_MS = Math.max(API_REQUEST_TIMEOUT_MS, 60_000);
 
 
 /** State + actions for the /library page.
@@ -72,10 +44,7 @@ export function useLibrary() {
     })
       .then(async (res) => {
         if (!res.ok || cancelled) return;
-        const data = (await res.json()) as {
-          corpus_id: string;
-          documents: { doc_id: string; chunk_count: number; status: string }[];
-        };
+        const data = (await res.json()) as DocumentListPayload;
         if (cancelled) return;
         setDocs((prev) => {
           const local = prev.filter((d) => d.corpusId === data.corpus_id && d.at > 0);
@@ -89,6 +58,7 @@ export function useLibrary() {
               preview: existing?.preview ?? d.doc_id,
               chunks: d.chunk_count,
               at: existing?.at ?? 0,
+              suggestedQuestions: d.suggested_questions ?? existing?.suggestedQuestions ?? [],
             });
           }
           return [...byId.values()].sort((a, b) => b.at - a.at || a.docId.localeCompare(b.docId));
@@ -118,18 +88,24 @@ export function useLibrary() {
         const res = await fetchApi("/documents", {
           method: "POST",
           headers: apiHeaders({ "Content-Type": "application/json" }),
-          body: JSON.stringify({ corpus_id: corpus, doc_id: docId, text: trimmed }),
-        });
+          body: JSON.stringify({
+            corpus_id: corpus,
+            doc_id: docId,
+            source_name: sourceName.trim() || undefined,
+            text: trimmed,
+          }),
+        }, LIBRARY_INGEST_TIMEOUT_MS);
         if (!res.ok) {
           throw new Error(await apiErrorMessage(res));
         }
-        const data = (await res.json()) as { chunks?: number };
+        const data = (await res.json()) as IngestPayload;
         const doc: IngestedDoc = {
           docId,
           corpusId: corpus,
           preview: trimmed.slice(0, 80),
           chunks: data.chunks ?? 0,
           at: Date.now(),
+          suggestedQuestions: data.suggested_questions ?? [],
         };
         // Newest first — the just-ingested doc is the one the user wants to
         // see acknowledged.
@@ -177,6 +153,7 @@ export function useLibrary() {
         const form = new FormData();
         form.append("corpus_id", corpus);
         form.append("doc_id", docId);
+        if (sourceName.trim()) form.append("source_name", sourceName.trim());
         form.append("file", file);
         // NOTE: deliberately NOT setting Content-Type — the browser sets
         // multipart/form-data + the boundary string for us. Setting it
@@ -185,17 +162,18 @@ export function useLibrary() {
           method: "POST",
           headers: apiHeaders(),
           body: form,
-        });
+        }, LIBRARY_INGEST_TIMEOUT_MS);
         if (!res.ok) {
           throw new Error(await apiErrorMessage(res));
         }
-        const data = (await res.json()) as { chunks?: number };
+        const data = (await res.json()) as IngestPayload;
         const doc: IngestedDoc = {
           docId,
           corpusId: corpus,
           preview: `File: ${file.name}`,
           chunks: data.chunks ?? 0,
           at: Date.now(),
+          suggestedQuestions: data.suggested_questions ?? [],
         };
         setDocs((prev) => [doc, ...prev]);
         return doc;

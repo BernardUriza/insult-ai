@@ -32,19 +32,33 @@ class IngestRequest(BaseModel):
     corpus_id: str = Field(..., min_length=1, max_length=128)
     doc_id: str = Field(..., min_length=1, max_length=128)
     text: str = Field(..., min_length=1, max_length=REQUEST_TEXT_MAX_CHARS * 10)
+    source_name: str | None = Field(default=None, max_length=128)
 
     class Config:
         extra = "forbid"
 
 
+class DocumentQuestion(BaseModel):
+    question_id: int
+    question: str
+    source: Literal["llm_initial", "user_query"] = "llm_initial"
+    timestamp: str = ""
+    answer: str | None = None
+    image_query: str = ""
+    image_url: str = ""
+    image_source_url: str = ""
+
+
 class IngestResponse(BaseModel):
     chunks: int
+    suggested_questions: list[DocumentQuestion] = Field(default_factory=list)
 
 
 class DocumentInfo(BaseModel):
     doc_id: str
     chunk_count: int
     status: str
+    suggested_questions: list[DocumentQuestion] = Field(default_factory=list)
 
 
 class DocumentListResponse(BaseModel):
@@ -80,3 +94,21 @@ class ChatRequest(BaseModel):
 
     class Config:
         extra = "forbid"
+
+
+class QuipRequest(BaseModel):
+    # Decorative waiting-room line for the clinical skeleton. The full message
+    # is sent so the quip can react to its content; a cheap-tier one-shot
+    # generates the line (see clinical/quip.py).
+    message: str = Field(..., min_length=1, max_length=REQUEST_TEXT_MAX_CHARS)
+    backend: str | None = None  # "claude" | "codex"
+    tone: Literal["soft", "medium", "spicy", "no_insults"] = "medium"
+
+    class Config:
+        extra = "forbid"
+
+
+class QuipResponse(BaseModel):
+    # Null when the message is sensitive/crisis or generation failed — the
+    # UI then keeps its hardcoded fallback line.
+    quip: str | None = None

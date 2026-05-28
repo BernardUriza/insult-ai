@@ -37,6 +37,7 @@ from .corpus import _resolve_clinical_corpus_id
 from .guards import build_guards, build_plan_guard
 from .modes import DEFAULT_TONE, Mode, Tone
 from .prompts import PROMPT_BY_MODE, looks_like_roast_target
+from .receipts import ensure_result_receipts
 from .store import _CHAT_STORE, chat_store
 
 _log = logging.getLogger(__name__)
@@ -176,7 +177,8 @@ async def roast(
         target_hint=target,
     )
     prompt = PROMPT_BY_MODE[mode](target, effective_corpus_id)
-    return await runner.run(prompt)
+    result = await runner.run(prompt)
+    return ensure_result_receipts(result)
 
 
 async def chat_stream(
@@ -233,4 +235,6 @@ async def chat_stream(
         else message
     )
     async for event in runner.run_stream(prompt, session_id=session_id):
+        if event.get("type") == "result":
+            event = {**event, "result": ensure_result_receipts(event["result"])}
         yield event
