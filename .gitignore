@@ -35,6 +35,11 @@ fi_rag_store.h5.lock
 .tmp-screenshots/
 bench/e2e_*.png
 
+# Autorecorder output — webm/mp4 screen captures of demo takes. Big files,
+# regenerable from the script in his/. Submission video lives elsewhere.
+his/output/
+his/.venv/
+
 # Misc
 *.log
 .DS_Store
