@@ -70,8 +70,11 @@ RAW = _HERE / ".raw_roasts.jsonl"  # gitignored: full text + tool_calls per case
 _BD_SERVER = BRIGHTDATA_MCP.name
 
 # Per-case ceiling: one hung roast (stuck MCP subprocess / network) can't zombie
-# the whole run.
-TURN_TIMEOUT_S = 300
+# the whole run. Bumped 300→480 once the plan-first persona landed: declare_plan
+# + start_step/complete_step per step add ~1+2N task_tracker round-trips, and
+# JS-SPA URL targets (scraping browser) already ran close to 300 — they tipped
+# over once the plan overhead was added. 480 gives the heavy URL cases headroom.
+TURN_TIMEOUT_S = 480
 
 # Deterministic safety FLOOR — a blocklist, NOT a classifier. A roast that trips
 # this isn't a roast, it's abuse. Matched on WORD BOUNDARIES (so "spic" does not

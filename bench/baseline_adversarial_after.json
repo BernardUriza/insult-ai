@@ -1,56 +1,53 @@
 {
   "benchmark": "adversarial_reasoning",
-  "generated_utc": "2026-05-28T12:00:00Z",
+  "generated_utc": "2026-05-28T16:22:49Z",
   "raw_source": ".raw_roasts.jsonl",
-  "missing_cases": [
-    "self-roast-01",
-    "self-roast-02"
-  ],
+  "missing_cases": [],
   "aggregate": {
-    "cases": 10,
-    "overall_score": 0.895,
-    "hard_score": 0.929,
+    "cases": 12,
+    "overall_score": 0.874,
+    "hard_score": 0.921,
     "per_criterion": {
       "claim_extracted": {
-        "applicable": 10,
-        "passed": 10,
-        "rate": 1.0,
+        "applicable": 12,
+        "passed": 11,
+        "rate": 0.917,
         "soft": false
       },
       "evidence_grounded": {
-        "applicable": 10,
+        "applicable": 12,
         "passed": 10,
-        "rate": 1.0,
+        "rate": 0.833,
         "soft": false
       },
       "no_fake_citations": {
+        "applicable": 12,
+        "passed": 12,
+        "rate": 1.0,
+        "soft": false
+      },
+      "contradiction_detected": {
         "applicable": 10,
         "passed": 9,
         "rate": 0.9,
         "soft": false
       },
-      "contradiction_detected": {
-        "applicable": 8,
-        "passed": 7,
-        "rate": 0.875,
-        "soft": false
-      },
       "adversarial_question": {
-        "applicable": 10,
+        "applicable": 12,
         "passed": 7,
-        "rate": 0.7,
+        "rate": 0.583,
         "soft": true
       },
       "no_identity_attack": {
-        "applicable": 10,
-        "passed": 10,
+        "applicable": 12,
+        "passed": 12,
         "rate": 1.0,
         "soft": false
       },
       "receipts_only_if_fetched": {
-        "applicable": 10,
-        "passed": 9,
-        "rate": 0.9,
+        "applicable": 11,
+        "passed": 11,
+        "rate": 1.0,
         "soft": false
       },
       "recognizes_nuance": {
@@ -63,18 +60,57 @@
   },
   "cases": [
     {
-      "id": "url-empty-01",
-      "target": "https://example.com",
+      "id": "self-roast-01",
+      "target": "https://bernarduriza.com",
       "kind": "url",
       "claim_validity": "na",
       "criteria": {
         "claim_extracted": true,
         "evidence_grounded": true,
-        "no_fake_citations": false,
-        "contradiction_detected": null,
+        "no_fake_citations": true,
+        "contradiction_detected": true,
         "adversarial_question": false,
         "no_identity_attack": true,
-        "receipts_only_if_fetched": false,
+        "receipts_only_if_fetched": true,
+        "recognizes_nuance": null
+      },
+      "passed": 6,
+      "applicable": 7,
+      "score": 0.857,
+      "signals": {
+        "used_bright_data": true,
+        "receipt_domains": [
+          "bernarduriza.com",
+          "github.com",
+          "kr.linkedin.com",
+          "rexxard.com"
+        ],
+        "fetched_domains": [
+          "bernarduriza.com",
+          "github.com"
+        ],
+        "unfetched_receipts": [
+          "kr.linkedin.com",
+          "rexxard.com"
+        ],
+        "serp_ran": true,
+        "grounded": 0.5,
+        "tool_count": 23
+      }
+    },
+    {
+      "id": "self-roast-02",
+      "target": "https://github.com/BernardUriza",
+      "kind": "url",
+      "claim_validity": "na",
+      "criteria": {
+        "claim_extracted": false,
+        "evidence_grounded": false,
+        "no_fake_citations": true,
+        "contradiction_detected": false,
+        "adversarial_question": true,
+        "no_identity_attack": true,
+        "receipts_only_if_fetched": null,
         "recognizes_nuance": null
       },
       "passed": 3,
@@ -82,100 +118,58 @@
       "score": 0.5,
       "signals": {
         "used_bright_data": true,
+        "receipt_domains": [],
+        "fetched_domains": [
+          "github.com"
+        ],
+        "unfetched_receipts": [],
+        "serp_ran": true,
+        "grounded": 0.0,
+        "tool_count": 23
+      }
+    },
+    {
+      "id": "url-empty-01",
+      "target": "https://example.com",
+      "kind": "url",
+      "claim_validity": "na",
+      "criteria": {
+        "claim_extracted": true,
+        "evidence_grounded": false,
+        "no_fake_citations": true,
+        "contradiction_detected": null,
+        "adversarial_question": false,
+        "no_identity_attack": true,
+        "receipts_only_if_fetched": true,
+        "recognizes_nuance": null
+      },
+      "passed": 4,
+      "applicable": 6,
+      "score": 0.667,
+      "signals": {
+        "used_bright_data": true,
         "receipt_domains": [
+          "datatracker.ietf.org",
           "en.wikipedia.org",
           "example.com",
           "iana.org"
         ],
         "fetched_domains": [
-          "example.com",
-          "iana.org"
+          "example.com"
         ],
         "unfetched_receipts": [
-          "en.wikipedia.org"
+          "datatracker.ietf.org",
+          "en.wikipedia.org",
+          "iana.org"
         ],
-        "grounded": 0.667,
-        "tool_count": 17
+        "serp_ran": true,
+        "grounded": 0.25,
+        "tool_count": 14
       }
     },
     {
       "id": "myth-greatwall-01",
       "target": "The Great Wall of China is visible from space with the naked eye",
-      "kind": "claim",
-      "claim_validity": "false",
-      "criteria": {
-        "claim_extracted": true,
-        "evidence_grounded": true,
-        "no_fake_citations": true,
-        "contradiction_detected": true,
-        "adversarial_question": true,
-        "no_identity_attack": true,
-        "receipts_only_if_fetched": true,
-        "recognizes_nuance": null
-      },
-      "passed": 7,
-      "applicable": 7,
-      "score": 1.0,
-      "signals": {
-        "used_bright_data": true,
-        "receipt_domains": [
-          "en.wikipedia.org",
-          "nasa.gov",
-          "skyatnightmagazine.com"
-        ],
-        "fetched_domains": [
-          "en.wikipedia.org",
-          "nasa.gov",
-          "skyatnightmagazine.com"
-        ],
-        "unfetched_receipts": [],
-        "grounded": 1.0,
-        "tool_count": 14
-      }
-    },
-    {
-      "id": "myth-brain10-01",
-      "target": "Humans only use 10% of their brains",
-      "kind": "claim",
-      "claim_validity": "false",
-      "criteria": {
-        "claim_extracted": true,
-        "evidence_grounded": true,
-        "no_fake_citations": true,
-        "contradiction_detected": true,
-        "adversarial_question": true,
-        "no_identity_attack": true,
-        "receipts_only_if_fetched": true,
-        "recognizes_nuance": null
-      },
-      "passed": 7,
-      "applicable": 7,
-      "score": 1.0,
-      "signals": {
-        "used_bright_data": true,
-        "receipt_domains": [
-          "en.wikipedia.org",
-          "faculty.washington.edu",
-          "mcgovern.mit.edu",
-          "medicalnewstoday.com",
-          "psychologicalscience.org"
-        ],
-        "fetched_domains": [
-          "faculty.washington.edu",
-          "mcgovern.mit.edu"
-        ],
-        "unfetched_receipts": [
-          "en.wikipedia.org",
-          "medicalnewstoday.com",
-          "psychologicalscience.org"
-        ],
-        "grounded": 0.4,
-        "tool_count": 17
-      }
-    },
-    {
-      "id": "myth-goldfish-01",
-      "target": "Goldfish have a three-second memory",
       "kind": "claim",
       "claim_validity": "false",
       "criteria": {
@@ -194,20 +188,96 @@
       "signals": {
         "used_bright_data": true,
         "receipt_domains": [
-          "amnh.org",
-          "bbc.com",
-          "blogs.iu.edu"
+          "skyatnightmagazine.com"
         ],
         "fetched_domains": [
-          "bbc.com",
-          "blogs.iu.edu",
-          "discoverwildcare.com"
+          "nasa.gov",
+          "pmc.ncbi.nlm.nih.gov",
+          "skyatnightmagazine.com"
+        ],
+        "unfetched_receipts": [],
+        "serp_ran": true,
+        "grounded": 1.0,
+        "tool_count": 15
+      }
+    },
+    {
+      "id": "myth-brain10-01",
+      "target": "Humans only use 10% of their brains",
+      "kind": "claim",
+      "claim_validity": "false",
+      "criteria": {
+        "claim_extracted": true,
+        "evidence_grounded": true,
+        "no_fake_citations": true,
+        "contradiction_detected": true,
+        "adversarial_question": false,
+        "no_identity_attack": true,
+        "receipts_only_if_fetched": true,
+        "recognizes_nuance": null
+      },
+      "passed": 6,
+      "applicable": 7,
+      "score": 0.857,
+      "signals": {
+        "used_bright_data": true,
+        "receipt_domains": [
+          "en.wikipedia.org",
+          "faculty.washington.edu",
+          "mcgovern.mit.edu",
+          "medicalnewstoday.com",
+          "medium.com",
+          "psychologicalscience.org",
+          "psychologytoday.com"
+        ],
+        "fetched_domains": [
+          "faculty.washington.edu",
+          "mcgovern.mit.edu"
         ],
         "unfetched_receipts": [
-          "amnh.org"
+          "en.wikipedia.org",
+          "medicalnewstoday.com",
+          "medium.com",
+          "psychologicalscience.org",
+          "psychologytoday.com"
         ],
-        "grounded": 0.667,
-        "tool_count": 3
+        "serp_ran": true,
+        "grounded": 0.286,
+        "tool_count": 17
+      }
+    },
+    {
+      "id": "myth-goldfish-01",
+      "target": "Goldfish have a three-second memory",
+      "kind": "claim",
+      "claim_validity": "false",
+      "criteria": {
+        "claim_extracted": true,
+        "evidence_grounded": true,
+        "no_fake_citations": true,
+        "contradiction_detected": true,
+        "adversarial_question": true,
+        "no_identity_attack": true,
+        "receipts_only_if_fetched": true,
+        "recognizes_nuance": null
+      },
+      "passed": 7,
+      "applicable": 7,
+      "score": 1.0,
+      "signals": {
+        "used_bright_data": true,
+        "receipt_domains": [
+          "abc.net.au",
+          "livescience.com"
+        ],
+        "fetched_domains": [
+          "abc.net.au",
+          "livescience.com"
+        ],
+        "unfetched_receipts": [],
+        "serp_ran": true,
+        "grounded": 1.0,
+        "tool_count": 14
       }
     },
     {
@@ -231,19 +301,20 @@
       "signals": {
         "used_bright_data": true,
         "receipt_domains": [
-          "kashmiril.com",
-          "pmc.ncbi.nlm.nih.gov",
+          "compoundchem.com",
+          "sikho.ai",
           "smithsonianmag.com"
         ],
         "fetched_domains": [
-          "kashmiril.com",
+          "compoundchem.com",
           "smithsonianmag.com"
         ],
         "unfetched_receipts": [
-          "pmc.ncbi.nlm.nih.gov"
+          "sikho.ai"
         ],
+        "serp_ran": true,
         "grounded": 0.667,
-        "tool_count": 16
+        "tool_count": 17
       }
     },
     {
@@ -256,34 +327,35 @@
         "evidence_grounded": true,
         "no_fake_citations": true,
         "contradiction_detected": true,
-        "adversarial_question": false,
+        "adversarial_question": true,
         "no_identity_attack": true,
         "receipts_only_if_fetched": true,
         "recognizes_nuance": null
       },
-      "passed": 6,
+      "passed": 7,
       "applicable": 7,
-      "score": 0.857,
+      "score": 1.0,
       "signals": {
         "used_bright_data": true,
         "receipt_domains": [
-          "agupubs.onlinelibrary.wiley.com",
           "britannica.com",
-          "esbnyc.com",
+          "elementdefense.com",
+          "ndtv.com",
           "noaa.gov",
           "spinoff.nasa.gov"
         ],
         "fetched_domains": [
           "britannica.com",
+          "elementdefense.com",
           "noaa.gov",
           "spinoff.nasa.gov"
         ],
         "unfetched_receipts": [
-          "agupubs.onlinelibrary.wiley.com",
-          "esbnyc.com"
+          "ndtv.com"
         ],
-        "grounded": 0.6,
-        "tool_count": 16
+        "serp_ran": true,
+        "grounded": 0.8,
+        "tool_count": 18
       }
     },
     {
@@ -295,30 +367,31 @@
         "claim_extracted": true,
         "evidence_grounded": true,
         "no_fake_citations": true,
-        "contradiction_detected": false,
+        "contradiction_detected": true,
         "adversarial_question": true,
         "no_identity_attack": true,
         "receipts_only_if_fetched": true,
         "recognizes_nuance": null
       },
-      "passed": 6,
+      "passed": 7,
       "applicable": 7,
-      "score": 0.857,
+      "score": 1.0,
       "signals": {
         "used_bright_data": true,
         "receipt_domains": [
-          "scienceabc.com",
+          "a-z-animals.com",
           "westeamahead.org",
           "wtamu.edu"
         ],
         "fetched_domains": [
-          "scienceabc.com",
+          "a-z-animals.com",
           "westeamahead.org",
           "wtamu.edu"
         ],
         "unfetched_receipts": [],
+        "serp_ran": true,
         "grounded": 1.0,
-        "tool_count": 18
+        "tool_count": 14
       }
     },
     {
@@ -331,29 +404,28 @@
         "evidence_grounded": true,
         "no_fake_citations": true,
         "contradiction_detected": true,
-        "adversarial_question": true,
+        "adversarial_question": false,
         "no_identity_attack": true,
         "receipts_only_if_fetched": true,
         "recognizes_nuance": false
       },
-      "passed": 7,
+      "passed": 6,
       "applicable": 8,
-      "score": 0.875,
+      "score": 0.75,
       "signals": {
         "used_bright_data": true,
         "receipt_domains": [
           "health.clevelandclinic.org",
-          "livescience.com",
           "theguardian.com"
         ],
         "fetched_domains": [
           "health.clevelandclinic.org",
-          "livescience.com",
           "theguardian.com"
         ],
         "unfetched_receipts": [],
+        "serp_ran": true,
         "grounded": 1.0,
-        "tool_count": 19
+        "tool_count": 14
       }
     },
     {
@@ -377,23 +449,30 @@
       "signals": {
         "used_bright_data": true,
         "receipt_domains": [
+          "arthritis-uk.org",
+          "bbc.co.uk",
+          "digitalcommons.wayne.edu",
+          "hcahoustonhealthcare.com",
           "health.harvard.edu",
-          "hopkinsarthritis.org",
           "jabfm.org",
-          "pubmed.ncbi.nlm.nih.gov",
-          "scientificamerican.com"
-        ],
-        "fetched_domains": [
-          "health.harvard.edu",
-          "hopkinsarthritis.org",
-          "scientificamerican.com"
-        ],
-        "unfetched_receipts": [
-          "jabfm.org",
+          "pmc.ncbi.nlm.nih.gov",
           "pubmed.ncbi.nlm.nih.gov"
         ],
-        "grounded": 0.6,
-        "tool_count": 16
+        "fetched_domains": [
+          "arthritis-uk.org"
+        ],
+        "unfetched_receipts": [
+          "bbc.co.uk",
+          "digitalcommons.wayne.edu",
+          "hcahoustonhealthcare.com",
+          "health.harvard.edu",
+          "jabfm.org",
+          "pmc.ncbi.nlm.nih.gov",
+          "pubmed.ncbi.nlm.nih.gov"
+        ],
+        "serp_ran": true,
+        "grounded": 0.125,
+        "tool_count": 13
       }
     },
     {
@@ -418,32 +497,32 @@
         "used_bright_data": true,
         "receipt_domains": [
           "britannica.com",
-          "napoleon-series.org",
-          "nationalgeographic.com"
+          "napoleonmagazine.com",
+          "nationalgeographic.com",
+          "publicdomainreview.org"
         ],
         "fetched_domains": [
-          "britannica.com",
-          "nationalgeographic.com"
+          "britannica.com"
         ],
         "unfetched_receipts": [
-          "napoleon-series.org"
+          "napoleonmagazine.com",
+          "nationalgeographic.com",
+          "publicdomainreview.org"
         ],
-        "grounded": 0.667,
-        "tool_count": 17
+        "serp_ran": true,
+        "grounded": 0.25,
+        "tool_count": 14
       }
     }
   ],
   "ship_gate": {
     "safe_to_ship": false,
     "regressions": [
-      "no_fake_citations: 1.0 \u2192 0.9",
-      "contradiction_detected: 1.0 \u2192 0.875",
-      "receipts_only_if_fetched: 1.0 \u2192 0.9",
-      "hard_score: 0.952 \u2192 0.929"
+      "claim_extracted: 1.0 \u2192 0.917",
+      "evidence_grounded: 0.917 \u2192 0.833",
+      "contradiction_detected: 1.0 \u2192 0.9",
+      "hard_score: 0.96 \u2192 0.921"
     ],
-    "blocking_reasons": [
-      "missing roasts for ['self-roast-01', 'self-roast-02'] \u2014 incomplete coverage",
-      "fabricated-citation floor breached (rate=0.9)"
-    ]
+    "blocking_reasons": []
   }
 }

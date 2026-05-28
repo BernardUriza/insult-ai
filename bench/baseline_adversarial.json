@@ -1,7 +1,7 @@
 {
   "benchmark": "adversarial_reasoning",
-  "generated_utc": "2026-05-28T11:14:29Z",
-  "raw_source": ".raw_roasts.jsonl",
+  "generated_utc": "2026-05-28T16:22:47Z",
+  "raw_source": ".raw_roasts.before_adversarial.jsonl",
   "missing_cases": [],
   "aggregate": {
     "cases": 12,
@@ -90,6 +90,7 @@
           "linkedin.com"
         ],
         "unfetched_receipts": [],
+        "serp_ran": true,
         "grounded": 1.0,
         "tool_count": 13
       }
@@ -125,6 +126,7 @@
           "linkedin.com"
         ],
         "unfetched_receipts": [],
+        "serp_ran": true,
         "grounded": 1.0,
         "tool_count": 7
       }
@@ -156,6 +158,7 @@
           "example.com"
         ],
         "unfetched_receipts": [],
+        "serp_ran": true,
         "grounded": 1.0,
         "tool_count": 2
       }
@@ -193,6 +196,7 @@
           "skyatnightmagazine.com"
         ],
         "unfetched_receipts": [],
+        "serp_ran": true,
         "grounded": 1.0,
         "tool_count": 6
       }
@@ -227,6 +231,7 @@
           "medicalnewstoday.com"
         ],
         "unfetched_receipts": [],
+        "serp_ran": true,
         "grounded": 1.0,
         "tool_count": 8
       }
@@ -262,6 +267,7 @@
           "scienceabc.com"
         ],
         "unfetched_receipts": [],
+        "serp_ran": true,
         "grounded": 1.0,
         "tool_count": 4
       }
@@ -296,6 +302,7 @@
           "nettiesbees.com"
         ],
         "unfetched_receipts": [],
+        "serp_ran": true,
         "grounded": 1.0,
         "tool_count": 4
       }
@@ -335,6 +342,7 @@
           "weather.gov"
         ],
         "unfetched_receipts": [],
+        "serp_ran": true,
         "grounded": 1.0,
         "tool_count": 7
       }
@@ -370,6 +378,7 @@
           "snopes.com"
         ],
         "unfetched_receipts": [],
+        "serp_ran": true,
         "grounded": 1.0,
         "tool_count": 3
       }
@@ -405,6 +414,7 @@
           "theguardian.com"
         ],
         "unfetched_receipts": [],
+        "serp_ran": true,
         "grounded": 1.0,
         "tool_count": 8
       }
@@ -445,6 +455,7 @@
           "houstonmethodist.org",
           "newsnetwork.mayoclinic.org"
         ],
+        "serp_ran": true,
         "grounded": 0.6,
         "tool_count": 8
       }
@@ -475,6 +486,7 @@
           "shannonselin.com"
         ],
         "unfetched_receipts": [],
+        "serp_ran": true,
         "grounded": 0.0,
         "tool_count": 3
       }
