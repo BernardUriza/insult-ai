@@ -71,7 +71,21 @@ function curl(x: number, y: number): [number, number] {
   return [dy, -dx];
 }
 
-export function EmberField({ opacity = 0.55 }: { opacity?: number }) {
+export function EmberField({
+  opacity = 0.55,
+  veilAlpha = 0.16,
+  glowScale = 1,
+  idleSpeed = 0.55,
+  activeSpeed = 0.55,
+  activityDriven = false,
+}: {
+  opacity?: number;
+  veilAlpha?: number;
+  glowScale?: number;
+  idleSpeed?: number;
+  activeSpeed?: number;
+  activityDriven?: boolean;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -115,6 +129,8 @@ export function EmberField({ opacity = 0.55 }: { opacity?: number }) {
     const NOISE_SCALE = 0.0016;
     const SPEED = 0.55;
     const RISE = 0.18; // upward bias — embers float up
+    let targetActivity = 0;
+    let activity = 0;
     let t = 0;
 
     const drawParticle = (p: Particle) => {
@@ -124,26 +140,31 @@ export function EmberField({ opacity = 0.55 }: { opacity?: number }) {
       const r = Math.round(255);
       const g = Math.round(92 + p.warm * (179 - 92)); // 92→179
       const b = Math.round(40 + p.warm * (71 - 40)); // 40→71
-      const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 4);
+      const radius = p.size * 4 * glowScale;
+      const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius);
       grd.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${a})`);
       grd.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
       ctx.fillStyle = grd;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * 4, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
       ctx.fill();
     };
 
     const step = () => {
+      activity += (targetActivity - activity) * 0.08;
+      const speedBoost = idleSpeed + (activeSpeed - idleSpeed) * activity;
+      const riseBoost = RISE * (0.35 + activity * 1.65);
+
       // Translucent navy veil → fading trails instead of a hard clear.
       ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = "rgba(9, 27, 54, 0.16)";
+      ctx.fillStyle = `rgba(9, 27, 54, ${veilAlpha})`;
       ctx.fillRect(0, 0, W, H);
 
       ctx.globalCompositeOperation = "lighter";
       for (const p of particles) {
         const [cx, cy] = curl(p.x * NOISE_SCALE, p.y * NOISE_SCALE + t);
-        p.vx += cx * SPEED;
-        p.vy += cy * SPEED - RISE;
+        p.vx += cx * SPEED * speedBoost;
+        p.vy += cy * SPEED * speedBoost - riseBoost;
         p.vx *= 0.92;
         p.vy *= 0.92;
         p.x += p.vx;
@@ -169,7 +190,7 @@ export function EmberField({ opacity = 0.55 }: { opacity?: number }) {
 
     let raf = 0;
     const loop = () => {
-      t += 0.0008;
+      t += 0.00018 + activity * 0.0032;
       step();
       raf = requestAnimationFrame(loop);
     };
@@ -194,12 +215,21 @@ export function EmberField({ opacity = 0.55 }: { opacity?: number }) {
     };
     document.addEventListener("visibilitychange", onVisibility);
 
+    const onActivity = (event: Event) => {
+      if (!activityDriven) return;
+      const detail = (event as CustomEvent<{ activity?: number }>).detail;
+      const next = Number(detail?.activity ?? 0);
+      targetActivity = Math.min(1, Math.max(0, Number.isFinite(next) ? next : 0));
+    };
+    window.addEventListener("iai:ember-activity", onActivity);
+
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("iai:ember-activity", onActivity);
     };
-  }, [opacity]);
+  }, [activeSpeed, activityDriven, glowScale, idleSpeed, opacity, veilAlpha]);
 
   return (
     <canvas

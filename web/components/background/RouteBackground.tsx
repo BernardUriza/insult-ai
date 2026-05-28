@@ -18,5 +18,21 @@ import { LavaShaderBackground } from "./LavaShaderBackground";
  */
 export function RouteBackground() {
   const pathname = usePathname();
-  return pathname === "/" ? <LavaShaderBackground /> : <EmberField />;
+
+  if (pathname === "/") return <LavaShaderBackground />;
+
+  if (pathname === "/chat") {
+    return (
+      <EmberField
+        opacity={0.1}
+        veilAlpha={0.34}
+        glowScale={0.52}
+        idleSpeed={0.06}
+        activeSpeed={4.2}
+        activityDriven
+      />
+    );
+  }
+
+  return <EmberField />;
 }

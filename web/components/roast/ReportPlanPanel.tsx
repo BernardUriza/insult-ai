@@ -9,6 +9,13 @@ import {
 import { PlanChecklist } from "../chat/PlanChecklist";
 import type { ChatMessage } from "../chat/types";
 
+const EMPTY_STEPS = [
+  "Read the target",
+  "Search for context",
+  "Collect receipts",
+  "Write the burn",
+];
+
 /** Left column of the report view: the agent's plan + the raw tool calls it
  *  made, plus the REAL total time/tools/tokens from the turn meta.
  *
@@ -20,7 +27,36 @@ import type { ChatMessage } from "../chat/types";
  *  total line is hidden — never a guessed number.
  */
 export function ReportPlanPanel({ message }: { message: ChatMessage | null }) {
-  if (!message || message.role !== "assistant") return null;
+  if (!message || message.role !== "assistant") {
+    return (
+      <aside className="iai-card-soft flex flex-col gap-4 bg-iai-bg/70 text-sm backdrop-blur-md">
+        <div className="flex flex-col gap-2">
+          <p className="iai-tag self-start">Plan</p>
+          <h2 className="text-lg font-bold text-zinc-100">
+            How the roast gets built
+          </h2>
+          <p className="leading-relaxed text-zinc-300">
+            Drop a URL or claim. I&apos;ll inspect it, gather receipts, check
+            the plan, then write the roast.
+          </p>
+        </div>
+
+        <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+          {EMPTY_STEPS.map((step, i) => (
+            <li
+              key={step}
+              className="flex items-center gap-3 rounded-lg border border-iai-border/70 bg-iai-surface/35 px-3 py-2 text-zinc-200"
+            >
+              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-iai-fire/35 bg-iai-fire/10 text-xs font-bold text-iai-fire">
+                {i + 1}
+              </span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
+      </aside>
+    );
+  }
 
   const steps = message.steps;
   const meta = message.meta;

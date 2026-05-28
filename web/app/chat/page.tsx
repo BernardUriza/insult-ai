@@ -136,6 +136,42 @@ export default function ChatPage() {
   const lastAssistant =
     [...messages].reverse().find((m) => m.role === "assistant") ?? null;
 
+  useEffect(() => {
+    if (apiDown) {
+      window.dispatchEvent(new CustomEvent("iai:ember-activity", { detail: { activity: 0 } }));
+      return;
+    }
+
+    const stepCount = lastAssistant?.steps.length ?? 0;
+    const planRunning =
+      lastAssistant?.plan?.steps.some((step) => step.status === "running") ?? false;
+    const hasContent = Boolean(lastAssistant?.content);
+    const active =
+      streaming
+        ? Math.min(
+            1,
+            0.52 +
+              stepCount * 0.08 +
+              (planRunning ? 0.18 : 0) +
+              (hasContent ? 0.12 : 0),
+          )
+        : 0;
+
+    window.dispatchEvent(
+      new CustomEvent("iai:ember-activity", { detail: { activity: active } }),
+    );
+
+    return () => {
+      window.dispatchEvent(new CustomEvent("iai:ember-activity", { detail: { activity: 0 } }));
+    };
+  }, [
+    apiDown,
+    lastAssistant?.content,
+    lastAssistant?.plan?.steps,
+    lastAssistant?.steps.length,
+    streaming,
+  ]);
+
   // Docked audio player — rendered by the shell, never overlaps content.
   const player =
     debugPlayer || speakingId || tts.isLoading || tts.error ? (
