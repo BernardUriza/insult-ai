@@ -230,6 +230,7 @@ export default function ChatPage() {
   return (
     <>
       <ConversationShell
+        maxWidth="max-w-6xl"
         header={
           <InsultHeader activeMode={mode} onModeChange={handleModeChange} isLoading={streaming} />
         }

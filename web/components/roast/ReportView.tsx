@@ -62,8 +62,8 @@ export function ReportView({
   if (!message || message.role !== "assistant") {
     const empty = EMPTY[mode];
     return (
-      <div className="iai-card iai-kinetic-panel flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center">
-        <div className="iai-kinetic-content flex flex-col items-center justify-center gap-3">
+      <div className="iai-card iai-kinetic-panel flex min-h-[40vh] items-center justify-center text-center">
+        <div className="iai-kinetic-content flex flex-col items-center gap-3">
           <Image
             src="/logo.png"
             alt=""

@@ -124,7 +124,7 @@ export function MessageBubble({
 }) {
   if (message.role === "user") {
     return (
-      <div className="flex justify-end">
+      <div className="flex items-start justify-end">
         <div className="iai-card-soft max-w-[85%] whitespace-pre-wrap text-zinc-100">
           {message.content}
         </div>

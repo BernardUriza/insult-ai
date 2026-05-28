@@ -35,6 +35,7 @@ export function ConversationShell({
   secondary,
   bottomBar,
   player,
+  maxWidth,
   children,
 }: {
   header: ReactNode;
@@ -50,12 +51,14 @@ export function ConversationShell({
   /** Docked audio player. Sits in the bottom region (above the composer if
    *  one exists, else bottom-right on its own). */
   player?: ReactNode;
+  /** Tailwind max-width class for the shell. Defaults to max-w-6xl when a
+   *  secondary panel is present, max-w-4xl otherwise. Callers can override
+   *  so the container width is driven by mode, not by layout structure. */
+  maxWidth?: string;
   children: ReactNode;
 }) {
   const twoCol = secondary != null;
-  // Wider frame for the two-column report; narrower for single-column chat.
-  // Switching modes changes only this token — spacing/gutters stay constant.
-  const maxW = twoCol ? "max-w-6xl" : "max-w-3xl";
+  const maxW = maxWidth ?? (twoCol ? "max-w-6xl" : "max-w-4xl");
   const hasDock = player != null || bottomBar != null;
 
   return (
