@@ -11,6 +11,8 @@ import {
   ArrowLeft,
   ArrowRight,
   Bot,
+  Check,
+  Copy,
   ExternalLink,
   Flame,
   ListChecks,
@@ -59,6 +61,9 @@ export const UI_ICONS: Record<string, LucideIcon> = {
   // inlines the text into the draft. No backend round-trip; the agent
   // sees the file content as part of the user message.
   attach: Paperclip,
+  // Copy-to-clipboard (report view "Copy" button) + its confirmed state.
+  copy: Copy,
+  check: Check,
 } as const;
 
 export function getUIIcon(key: string): LucideIcon {

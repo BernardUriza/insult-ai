@@ -15,6 +15,9 @@ import {
 } from "../../components/chat/OnboardingDialog";
 import { type ChatMode, type ChatTone, useChat } from "../../components/chat/useChat";
 import { useTtsBlob } from "../../components/chat/useTtsBlob";
+import { ReportInput } from "../../components/roast/ReportInput";
+import { ReportPlanPanel } from "../../components/roast/ReportPlanPanel";
+import { ReportView } from "../../components/roast/ReportView";
 import { ConversationShell } from "../../components/layout/ConversationShell";
 import { InsultHeader } from "../../components/layout/InsultHeader";
 import { PoweredBy } from "../../components/ui/PoweredBy";
@@ -36,6 +39,7 @@ export default function ChatPage() {
   const [tone, setTone] = useState<ChatTone>("medium");
   const [corpusId, setCorpusId] = useState<string>("");
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [debugPlayer, setDebugPlayer] = useState(false);
 
   // Pick up deep-link params on mount. `?corpus=…` primes the agent to
   // search a document corpus; `?mode=…` lands the user directly in the
@@ -50,6 +54,9 @@ export default function ChatPage() {
     const url = new URL(window.location.href);
     const q = url.searchParams.get("corpus");
     if (q) setCorpusId(q);
+    setDebugPlayer(
+      process.env.NODE_ENV !== "production" && url.searchParams.get("debugPlayer") === "1",
+    );
     const modeParam = url.searchParams.get("mode");
     if (modeParam === "clinical" || modeParam === "brief" || modeParam === "roast") {
       setMode(modeParam);
@@ -93,6 +100,7 @@ export default function ChatPage() {
   const handlePlayerClose = useCallback(() => {
     tts.close();
     setSpeakingId(null);
+    setDebugPlayer(false);
   }, [tts]);
 
   // Mode-switch: update state AND the URL (replaceState so back-button
@@ -108,45 +116,22 @@ export default function ChatPage() {
     }
   }, []);
 
-  // Tone row — clinical only. Lives in the shell's topBar slot.
-  const topBar =
-    mode === "clinical" ? (
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <IntensitySelector value={tone} onChange={setTone} disabled={streaming} />
-        <LowerIntensityButton value={tone} onLower={setTone} disabled={streaming} />
-      </div>
-    ) : null;
+  // roast/brief render as a two-column REPORT (input at top, plan left,
+  // response right); clinical stays a conversational chat (composer at
+  // bottom). The split is the whole reason ConversationShell exists.
+  const isReport = mode === "roast" || mode === "brief";
+  const reportMode: "roast" | "brief" = mode === "brief" ? "brief" : "roast";
+  // The report shows the LATEST assistant turn — roast/brief are
+  // one-target-one-report, not a scrollback.
+  const lastAssistant =
+    [...messages].reverse().find((m) => m.role === "assistant") ?? null;
 
-  // Composer + footer — the shell's bottomBar slot.
-  const bottomBar = (
-    <>
-      <ChatInput
-        onSend={send}
-        onAbort={abort}
-        streaming={streaming}
-        seedDraft={seedDraft}
-        mode={mode}
-      />
-      <div className="mt-2 flex items-center justify-center gap-3 text-[10px]">
-        <PoweredBy />
-        <span className="text-zinc-700">·</span>
-        <a
-          href="/library"
-          className="iai-hint hover:text-zinc-300"
-          title="Manage uploaded documents and corpora"
-        >
-          Knowledge base →
-        </a>
-      </div>
-    </>
-  );
-
-  // Docked audio player — rendered by the shell, never overlaps the composer.
+  // Docked audio player — rendered by the shell, never overlaps content.
   const player =
-    speakingId || tts.isLoading || tts.error ? (
+    debugPlayer || speakingId || tts.isLoading || tts.error ? (
       <AudioPlayer
         audioUrl={tts.audioUrl}
-        isLoading={tts.isLoading}
+        isLoading={debugPlayer || tts.isLoading}
         error={tts.error}
         retryStatus={tts.retryStatus}
         onClose={handlePlayerClose}
@@ -154,35 +139,92 @@ export default function ChatPage() {
       />
     ) : null;
 
+  // Footer (powered-by + library) — shown in both layouts but in different
+  // slots (clinical: under the composer; report: under the response column).
+  const footer = (
+    <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[10px]">
+      <PoweredBy />
+      <span className="text-zinc-700">·</span>
+      <a
+        href="/library"
+        className="iai-hint inline-flex min-h-[44px] items-center rounded-full px-2 hover:text-zinc-300"
+        title="Manage uploaded documents and corpora"
+      >
+        Knowledge base →
+      </a>
+    </div>
+  );
+
   return (
     <>
       <ConversationShell
         header={
           <InsultHeader activeMode={mode} onModeChange={handleModeChange} isLoading={streaming} />
         }
-        topBar={topBar}
-        bottomBar={bottomBar}
+        topBar={
+          isReport ? (
+            <ReportInput
+              mode={reportMode}
+              streaming={streaming}
+              onSend={send}
+              onAbort={abort}
+              seed={seedDraft}
+            />
+          ) : (
+            <div className="flex flex-col gap-2 rounded-xl border border-iai-border/70 bg-iai-surface/25 p-2 sm:flex-row sm:items-center sm:justify-between">
+              <IntensitySelector value={tone} onChange={setTone} disabled={streaming} />
+              <LowerIntensityButton value={tone} onLower={setTone} disabled={streaming} />
+            </div>
+          )
+        }
+        secondary={isReport ? <ReportPlanPanel message={lastAssistant} /> : undefined}
+        bottomBar={
+          isReport ? undefined : (
+            <>
+              <ChatInput
+                onSend={send}
+                onAbort={abort}
+                streaming={streaming}
+                seedDraft={seedDraft}
+                mode={mode}
+              />
+              {footer}
+            </>
+          )
+        }
         player={player}
       >
-        <div className="flex flex-col gap-4">
-          {/* Demo prompts — clinical only, first turn. The crisis prompt is
-            * the load-bearing demo differentiator (comedy as UX). */}
-          {mode === "clinical" && messages.length === 0 && (
-            <DemoPrompts
-              disabled={streaming}
-              onPick={(p) => {
-                setSeedDraft(p.text);
-                setTone(p.suggested_tone);
-              }}
+        {isReport ? (
+          <div className="flex flex-col gap-4">
+            <ReportView
+              mode={reportMode}
+              message={lastAssistant}
+              onSpeak={handleSpeak}
+              speakingId={speakingId}
             />
-          )}
-          <ChatView
-            messages={messages}
-            onSpeak={handleSpeak}
-            speakingId={speakingId}
-            mode={mode}
-          />
-        </div>
+            {footer}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {/* Demo prompts — clinical only, first turn. The crisis prompt is
+              * the load-bearing demo differentiator (comedy as UX). */}
+            {mode === "clinical" && messages.length === 0 && (
+              <DemoPrompts
+                disabled={streaming}
+                onPick={(p) => {
+                  setSeedDraft(p.text);
+                  setTone(p.suggested_tone);
+                }}
+              />
+            )}
+            <ChatView
+              messages={messages}
+              onSpeak={handleSpeak}
+              speakingId={speakingId}
+              mode={mode}
+            />
+          </div>
+        )}
       </ConversationShell>
 
       {/* Onboarding dialog — first clinical landing only; localStorage-gated. */}
