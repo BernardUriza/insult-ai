@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { type KeyboardEvent, useRef } from "react";
+import { type KeyboardEvent, type ReactNode, useRef } from "react";
 import type { ChatMode } from "../chat/types";
 
 type ModeMeta = {
@@ -54,10 +54,12 @@ const MODES: ChatMode[] = ["roast", "brief", "clinical"];
 export function InsultHeader({
   activeMode,
   onModeChange,
+  action,
   isLoading = false,
 }: {
   activeMode: ChatMode;
-  onModeChange: (next: ChatMode) => void;
+  onModeChange?: (next: ChatMode) => void;
+  action?: ReactNode;
   isLoading?: boolean;
 }) {
   const meta = MODE_META[activeMode];
@@ -68,11 +70,15 @@ export function InsultHeader({
     >
       <div className="flex items-center gap-2 sm:flex-col sm:items-start sm:gap-2.5 md:flex-row md:items-center md:justify-between md:gap-6">
         <BrandBlock badge={meta.badge} badgeTone={meta.badgeTone} tagline={meta.tagline} />
-        <ModeSwitcher
-          active={activeMode}
-          onChange={onModeChange}
-          disabled={isLoading}
-        />
+        {onModeChange ? (
+          <ModeSwitcher
+            active={activeMode}
+            onChange={onModeChange}
+            disabled={isLoading}
+          />
+        ) : (
+          action && <div className="min-w-0 flex-1 sm:self-start lg:self-auto">{action}</div>
+        )}
         <div className="flex shrink-0 items-center justify-end">
           <SafetyBadge />
         </div>

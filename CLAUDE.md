@@ -81,6 +81,7 @@ Frontend: see `web/README.md`.
 - `pitch.md` — how to describe the product externally (demo, video, deck, landing copy): the one-liner, naming layers, the 90-second beat sheet
 - `language.md` — system writes English (UI, personas, antidrift packs, comments); only the roast follows the target
 - `working-style.md` — meta rules: use WebFetch/WebSearch/chrome-devtools BEFORE saying "no sé"; don't trickle-ask; investigate before declaring "limitation"
+- `git.md` — never lose a parallel agent's work: fix broken commits by hand (no plumbing tricks, no reverting/stashing their WIP); detect concurrent sessions before committing a partial snapshot
 
 ## Note
 

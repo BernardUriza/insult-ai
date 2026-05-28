@@ -18,8 +18,8 @@ the floor under acceptance criterion (4) in the Slice 3 brief
 ("TypeScript, Next build y pytest pasan").
 
 Run from the api/ env (where fi-runner is installed). The tests do NOT
-need fi-runner to import — only ``insult_ai.runner._resolve_clinical_corpus_id``
-and ``insult_ai.clinical_envelope.parse_envelope`` are exercised — but the
+need fi-runner to import — only ``insult_ai.corpus._resolve_clinical_corpus_id``
+and ``insult_ai.clinical.envelope.parse_envelope`` are exercised — but the
 module imports themselves will pull fi-runner transitively, so the env
 must have it.
 """
@@ -39,12 +39,12 @@ _API_ROOT = Path(__file__).resolve().parent.parent / "api"
 if str(_API_ROOT) not in sys.path:
     sys.path.insert(0, str(_API_ROOT))
 
-from insult_ai.clinical_envelope import (  # noqa: E402
+from insult_ai.clinical.envelope import (  # noqa: E402
     ClinicalSource,
     EnvelopeParseError,
     parse_envelope,
 )
-from insult_ai.runner import _resolve_clinical_corpus_id  # noqa: E402
+from insult_ai.corpus import _resolve_clinical_corpus_id  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

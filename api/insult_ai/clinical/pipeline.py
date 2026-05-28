@@ -31,14 +31,14 @@ import json
 import logging
 from dataclasses import dataclass, field, replace
 
-from .clinical_envelope import (
+from .envelope import (
     ClinicalEnvelope,
     EnvelopeParseError,
     parse_envelope,
 )
 from .crisis_resources import crisis_fallback, pick_resources
 from .judge import judge
-from .safety import SafetyLevel
+from ..safety import SafetyLevel
 
 _log = logging.getLogger(__name__)
 

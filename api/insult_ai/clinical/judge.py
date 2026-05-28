@@ -32,7 +32,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from .clinical_envelope import ClinicalEnvelope, JudgeReport, judge_invariants
+from .envelope import ClinicalEnvelope, JudgeReport, judge_invariants
 
 # Never-attack lexical signals (companion to the ETHICS PlanGuard regex in
 # runner.py). The PlanGuard catches the plan-step level; this catches the

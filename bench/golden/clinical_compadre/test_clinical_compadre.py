@@ -46,7 +46,7 @@ _API = _REPO / "api"
 if str(_API) not in sys.path:
     sys.path.insert(0, str(_API))
 
-from insult_ai.clinical_envelope import (  # noqa: E402
+from insult_ai.clinical.envelope import (  # noqa: E402
     ClinicalEnvelope,
     parse_envelope,
 )

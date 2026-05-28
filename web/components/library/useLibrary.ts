@@ -10,11 +10,7 @@ import {
 } from "../../lib/api";
 import { newId } from "../../lib/id";
 
-/** One document that's been ingested THIS browser session. The API has no
- * /documents/list endpoint yet, so the front holds its own session record —
- * good enough to show the demo flow ("look, I just uploaded this, now the
- * agent cites it"). On a hard reload the list resets; the chunks themselves
- * live in pgvector and survive. */
+/** One document that's been ingested into the active corpus. */
 export type IngestedDoc = {
   /** Stable id we mint client-side so the same doc_id can't collide with a
    * future one on a fresh ingest. The backend uses `doc_id` as part of the
@@ -30,17 +26,17 @@ export type IngestedDoc = {
    * (below `min_chunk_size=30`); the row is still kept so the user can
    * see why the corpus didn't grow. */
   chunks: number;
-  /** When this doc was ingested THIS session, for sort order. */
+  /** When this doc was ingested this session, for sort order. Persisted rows
+   * loaded from the backend use 0 because the list endpoint has no timestamp. */
   at: number;
 };
 
 
 /** State + actions for the /library page.
  *
- * One thin hook so the page component stays declarative. The list of docs is
- * append-only inside this session — no edit / delete (the agent doesn't care
- * about THIS list, only what's in pgvector, and re-ingesting the same doc_id
- * just upserts). */
+ * One thin hook so the page component stays declarative. The API returns the
+ * persisted docs for a corpus, while local just-ingested rows keep their richer
+ * preview text until the backend list grows a metadata endpoint. */
 export function useLibrary() {
   // Last corpus the user typed — sticky across ingests so a "drop 5 docs into
   // the same corpus" flow doesn't require re-typing the corpus_id each time.
@@ -50,11 +46,15 @@ export function useLibrary() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>("");
 
-  // Sync with persisted docs in pgvector when corpus changes. The backend's
-  // /documents/list gives the cross-session view the local session array can't.
+  // Sync with persisted docs in pgvector when corpus changes. Preserve local
+  // just-ingested rows so a slower /documents/list response cannot overwrite
+  // the POST acknowledgement and make the doc appear to disappear.
   useEffect(() => {
     const corpus = corpusId.trim();
-    if (!corpus) return;
+    if (!corpus) {
+      setDocs([]);
+      return;
+    }
     let cancelled = false;
     fetchApi(`/documents/list?corpus_id=${encodeURIComponent(corpus)}`, {
       headers: apiHeaders(),
@@ -66,15 +66,22 @@ export function useLibrary() {
           documents: { doc_id: string; chunk_count: number; status: string }[];
         };
         if (cancelled) return;
-        setDocs(
-          data.documents.map((d) => ({
-            docId: d.doc_id,
-            corpusId: data.corpus_id,
-            preview: d.doc_id,
-            chunks: d.chunk_count,
-            at: 0,
-          })),
-        );
+        setDocs((prev) => {
+          const local = prev.filter((d) => d.corpusId === data.corpus_id && d.at > 0);
+          const byId = new Map<string, IngestedDoc>();
+          for (const d of local) byId.set(d.docId, d);
+          for (const d of data.documents) {
+            const existing = byId.get(d.doc_id);
+            byId.set(d.doc_id, {
+              docId: d.doc_id,
+              corpusId: data.corpus_id,
+              preview: existing?.preview ?? d.doc_id,
+              chunks: d.chunk_count,
+              at: existing?.at ?? 0,
+            });
+          }
+          return [...byId.values()].sort((a, b) => b.at - a.at || a.docId.localeCompare(b.docId));
+        });
       })
       .catch(() => {
         // Silently ignore — local dev without pgvector wired is common.

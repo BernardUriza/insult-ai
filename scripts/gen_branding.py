@@ -8,7 +8,7 @@ front-end:
   web/public/favicon.ico       multi-size .ico (16, 32, 48)
   web/public/apple-touch-icon.png   180×180 PNG, transparent
   web/public/icon.png          256×256 PNG, transparent (Next.js metadata)
-  web/public/logo.png          512×512 PNG, transparent (in-product use)
+  web/public/logo.png          512px wide PNG, transparent/tight (in-product use)
   web/public/icon-192.png      192×192 PNG, transparent (PWA manifest, Android)
   web/public/icon-512.png      512×512 PNG, transparent (PWA manifest, splash)
   web/public/icon-512-maskable.png   512×512 PNG, iai-bg filled + 60% safe zone
@@ -16,12 +16,10 @@ front-end:
   web/public/og-image.png      1200×630 social card (dark bg + tagline)
 
 Decisions:
-  - Background removal is a HARD threshold cut (no anti-alias gradient).
-    Bernard's brief: "recortarla finito como con tijeras". A near-white
-    pixel either dies or lives; no fading edge. Threshold 200 strips both
-    the white field and the light-gray grid lines (corners ~175 in source)
-    while preserving the darkest charcoal (~25) and the flame (~150-255
-    saturated R).
+  - Background removal is a mask cut from the source's edges, followed by a
+    targeted pass over the original tile-grid coordinates. This strips the
+    white field and the gray grid lines while preserving the charcoal rock,
+    saturated fire, and orange sparks.
   - All raster outputs are PNG with full alpha. ICO embeds 3 sizes so the
     OS picks a sharp one at different DPIs.
   - OG image is a separate concern (dark canvas + Helvetica titles +
@@ -36,6 +34,8 @@ Run from repo root:
 from __future__ import annotations
 
 from pathlib import Path
+from collections import deque
+
 from PIL import Image, ImageDraw, ImageFont
 
 REPO = Path(__file__).resolve().parent.parent
@@ -59,20 +59,73 @@ WHITE_THRESHOLD = 170
 
 
 def remove_white_bg(img: Image.Image, threshold: int = WHITE_THRESHOLD) -> Image.Image:
-    """Make near-white pixels fully transparent.
+    """Remove the white/grid background from the generated source logo.
 
-    Per-pixel: if MIN(R,G,B) >= threshold, alpha = 0. Using MIN (instead of
-    MAX or average) makes the cut conservative — a slightly tinted near-white
-    (e.g. a faint orange tint at the flame's halo) survives. Hard binary cut
-    by design; no gradient.
+    The source has a white tile grid behind the rock. A global white-key leaves
+    gray grid lines in the exported logo, so this first flood-fills background
+    pixels reachable from the canvas edge, then removes the remaining straight
+    grid fragments trapped inside the warm glow around the mark.
     """
     img = img.convert("RGBA")
     px = img.load()
     w, h = img.size
+
+    def is_edge_background(x: int, y: int) -> bool:
+        r, g, b, a = px[x, y]
+        if a == 0:
+            return True
+        mx = max(r, g, b)
+        mn = min(r, g, b)
+        avg = (r + g + b) / 3
+        neutral = mx - mn < 34
+        return mn >= threshold or (neutral and avg >= 92)
+
+    def mark_if_background(x: int, y: int) -> None:
+        i = y * w + x
+        if not seen[i] and is_edge_background(x, y):
+            seen[i] = 1
+            queue.append((x, y))
+
+    seen = bytearray(w * h)
+    queue: deque[tuple[int, int]] = deque()
+    for x in range(w):
+        mark_if_background(x, 0)
+        mark_if_background(x, h - 1)
+    for y in range(h):
+        mark_if_background(0, y)
+        mark_if_background(w - 1, y)
+
+    while queue:
+        x, y = queue.popleft()
+        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if 0 <= nx < w and 0 <= ny < h:
+                mark_if_background(nx, ny)
+
+    grid_rows = [0, 113, 234, 354, 477, 602, 724, 846, 967, 1023]
+    grid_cols = [0, 113, 224, 352, 477, 603, 729, 857, 1023]
+    grid_band = max(2, round(w / 512))
+
+    def on_grid_line(x: int, y: int) -> bool:
+        return any(abs(y - row) <= grid_band for row in grid_rows) or any(
+            abs(x - col) <= grid_band for col in grid_cols
+        )
+
+    def is_grid_fragment(x: int, y: int) -> bool:
+        if not on_grid_line(x, y):
+            return False
+        r, g, b, a = px[x, y]
+        if a == 0:
+            return True
+        mx = max(r, g, b)
+        mn = min(r, g, b)
+        avg = (r + g + b) / 3
+        saturated_fire = r - g > 35 or r - b > 65
+        dark_rock = avg < 105
+        return not saturated_fire and not dark_rock and (mx - mn < 70 or avg >= 130)
+
     for y in range(h):
         for x in range(w):
-            r, g, b, _ = px[x, y]
-            if min(r, g, b) >= threshold:
+            if seen[y * w + x] or is_grid_fragment(x, y):
                 px[x, y] = (0, 0, 0, 0)
     return img
 
@@ -98,6 +151,12 @@ def fit_square(img: Image.Image, size: int, padding_frac: float = 0.08) -> Image
     canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     canvas.paste(resized, ((size - new_w) // 2, (size - new_h) // 2), resized)
     return canvas
+
+
+def fit_width(img: Image.Image, width: int) -> Image.Image:
+    """Resize to an exact width with no square canvas or extra padding."""
+    height = max(1, round(width * img.height / img.width))
+    return img.resize((width, height), Image.LANCZOS)
 
 
 def load_font(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
@@ -169,12 +228,16 @@ def main() -> None:
 
     PUBLIC.mkdir(parents=True, exist_ok=True)
 
-    # PNGs in descending size — same source, different fits.
-    # icon-192/icon-512 are PWA-manifest siblings of icon.png/logo.png; same
-    # transparent-mark treatment but at the exact pixel sizes the spec wants
-    # (web.dev's PWA guide: 192 + 512 are the two required entries).
+    logo_out = PUBLIC / "logo.png"
+    logo = fit_width(alpha, 512)
+    logo.save(logo_out, "PNG", optimize=True)
+    print(f"  → web/public/logo.png  {logo.width}×{logo.height} tight")
+
+    # Square icons — same cleaned source, padded because platform icon slots
+    # crop/mask aggressively and require exact square pixel sizes.
+    # icon-192/icon-512 are PWA-manifest siblings at the exact pixel sizes the
+    # spec wants (web.dev's PWA guide: 192 + 512 are the two required entries).
     for name, size in [
-        ("logo.png", 512),
         ("icon.png", 256),
         ("apple-touch-icon.png", 180),
         ("icon-192.png", 192),

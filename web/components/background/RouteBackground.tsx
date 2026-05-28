@@ -21,7 +21,7 @@ export function RouteBackground() {
 
   if (pathname === "/") return <LavaShaderBackground />;
 
-  if (pathname === "/chat") {
+  if (pathname === "/chat" || pathname === "/library") {
     return (
       <EmberField
         opacity={0.075}
