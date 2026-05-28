@@ -116,7 +116,7 @@ export function LandingClient() {
     <main className="iai-landing-shell mx-auto flex w-full max-w-6xl flex-1 flex-col gap-20 px-5 py-12 md:py-20">
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <motion.section
-        className="iai-glass-panel flex flex-col items-center gap-6 px-5 py-8 text-center sm:px-8 md:py-10"
+        className="iai-hero-banner flex flex-col items-center gap-6 px-2 py-8 text-center sm:px-8 md:py-12"
         variants={stagger}
         initial="hidden"
         animate="visible"
@@ -138,22 +138,23 @@ export function LandingClient() {
         <motion.h1
           variants={fadeUp}
           transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-          className="text-4xl font-extrabold tracking-tight text-zinc-100 sm:text-5xl md:text-6xl"
+          className="iai-outline-title text-5xl font-black tracking-normal sm:text-6xl md:text-8xl"
         >
-          Insult <span className="iai-brand">AI</span>
+          Insult <span className="iai-outline-mark">AI</span>
         </motion.h1>
         <motion.p
           variants={fadeUp}
           transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-          className="max-w-2xl text-xl font-bold leading-tight text-zinc-100 md:text-3xl"
+          className="max-w-4xl text-3xl font-black leading-tight text-zinc-100 sm:text-4xl md:text-6xl"
         >
-          AI that roasts the pattern,{" "}
-          <span className="text-iai-fire">not the person.</span>
+          AI that roasts the pattern,
+          <br />
+          <span className="iai-outline-accent inline-block">not the person.</span>
         </motion.p>
         <motion.p
           variants={fadeUp}
           transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-          className="max-w-xl text-base font-medium leading-relaxed text-zinc-300 md:text-lg"
+          className="max-w-xl text-base font-semibold leading-relaxed text-zinc-100 drop-shadow-[0_2px_16px_rgb(0_0_0/0.75)] md:text-lg"
         >
           Choose a mode: get roasted, get briefed, or work through the mess with
           guardrails.

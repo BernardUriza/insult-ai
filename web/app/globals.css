@@ -181,6 +181,43 @@
     backdrop-filter: blur(18px) saturate(1.25);
     -webkit-backdrop-filter: blur(18px) saturate(1.25);
   }
+  .iai-hero-banner {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+  .iai-hero-banner::before {
+    content: "";
+    position: absolute;
+    inset: 18% -8% 4%;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse at 50% 34%, rgb(9 27 54 / 0.86), transparent 58%),
+      radial-gradient(ellipse at 50% 62%, rgb(var(--color-iai-fire-rgb) / 0.22), transparent 72%);
+    filter: blur(18px);
+  }
+  .iai-outline-title {
+    color: rgb(244 244 245 / 0.96);
+    -webkit-text-fill-color: rgb(244 244 245 / 0.96);
+    text-shadow:
+      0 3px 0 rgb(0 0 0 / 0.32),
+      0 0 34px rgb(9 27 54 / 0.95);
+    -webkit-text-stroke: 1px rgb(255 255 255 / 0.24);
+    paint-order: stroke fill;
+  }
+  .iai-outline-accent {
+    color: rgb(61 127 252 / 0.74);
+    -webkit-text-fill-color: rgb(61 127 252 / 0.74);
+    -webkit-text-stroke: 0;
+    text-shadow: 0 2px 12px rgb(0 0 0 / 0.45);
+  }
+  .iai-outline-mark {
+    color: rgb(61 127 252 / 0.74);
+    -webkit-text-fill-color: rgb(61 127 252 / 0.74);
+    -webkit-text-stroke: 0;
+    text-shadow: 0 2px 12px rgb(0 0 0 / 0.45);
+  }
   .iai-tag {
     @apply inline-flex items-center gap-1 rounded-full border border-iai-fire/40
            bg-iai-fire/10 px-2 py-0.5 text-[10px] font-semibold uppercase
@@ -190,6 +227,7 @@
   .iai-landing-shell {
     position: relative;
     isolation: isolate;
+    overflow-x: clip;
   }
 
   .iai-landing-shell::before {
