@@ -9,16 +9,23 @@ the product *behaves* (that lives in `hackathon.md` Rule 0 and `clinical.md`)
 or how the personas *speak* (that lives in `personas.md` and
 `personas/*.md`).
 
-## TL;DR — the one-liner
+## TL;DR — the one-liners (two, one per surface)
 
+The product has two faces. Match the one-liner to what you're pitching:
+
+**For roast/brief modes (adversarial reasoning engine):**
+> **"Every claim, cross-examined. Live receipts. Boundaries hold."**
+
+Short form: *"Cross-examines claims. Cites live evidence."* (4 words: *"Adversarial reasoning, live receipts."*)
+
+**For the overall product / clinical mode (coaching arc):**
 > **"A verbal boxing coach for your bad patterns — sharp, safe, and useful."**
 
-That's the canonical one-liner. Use it verbatim in the demo opener, the
-video hook, and the hackathon submission. If a surface needs fewer
-characters, fall back to:
+Short form: *"Verbal boxing coach for your bad patterns."* (3 words: *"Sparring partner, AI."*)
 
-- **8 words**: *"Verbal boxing coach for your bad patterns."*
-- **3 words**: *"Sparring partner, AI."*
+Use the **boxing coach** line in the demo opener and the hackathon video hook —
+it's warmer and more memorable. Use the **cross-examination** line when pitching
+roast/brief directly (enterprise demos, GTM track, competitive intelligence angle).
 
 ## What the product is NOT (anymore)
 
@@ -27,12 +34,13 @@ clicks, but it under-describes what the product actually does. **Stop
 defaulting to it** in pitch material. Specifically:
 
 - ❌ "AI that insults you" — reads as gimmick / shock value
-- ❌ "Roast bot" — undersells the coaching arc + safety layer
-- ❌ "Burn generator" — implies one-shot output, hides the dialogue
-- ❌ "Mean AI" — wrong tone signal; the product is warm, not cruel
+- ❌ "Roast bot" — undersells the adversarial reasoning engine + safety layer
+- ❌ "Burn generator" — implies one-shot output, hides the cross-examination arc
+- ❌ "Mean AI" — wrong tone signal; the product is rigorous, not cruel
+- ❌ "Witty Roast" — the UI no longer says this; the mode is "Cross-Examination"
 
 These framings ignore the load-bearing thing the product does:
-**it attacks behaviors, not the person.**
+**it cross-examines claims and behaviors, not the person.**
 
 ## What the product IS
 
@@ -41,11 +49,11 @@ audience:
 
 | Audience | Framing |
 |---|---|
-| **Hackathon judges** | "Verbal boxing coach for bad patterns — sharp, safe, useful." Pair with "Live web data via Bright Data; every jab traces to a fetched source." |
-| **Enterprise / GTM track** | "Competitive intelligence with an attitude — battlecards and outreach briefs backed by live, cited web data." |
+| **Hackathon judges** | "Verbal boxing coach for bad patterns — sharp, safe, useful." + "Every claim cross-examined with live Bright Data receipts — prior art, contradictions, gaps. The engine declares its plan before it acts; PlanGuard rejects identity targeting before any scrape runs." |
+| **Enterprise / GTM track** | "Adversarial reasoning engine for competitive intelligence — cross-examines a target URL, surfaces prior art, internal contradictions, and engagement gaps with cited live sources." |
 | **Well-being / clinical track** | "AI Sparring Hotline — coaching disguised as a friend who calls your bullshit. Comedy as interface, clinical infrastructure as behavior." |
-| **Developer audience (DEV.to, GitHub)** | "Two backends, one persona dispatch. Bright Data MCP for live receipts, fi-runner for the agent loop, PlanGuard for ethics." |
-| **General / curious user** | "It roasts your procrastination, not you." |
+| **Developer audience (DEV.to, GitHub)** | "Two backends, one persona dispatch. Bright Data MCP for live receipts, fi-runner for the agent loop, PlanGuard for ethics. Roast mode is an adversarial reasoning engine; clinical mode is a structured-envelope coach." |
+| **General / curious user** | "It cross-examines your procrastination, not you." |
 
 ## What it fights against (the only permitted targets)
 
