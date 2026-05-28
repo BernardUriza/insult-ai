@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { RouteBackground } from "../components/background/RouteBackground";
 import { PageTransition } from "../components/layout/PageTransition";
 import {
   OG_IMAGE,
@@ -172,6 +173,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
@@ -179,6 +181,7 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }}
         />
+        <RouteBackground />
         <PageTransition>{children}</PageTransition>
       </body>
     </html>

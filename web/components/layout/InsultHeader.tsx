@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type KeyboardEvent, useRef } from "react";
 import { getUIIcon } from "../../lib/icons";
 import type { ChatMode } from "../chat/useChat";
@@ -65,16 +66,16 @@ export function InsultHeader({
   return (
     <header
       role="banner"
-      className="iai-app-header sticky top-0 z-30 -mx-5 border-b border-iai-border/70 bg-iai-bg/85 px-5 py-3 backdrop-blur-md sm:py-4"
+      className="iai-app-header sticky top-0 z-30 -mx-4 border-b border-iai-border/70 bg-iai-bg/92 px-3 py-1.5 backdrop-blur-md sm:-mx-5 sm:px-5 sm:py-4"
     >
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
+      <div className="flex items-center gap-2 sm:flex-col sm:items-start sm:gap-2.5 md:flex-row md:items-center md:justify-between md:gap-6">
         <BrandBlock badge={meta.badge} badgeTone={meta.badgeTone} tagline={meta.tagline} />
         <ModeSwitcher
           active={activeMode}
           onChange={onModeChange}
           disabled={isLoading}
         />
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex shrink-0 items-center justify-end">
           <SafetyBadge />
         </div>
       </div>
@@ -92,11 +93,18 @@ function BrandBlock({
   tagline: string;
 }) {
   return (
-    <div className="flex min-w-0 items-start gap-2.5">
-      <FlameIcon className="iai-flame mt-0.5 h-7 w-7 shrink-0" aria-hidden />
-      <div className="flex min-w-0 flex-col">
+    <Link
+      href="/"
+      aria-label="Insult AI — go to home"
+      className="group/brand flex h-11 w-11 shrink-0 items-center justify-center rounded-lg outline-offset-4 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-iai-fire sm:h-auto sm:w-auto sm:min-w-0 sm:items-start sm:justify-start sm:gap-2.5"
+    >
+      <FlameIcon
+        className="iai-flame h-6 w-6 shrink-0 transition group-hover/brand:scale-105 sm:mt-0.5 sm:h-7 sm:w-7"
+        aria-hidden
+      />
+      <div className="hidden min-w-0 flex-col sm:flex">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-lg font-extrabold tracking-tight text-zinc-100 sm:text-xl">
+          <h1 className="text-lg font-extrabold tracking-tight text-zinc-100 transition group-hover/brand:text-white sm:text-xl">
             Insult <span className="iai-brand">AI</span>
           </h1>
           <span
@@ -107,7 +115,7 @@ function BrandBlock({
         </div>
         <p className="iai-hint mt-0.5 text-xs sm:text-[13px]">{tagline}</p>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -157,11 +165,11 @@ function ModeSwitcher({
   };
 
   return (
-    <nav aria-label="Mode" className="self-start lg:self-auto">
+    <nav aria-label="Mode" className="min-w-0 flex-1 sm:self-start lg:self-auto">
       <div
         role="radiogroup"
         aria-label="active mode"
-        className="inline-flex items-center gap-1 rounded-full border border-iai-border bg-iai-surface/30 p-1"
+        className="flex w-full items-center gap-1 rounded-full border border-iai-border bg-iai-surface/30 p-1 sm:inline-flex sm:w-auto"
       >
         {MODES.map((m, i) => {
           const isActive = m === active;
@@ -186,7 +194,7 @@ function ModeSwitcher({
               }}
               onKeyDown={(e) => onKeyDown(e, i)}
               className={[
-                "inline-flex min-h-[44px] items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition",
+                "inline-flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-full px-2 py-2 text-xs font-semibold transition sm:flex-none sm:px-4 sm:text-sm",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iai-fire",
                 isActive
                   ? "bg-iai-fire text-black shadow-[0_2px_12px_-3px_rgb(var(--color-iai-fire-rgb)/0.7)]"
@@ -214,10 +222,11 @@ function SafetyBadge() {
       <button
         type="button"
         aria-describedby="iai-safety-tooltip"
-        className="inline-flex items-center gap-1.5 rounded-full border border-iai-accent/40 bg-iai-accent/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-iai-accent transition hover:bg-iai-accent/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iai-accent"
+        aria-label="Guardrails on"
+        className="inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border border-iai-accent/40 bg-iai-accent/10 px-0 text-[11px] font-semibold uppercase tracking-wider text-iai-accent transition hover:bg-iai-accent/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iai-accent sm:w-auto sm:px-3 sm:py-2"
       >
         <ShieldDot />
-        Guardrails on
+        <span className="sr-only sm:not-sr-only">Guardrails on</span>
       </button>
       <span
         id="iai-safety-tooltip"

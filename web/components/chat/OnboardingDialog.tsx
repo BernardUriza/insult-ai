@@ -59,7 +59,7 @@ export function OnboardingDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           markOnboarded();
@@ -70,16 +70,16 @@ export function OnboardingDialog({
       aria-modal="true"
       aria-labelledby="onboarding-title"
     >
-      <div className="iai-card-sample w-full max-w-lg flex flex-col gap-4">
-        <h2 id="onboarding-title" className="text-2xl font-extrabold text-zinc-100">
+      <div className="iai-card-sample flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col gap-3 overflow-y-auto bg-iai-bg/95 p-4 sm:gap-4 sm:p-5">
+        <h2 id="onboarding-title" className="text-xl font-extrabold text-zinc-100 sm:text-2xl">
           Before we start
         </h2>
-        <p className="text-zinc-200 leading-relaxed">
+        <p className="text-sm leading-relaxed text-zinc-200 sm:text-base">
           I'm the <span className="iai-brand font-semibold">Roast Coach</span>.
           I roast with affection and push with coaching. No identity attacks.
           No real cruelty.
         </p>
-        <ul className="text-sm text-zinc-300 leading-relaxed space-y-1.5 list-disc pl-5">
+        <ul className="list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-zinc-300">
           <li><span className="text-zinc-100">Not</span> a therapist, not a doctor, not a crisis line.</li>
           <li><span className="text-zinc-100">Am</span> the friend who's seen the pattern, calls the bullshit, and leaves you with ONE concrete action.</li>
           <li>If something serious comes up, I drop the persona and hand you a real resource.</li>
@@ -93,7 +93,7 @@ export function OnboardingDialog({
           </p>
         </div>
 
-        <div className="flex items-center justify-end gap-2">
+        <div className="sticky bottom-0 -mx-4 -mb-4 flex items-center justify-end gap-2 border-t border-iai-border/60 bg-iai-surface/95 px-4 py-3 backdrop-blur sm:-mx-5 sm:-mb-5 sm:px-5">
           <button
             type="button"
             onClick={() => {

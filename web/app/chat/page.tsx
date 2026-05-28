@@ -38,8 +38,10 @@ export default function ChatPage() {
   const [mode, setMode] = useState<ChatMode>("roast");
   const [tone, setTone] = useState<ChatTone>("medium");
   const [corpusId, setCorpusId] = useState<string>("");
+  const [backend, setBackend] = useState<string | undefined>(undefined);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [debugPlayer, setDebugPlayer] = useState(false);
+  const [apiDown, setApiDown] = useState(false);
 
   // Pick up deep-link params on mount. `?corpus=…` primes the agent to
   // search a document corpus; `?mode=…` lands the user directly in the
@@ -54,6 +56,8 @@ export default function ChatPage() {
     const url = new URL(window.location.href);
     const q = url.searchParams.get("corpus");
     if (q) setCorpusId(q);
+    const backendParam = url.searchParams.get("backend");
+    if (backendParam === "claude" || backendParam === "codex") setBackend(backendParam);
     setDebugPlayer(
       process.env.NODE_ENV !== "production" && url.searchParams.get("debugPlayer") === "1",
     );
@@ -72,7 +76,13 @@ export default function ChatPage() {
     }
   }, []);
 
-  const { messages, streaming, send, abort } = useChat({ corpusId, mode, tone });
+  const { messages, streaming, send, abort, reset } = useChat({ corpusId, mode, tone, backend });
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/health`)
+      .then((r) => setApiDown(!r.ok))
+      .catch(() => setApiDown(true));
+  }, []);
 
   // Seed text injected from a DemoPrompts tap. ChatInput reads this once
   // per change and replaces its draft — user can edit or send.
@@ -139,20 +149,46 @@ export default function ChatPage() {
       />
     ) : null;
 
-  // Footer (powered-by + library) — shown in both layouts but in different
-  // slots (clinical: under the composer; report: under the response column).
+  const handleReset = useCallback(() => {
+    reset();
+    tts.close();
+    setSpeakingId(null);
+  }, [reset, tts]);
+
+  // Footer (powered-by + library + new) — shown in both layouts.
   const footer = (
-    <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[10px]">
-      <PoweredBy />
-      <span className="text-zinc-700">·</span>
-      <a
-        href="/library"
-        className="iai-hint inline-flex min-h-[44px] items-center rounded-full px-2 hover:text-zinc-300"
-        title="Manage uploaded documents and corpora"
-      >
-        Knowledge base →
-      </a>
-    </div>
+    <>
+      {apiDown && (
+        <p className="mb-2 rounded-lg border border-amber-700/60 bg-amber-950/40 px-3 py-2 text-center text-xs text-amber-300">
+          API unreachable — check that the backend is running.
+        </p>
+      )}
+      <div className="mt-1 flex flex-wrap items-center justify-center gap-2 text-[10px]">
+        <PoweredBy />
+        <span className="text-zinc-700">·</span>
+        <a
+          href="/library"
+          className="iai-hint inline-flex min-h-[44px] items-center rounded-full px-2 hover:text-zinc-300"
+          title="Manage uploaded documents and corpora"
+        >
+          Knowledge base →
+        </a>
+        {messages.length > 0 && (
+          <>
+            <span className="text-zinc-700">·</span>
+            <button
+              type="button"
+              onClick={handleReset}
+              disabled={streaming}
+              className="iai-hint inline-flex min-h-[44px] items-center rounded-full px-2 hover:text-zinc-300 disabled:opacity-40"
+              title="Clear conversation and start fresh"
+            >
+              New conversation
+            </button>
+          </>
+        )}
+      </div>
+    </>
   );
 
   return (

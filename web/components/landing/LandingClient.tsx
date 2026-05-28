@@ -116,7 +116,7 @@ export function LandingClient() {
     <main className="iai-landing-shell mx-auto flex w-full max-w-6xl flex-1 flex-col gap-20 px-5 py-12 md:py-20">
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <motion.section
-        className="flex flex-col items-center gap-6 text-center"
+        className="iai-glass-panel flex flex-col items-center gap-6 px-5 py-8 text-center sm:px-8 md:py-10"
         variants={stagger}
         initial="hidden"
         animate="visible"
@@ -153,7 +153,7 @@ export function LandingClient() {
         <motion.p
           variants={fadeUp}
           transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-          className="iai-hint max-w-xl text-base md:text-lg"
+          className="max-w-xl text-base font-medium leading-relaxed text-zinc-300 md:text-lg"
         >
           Choose a mode: get roasted, get briefed, or work through the mess with
           guardrails.
@@ -188,11 +188,11 @@ export function LandingClient() {
         whileInView="visible"
         viewport={{ once: true, margin: "-80px" }}
       >
-        <header className="flex flex-col items-center gap-2 text-center">
+        <header className="iai-glass-panel-soft mx-auto flex max-w-2xl flex-col items-center gap-2 px-5 py-4 text-center">
           <h2 className="text-2xl font-extrabold text-zinc-100 md:text-3xl">
             Three modes, one engine.
           </h2>
-          <p className="iai-hint text-base">Pick the surface that matches the mess.</p>
+          <p className="text-base font-medium text-zinc-300">Pick the surface that matches the mess.</p>
         </header>
         <div className="grid gap-4 md:grid-cols-3">
           {SEGMENTS.map((s) => (
@@ -201,19 +201,20 @@ export function LandingClient() {
               variants={fadeUp}
               transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
               whileHover={{ y: -6, scale: 1.015 }}
-              className="iai-card iai-motion-card flex flex-col gap-4 transition hover:border-iai-fire/40 hover:bg-iai-surface/30"
+              className="iai-card iai-motion-card bg-iai-bg/78 backdrop-blur-xl transition hover:border-iai-fire/40 hover:bg-iai-surface/55"
             >
-              <span className="iai-tag self-start">{s.badge}</span>
-              <h3 className="text-xl font-bold text-zinc-100">{s.title}</h3>
-              <p className="iai-hint flex-1 text-sm leading-relaxed text-zinc-400">
-                {s.copy}
-              </p>
               <Link
                 href={`/chat?mode=${s.mode}`}
-                className="iai-btn-primary"
-                data-size="sm"
+                className="flex h-full flex-col gap-4"
               >
-                {s.cta}
+                <span className="iai-tag self-start">{s.badge}</span>
+                <h3 className="text-xl font-bold text-zinc-100">{s.title}</h3>
+                <p className="flex-1 text-sm leading-relaxed text-zinc-300">
+                  {s.copy}
+                </p>
+                <span className="iai-btn-primary" data-size="sm">
+                  {s.cta}
+                </span>
               </Link>
             </motion.article>
           ))}
@@ -228,7 +229,7 @@ export function LandingClient() {
         whileInView="visible"
         viewport={{ once: true, margin: "-80px" }}
       >
-        <header className="flex flex-col items-center gap-2 text-center">
+        <header className="iai-glass-panel-soft mx-auto flex max-w-2xl flex-col items-center gap-2 px-5 py-4 text-center">
           <h2 className="text-2xl font-extrabold text-zinc-100 md:text-3xl">
             How it works
           </h2>
@@ -239,7 +240,7 @@ export function LandingClient() {
               key={i}
               variants={fadeUp}
               transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-              className="iai-card-soft iai-motion-card flex flex-col items-start gap-3"
+              className="iai-card-soft iai-motion-card flex flex-col items-start gap-3 bg-iai-bg/72 backdrop-blur-xl"
             >
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-iai-fire/40 bg-iai-fire/10 text-base font-bold text-iai-fire">
                 {i + 1}
@@ -252,7 +253,7 @@ export function LandingClient() {
 
       {/* ── Guardrails ───────────────────────────────────────────────────── */}
       <motion.section
-        className="iai-card-sample iai-motion-card flex flex-col gap-4"
+        className="iai-card-sample iai-glass-panel iai-motion-card flex flex-col gap-4"
         initial={{ opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-80px" }}
@@ -282,11 +283,11 @@ export function LandingClient() {
         whileInView="visible"
         viewport={{ once: true, margin: "-80px" }}
       >
-        <header className="flex flex-col items-center gap-2 text-center">
+        <header className="iai-glass-panel-soft mx-auto flex max-w-2xl flex-col items-center gap-2 px-5 py-4 text-center">
           <h2 className="text-2xl font-extrabold text-zinc-100 md:text-3xl">
             Try one of these.
           </h2>
-          <p className="iai-hint text-base">
+          <p className="text-base font-medium text-zinc-300">
             Click a prompt — it routes you into the right mode.
           </p>
         </header>
@@ -300,12 +301,12 @@ export function LandingClient() {
             >
               <Link
                 href={`/chat?mode=${chip.mode}&seed=${encodeURIComponent(chip.text)}`}
-                className="group flex max-w-md flex-col gap-1.5 rounded-xl border border-iai-border bg-iai-surface/40 px-4 py-3 text-left transition hover:border-iai-fire/50 hover:bg-iai-surface"
+                className="iai-glass-panel-soft group flex max-w-md flex-col gap-1.5 px-4 py-3 text-left transition hover:border-iai-fire/50 hover:bg-iai-surface/70"
               >
                 <span className="iai-hint text-[10px] font-semibold uppercase tracking-wider text-iai-fire/80 group-hover:text-iai-fire">
                   {chip.badge}
                 </span>
-                <span className="text-sm leading-snug text-zinc-200">
+                <span className="text-sm leading-snug text-zinc-100">
                   &ldquo;{chip.text}&rdquo;
                 </span>
               </Link>
@@ -315,11 +316,11 @@ export function LandingClient() {
       </motion.section>
 
       {/* ── Footer ───────────────────────────────────────────────────────── */}
-      <footer className="mt-auto flex flex-col items-center gap-3 pt-6 text-center text-xs text-zinc-600">
+      <footer className="iai-glass-panel-soft mt-auto flex flex-col items-center gap-3 px-5 py-5 text-center text-xs text-zinc-400">
         <p className="text-sm font-semibold text-zinc-400">
           Insult <span className="iai-brand">AI</span>
         </p>
-        <p className="iai-hint">Roasts with receipts. Boundaries included.</p>
+        <p className="text-sm text-zinc-300">Roasts with receipts. Boundaries included.</p>
         <PoweredBy />
         <span>Insult AI · Web Data UNLOCKED Hackathon</span>
       </footer>

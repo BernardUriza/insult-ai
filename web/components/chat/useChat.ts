@@ -50,10 +50,12 @@ export function useChat(opts?: {
   corpusId?: string;
   mode?: ChatMode;
   tone?: ChatTone;
+  backend?: string;
 }) {
   const corpusId = opts?.corpusId?.trim() || undefined;
   const mode = opts?.mode ?? "roast";
   const tone = opts?.tone ?? "medium";
+  const backend = opts?.backend?.trim() || undefined;
   // One id per browser session so the API folds prior turns into the prompt.
   // Held in a ref so re-renders don't churn it.
   const sessionRef = useRef<string>(newId());
@@ -138,6 +140,7 @@ export function useChat(opts?: {
             mode,
             tone,
             ...(corpusId ? { corpus_id: corpusId } : {}),
+            ...(backend ? { backend } : {}),
           }),
           signal: controller.signal,
         });
@@ -299,7 +302,7 @@ export function useChat(opts?: {
         abortRef.current = null;
       }
     },
-    [streaming, patchAssistant, corpusId, mode, tone],
+    [streaming, patchAssistant, corpusId, mode, tone, backend],
   );
 
   const abort = useCallback(() => {

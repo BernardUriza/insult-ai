@@ -26,7 +26,7 @@ const PLACEHOLDER_BY_MODE: Record<ChatMode, string> = {
 const PRIMARY_LABEL_EMPTY: Record<ChatMode, string> = {
   roast: "Start Roast",
   brief: "Start Brief",
-  clinical: "Start",
+  clinical: "Start session",
 };
 
 const PRIMARY_LABEL_DRAFT: Record<ChatMode, string> = {

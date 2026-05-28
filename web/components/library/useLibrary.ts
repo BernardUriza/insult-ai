@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   MAX_LIBRARY_TEXT_CHARS,
   MAX_LIBRARY_UPLOAD_BYTES,
@@ -52,6 +52,40 @@ export function useLibrary() {
   const [docs, setDocs] = useState<IngestedDoc[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>("");
+
+  // Sync with persisted docs in pgvector when corpus changes. The backend's
+  // /documents/list gives the cross-session view the local session array can't.
+  useEffect(() => {
+    const corpus = corpusId.trim();
+    if (!corpus) return;
+    let cancelled = false;
+    fetchApi(`/documents/list?corpus_id=${encodeURIComponent(corpus)}`, {
+      headers: apiHeaders(),
+    })
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as {
+          corpus_id: string;
+          documents: { doc_id: string; chunk_count: number; status: string }[];
+        };
+        if (cancelled) return;
+        setDocs(
+          data.documents.map((d) => ({
+            docId: d.doc_id,
+            corpusId: data.corpus_id,
+            preview: d.doc_id,
+            chunks: d.chunk_count,
+            at: 0,
+          })),
+        );
+      })
+      .catch(() => {
+        // Silently ignore — local dev without pgvector wired is common.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [corpusId]);
 
   const ingest = useCallback(
     async (text: string): Promise<IngestedDoc | null> => {

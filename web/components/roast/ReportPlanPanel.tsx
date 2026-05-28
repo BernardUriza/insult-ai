@@ -32,12 +32,12 @@ export function ReportPlanPanel({ message }: { message: ChatMessage | null }) {
       <PlanChecklist plan={message.plan} />
 
       {steps.length > 0 && (
-        <div className="iai-card-soft text-sm">
-          <div className="mb-2 flex items-center justify-between gap-2 text-zinc-300">
+        <div className="iai-card-soft iai-kinetic-panel text-sm">
+          <div className="iai-kinetic-content mb-2 flex items-center justify-between gap-2 text-zinc-300">
             <span className="font-medium">Steps</span>
             <span className="iai-hint text-xs tabular-nums">{steps.length}</span>
           </div>
-          <ol className="space-y-1">
+          <ol className="iai-kinetic-content space-y-1">
             {steps.map((s, i) => {
               const ToolIcon = getToolIcon(s.name);
               const statusKey = stepStatusKey(s.isError);
@@ -61,7 +61,7 @@ export function ReportPlanPanel({ message }: { message: ChatMessage | null }) {
                         ? "animate-spin text-zinc-500"
                         : errored
                           ? "text-red-400"
-                          : "text-emerald-400"
+                          : "iai-pulse-dot text-emerald-400"
                     }`}
                     aria-label={statusKey}
                   />
@@ -73,7 +73,7 @@ export function ReportPlanPanel({ message }: { message: ChatMessage | null }) {
           {/* Real totals only — the per-step timing the mockup showed does
               not exist on the wire, so it's omitted rather than faked. */}
           {(totalMs != null || toolCount > 0) && (
-            <div className="iai-hint mt-3 flex items-center justify-between border-t border-iai-border/60 pt-2 text-xs">
+            <div className="iai-hint iai-kinetic-content mt-3 flex items-center justify-between border-t border-iai-border/60 pt-2 text-xs">
               <span>Total</span>
               <span className="tabular-nums text-zinc-400">
                 {[

@@ -59,12 +59,12 @@ export function ConversationShell({
   const hasDock = player != null || bottomBar != null;
 
   return (
-    <main className={`mx-auto flex w-full flex-1 flex-col px-5 ${maxW}`}>
+    <main className={`mx-auto flex min-h-dvh w-full flex-1 flex-col px-4 sm:px-5 ${maxW}`}>
       {header}
 
       {topBar && <div className="mt-3">{topBar}</div>}
 
-      <div className="flex-1 py-4">
+      <div className={`flex-1 py-4 ${hasDock ? "pb-56 sm:pb-40" : "pb-5"}`}>
         {twoCol ? (
           <div className="grid gap-4 lg:grid-cols-[1fr_1.3fr]">
             {/* main first in the DOM so mobile stacks payoff-first; desktop
@@ -78,7 +78,7 @@ export function ConversationShell({
       </div>
 
       {hasDock && (
-        <div className="sticky bottom-0 z-30 -mx-5 border-t border-iai-border/60 bg-iai-bg/90 px-5 py-3 backdrop-blur-md">
+        <div className="sticky bottom-0 z-30 -mx-4 border-t border-iai-border/60 bg-iai-bg/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-md sm:-mx-5 sm:px-5">
           {player && <div className="mb-2 flex justify-end">{player}</div>}
           {bottomBar}
         </div>

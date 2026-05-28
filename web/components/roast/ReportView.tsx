@@ -62,17 +62,22 @@ export function ReportView({
   if (!message || message.role !== "assistant") {
     const empty = EMPTY[mode];
     return (
-      <div className="iai-card flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center">
-        <Image
-          src="/logo.png"
-          alt=""
-          width={72}
-          height={72}
-          priority
-          className="opacity-90 drop-shadow-[0_0_24px_rgb(var(--color-iai-fire-rgb)/0.4)]"
-        />
-        <div className="text-base font-semibold text-zinc-100">{empty.headline}</div>
-        <div className="iai-hint max-w-prose text-sm">{empty.subcopy}</div>
+      <div className="iai-card iai-kinetic-panel flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center">
+        <div className="iai-kinetic-content flex flex-col items-center justify-center gap-3">
+          <Image
+            src="/logo.png"
+            alt=""
+            width={72}
+            height={72}
+            priority
+            className="iai-drift-slow opacity-90 drop-shadow-[0_0_24px_rgb(var(--color-iai-fire-rgb)/0.4)]"
+          />
+          <div className="inline-flex items-center gap-2 text-base font-semibold text-zinc-100">
+            <FlameIcon className="iai-wobble-slow h-4 w-4 text-iai-fire" aria-hidden />
+            {empty.headline}
+          </div>
+          <div className="iai-hint max-w-prose text-sm">{empty.subcopy}</div>
+        </div>
       </div>
     );
   }
@@ -91,10 +96,10 @@ export function ReportView({
   };
 
   return (
-    <div className="iai-card flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
+    <div className={`iai-card flex flex-col gap-3 ${live ? "iai-kinetic-panel" : ""}`}>
+      <div className="iai-kinetic-content flex items-center justify-between gap-2">
         <h2 className="inline-flex items-center gap-2 text-base font-bold text-zinc-100">
-          <FlameIcon className="iai-flame h-5 w-5" aria-hidden />
+          <FlameIcon className="iai-flame iai-wobble-slow h-5 w-5" aria-hidden />
           {HEADER[mode]}
         </h2>
         {canCopy && (
@@ -121,14 +126,16 @@ export function ReportView({
 
       {/* Body — same three-state decision as MessageBubble, minus the
           clinical-envelope branch (report modes ship plain markdown). */}
-      {!message.content && live && <AgenticSkeleton />}
-      {message.content && message.status === "streaming" && (
-        <RoastText text={message.content} caret />
-      )}
-      {message.content && settled && <MarkdownRenderer content={message.content} />}
+      <div className="iai-kinetic-content">
+        {!message.content && live && <AgenticSkeleton />}
+        {message.content && message.status === "streaming" && (
+          <RoastText text={message.content} caret />
+        )}
+        {message.content && settled && <MarkdownRenderer content={message.content} />}
+      </div>
 
       {message.status === "error" && (
-        <div className="iai-error inline-flex items-center gap-2 text-sm">
+        <div className="iai-error iai-kinetic-content inline-flex items-center gap-2 text-sm">
           <ErrorIcon className="h-4 w-4 shrink-0 text-red-400" aria-hidden />
           {message.errorMessage ?? "stream failed"}
         </div>
@@ -136,7 +143,7 @@ export function ReportView({
 
       {/* Sources — compact inline line (hostnames), not the heavy panel. */}
       {message.receipts.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-iai-border/60 pt-3 text-xs">
+        <div className="iai-kinetic-content flex flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-iai-border/60 pt-3 text-xs">
           <span className="iai-hint">Sources:</span>
           {message.receipts.map((u, i) => (
             <span key={u} className="inline-flex items-center gap-1.5">
@@ -158,7 +165,7 @@ export function ReportView({
         <button
           type="button"
           onClick={() => onSpeak(isSpeaking ? null : message.content, message.id)}
-          className={`iai-btn-chip self-start ${isSpeaking ? "border-iai-fire/60 text-iai-fire" : ""}`}
+          className={`iai-btn-chip iai-kinetic-content self-start ${isSpeaking ? "border-iai-fire/60 text-iai-fire" : ""}`}
           aria-pressed={isSpeaking}
         >
           {isSpeaking ? (

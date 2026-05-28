@@ -16,7 +16,7 @@ export function PoweredBy() {
       href="https://brightdata.com"
       target="_blank"
       rel="noopener noreferrer"
-      className="iai-powered-by inline-flex items-center gap-1.5 rounded-full
+      className="iai-powered-by inline-flex min-h-[44px] items-center gap-1.5 rounded-full
                  border border-iai-border bg-iai-surface/40 px-2.5 py-1
                  text-[10px] font-medium uppercase tracking-wider text-zinc-500
                  transition hover:border-iai-brand/60 hover:text-zinc-300"

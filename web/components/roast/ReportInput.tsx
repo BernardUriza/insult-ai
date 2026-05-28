@@ -69,8 +69,8 @@ export function ReportInput({
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      <div className="iai-input flex flex-1 items-center gap-2 py-0 pl-3 pr-0">
-        <GlobeIcon className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+      <div className="iai-input iai-kinetic-panel flex min-w-0 flex-1 items-center gap-2 py-0 pl-3 pr-0">
+        <GlobeIcon className="iai-spin-slow relative z-10 h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
         <input
           type="text"
           value={value}
@@ -79,7 +79,7 @@ export function ReportInput({
           disabled={streaming}
           placeholder={copy.placeholder}
           aria-label={`${mode} target — a URL or a claim`}
-          className="min-h-[44px] flex-1 bg-transparent text-zinc-100 outline-none placeholder:text-zinc-500"
+          className="relative z-10 min-h-[44px] min-w-0 flex-1 bg-transparent text-zinc-100 outline-none placeholder:text-zinc-500"
         />
       </div>
       {streaming ? (
@@ -96,7 +96,7 @@ export function ReportInput({
           className="h-12 px-5"
         >
           {copy.run}
-          <FlameIcon className="h-4 w-4" aria-hidden />
+          <FlameIcon className="iai-wobble-slow h-4 w-4" aria-hidden />
         </Button>
       )}
     </div>

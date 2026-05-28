@@ -3,6 +3,8 @@
 import { DEMO_PROMPTS, type DemoPrompt } from "../../lib/demo_prompts";
 import { getUIIcon } from "../../lib/icons";
 
+const ForwardIcon = getUIIcon("forward");
+
 const FlameIcon = getUIIcon("brand");
 
 /** Demo prompts grid — shown when the clinical conversation is empty.
@@ -44,9 +46,7 @@ export function DemoPrompts({
           >
             <div className="flex w-full items-center justify-between gap-2">
               <span className="text-sm font-semibold text-zinc-100">{p.label}</span>
-              <span className="iai-hint text-[10px] uppercase tracking-wider text-iai-fire/80 opacity-0 transition group-hover:opacity-100">
-                tap
-              </span>
+              <ForwardIcon className="h-3.5 w-3.5 shrink-0 text-zinc-600 transition group-hover:text-iai-fire" aria-hidden />
             </div>
             <span className="text-xs italic text-zinc-400 line-clamp-2">
               {p.text}

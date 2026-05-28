@@ -259,6 +259,17 @@ class IngestResponse(BaseModel):
     chunks: int
 
 
+class DocumentInfo(BaseModel):
+    doc_id: str
+    chunk_count: int
+    status: str
+
+
+class DocumentListResponse(BaseModel):
+    corpus_id: str
+    documents: list[DocumentInfo]
+
+
 class SpeakRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=MAX_TTS_CHARS)
     # Curated to the three voices the product exposes (see voice.py). Default
@@ -496,6 +507,21 @@ async def upload_document(
     finally:
         await file.close()
     return IngestResponse(chunks=chunks)
+
+
+@app.get("/documents/list", response_model=DocumentListResponse, dependencies=[Depends(verify_api_key)])
+@limiter.limit("60/hour")
+async def list_documents_endpoint(request: Request, corpus_id: str) -> DocumentListResponse:
+    """List documents ingested into a corpus — cross-session, straight from pgvector."""
+    corpus = _validate_id(corpus_id, field="corpus_id")
+    docs = await _rag.list_documents(corpus)
+    return DocumentListResponse(
+        corpus_id=corpus,
+        documents=[
+            DocumentInfo(doc_id=d["doc_id"], chunk_count=d["chunk_count"], status=d.get("status", ""))
+            for d in docs
+        ],
+    )
 
 
 def _sse(event: str, data: dict) -> str:
