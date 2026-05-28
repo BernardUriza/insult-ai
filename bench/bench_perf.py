@@ -45,7 +45,8 @@ _API = _HERE.parent / "api"
 load_dotenv(_API / ".env")
 sys.path.insert(0, str(_API))
 
-from insult_ai.runner import build_runner, roast_prompt  # noqa: E402
+from insult_ai.prompts import roast_prompt  # noqa: E402
+from insult_ai.runner import build_runner  # noqa: E402
 
 EVAL_SET = _HERE / "eval_set.jsonl"
 

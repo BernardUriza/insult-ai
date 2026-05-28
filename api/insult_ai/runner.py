@@ -10,10 +10,49 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
+
+from fi_runner import (
+    ClaudeCodeBackend,
+    CodexBackend,
+    MCPServerSpec,
+    PermissionMode,
+    RetryPolicy,
+    Runner,
+    ToolPolicy,
+)
+from fi_runner.conversation import (
+    ConversationStore,
+    InMemoryConversationStore,
+    Message,
+    render_transcript,
+)
+
+# Extracted siblings (see .claude/rules/architecture.md — runner stays "config
+# in, Runner out"). guards = anti-drift + ETHICS PlanGuard; prompts = turn-prompt
+# construction; clinical_pipeline = the pure clinical safety decisions; modes =
+# the shared Mode/Tone literals. The clinical safety machinery (classify_safety
+# + the pipeline) used to be exercised ONLY by the bench — it is now wired into
+# `_clinical_turn` below.
+from .clinical_pipeline import (
+    ClinicalResult,
+    crisis_envelope,
+    degraded_envelope,
+    evaluate,
+    finalize,
+)
+from .guards import build_guards, build_plan_guard, looks_spanish
+from .modes import DEFAULT_TONE, Mode, Tone
+from .prompts import (
+    PROMPT_BY_MODE,
+    clinical_prompt,
+    looks_like_roast_target,
+    wrap_with_safety_floor,
+    wrap_with_tone,
+)
+from .safety import classify_safety
 
 _log = logging.getLogger(__name__)
 
@@ -45,7 +84,7 @@ def _resolve_clinical_corpus_id(user_corpus_id: str | None, mode: str) -> str | 
     Returning None means "skip rag_store capability for this turn."
     Returning a string means "wire rag_store and inject the corpus_id into
     the prompt." The chosen corpus_id flows uniformly into both
-    ``build_runner(with_rag=...)`` and ``_PROMPT_BY_MODE[mode](..., corpus_id)``.
+    ``build_runner(with_rag=...)`` and ``PROMPT_BY_MODE[mode](..., corpus_id)``.
     """
     if user_corpus_id:
         return user_corpus_id
@@ -54,21 +93,6 @@ def _resolve_clinical_corpus_id(user_corpus_id: str | None, mode: str) -> str | 
     if os.environ.get(_PSYCH_CORPUS_ENABLED_ENV) != "1":
         return None
     return os.environ.get(_PSYCH_CORPUS_ID_ENV, _PSYCH_CORPUS_DEFAULT_ID)
-
-from fi_runner import (
-    ClaudeCodeBackend,
-    CodexBackend,
-    MCPServerSpec,
-    PermissionMode,
-    PlanGuard,
-    RetryPolicy,
-    Runner,
-    ToolPolicy,
-    antidrift_guard,
-    packs,
-    plan_guard,
-)
-from fi_runner.conversation import ConversationStore, InMemoryConversationStore
 
 # --- Personas --------------------------------------------------------------
 # Prompts live in files (personas/<name>.md), NOT hardcoded — the voice is
@@ -97,19 +121,32 @@ CLINICAL_PERSONA = load_persona("clinical_compadre")
 # compa insultador. Same Runner, different prompt, different output shape
 # (JSON envelope — see clinical_envelope.py). The tone parameter modulates
 # it within bounds the persona enforces (soft/medium/spicy/no_insults).
-Mode = Literal["roast", "brief", "clinical"]
-
+# ``Mode`` / ``Tone`` are defined in :mod:`insult_ai.modes` (shared leaf).
 _PERSONA_BY_MODE: dict[Mode, str] = {
     "roast": ROAST_PERSONA,
     "brief": BRIEF_PERSONA,
     "clinical": CLINICAL_PERSONA,
 }
 
-# Tone parameter — only meaningful for the `clinical` mode. The other modes
-# ignore it (they have their own voice). The persona reads this from the
-# turn prompt's tone-context wrapper (see `clinical_prompt`).
-Tone = Literal["soft", "medium", "spicy", "no_insults"]
-DEFAULT_TONE: Tone = "medium"
+BackendName = Literal["claude", "codex"]
+_VALID_BACKENDS: set[str] = {"claude", "codex"}
+
+
+def normalize_backend_name(backend: str | None = None) -> BackendName:
+    """Resolve and validate the requested backend name.
+
+    Before this check, any typo other than ``codex`` silently selected Claude
+    because the code's fallback branch handled every unknown string. That makes
+    operational mistakes hard to diagnose and can send traffic to the wrong
+    provider. Unknown values now fail fast with a clear ValueError that the API
+    maps to HTTP 400.
+    """
+    name = (backend or os.getenv("INSULT_AI_BACKEND", "claude")).strip().lower()
+    if name not in _VALID_BACKENDS:
+        raise ValueError(
+            f"unsupported backend {name!r}; expected one of {sorted(_VALID_BACKENDS)}"
+        )
+    return name  # type: ignore[return-value]
 
 # --- Bright Data MCP (live web data — REQUIRED by the hackathon) -----------
 # Runs as `npx @brightdata/mcp`. It reads its credential from the API_TOKEN env
@@ -120,212 +157,6 @@ BRIGHTDATA_MCP = MCPServerSpec(
     command="npx",
     args=["-y", "@brightdata/mcp"],
 )
-
-# --- Guards: keep Insult IN character (anti-drift) -------------------------
-# Compose fi-core's built-in pattern packs via `fi_runner.packs` (boundary-clean
-# — we never import fi_core) that flag the drift we fought to kill: report-voice
-# markdown headers, "TL;DR"/summaries, stage directions, AI-disclosure ("as an
-# AI"), customer-service tone. On a break the runner re-roasts (RetryPolicy) with
-# the reinforcement appended, so the voice stays Insult turn after turn — and the
-# benchmark can read result.guard_outcomes instead of a hand-rolled heuristic.
-#
-# Language branch — the system writes English (.claude/rules/language.md), but
-# the persona's "Match the target's language" rule means a Spanish target gets
-# a Spanish roast. When THAT happens, English-only drift patterns ("as an AI")
-# won't catch Spanish-side drift ("soy un bot diseñado para…"). So we layer in
-# packs.DEFAULT_ES on top of DEFAULT_EN when the input looks Spanish. Both
-# layers always include the style packs (MARKDOWN_DRIFT / SUMMARIZING /
-# STAGE_DIRECTIONS), which are catalog-by-format and language-agnostic.
-_SPANISH_DOMAIN_TLD = re.compile(
-    r"\.(mx|ar|cl|co|es|pe|uy|ec|gt|hn|bo|sv|do|ni|cr|py|ve|cu)\b",
-    re.IGNORECASE,
-)
-_SPANISH_GLYPH = re.compile(r"[áéíóúñüÁÉÍÓÚÑÜ¿¡]")
-# Very common Spanish function words — rare in English-language inputs. We
-# require ≥2 hits to fire so a stray "esta" in an English sentence doesn't
-# flip the language.
-_SPANISH_STOPWORDS = re.compile(
-    r"\b(el|la|los|las|una?|y|o|pero|que|porque|para|por|con|sin|del|al|"
-    r"de|se|le|"
-    r"esto|este|esta|esa|ese|aquel|aquella|son|fue|era|estaba|hay|muy|"
-    r"como|cuando|donde|porque|tambi[eé]n|tampoco|m[aá]s|menos|"
-    r"ahora|antes|despu[eé]s|siempre|nunca|ayer|hoy|ma[ñn]ana|aqu[ií]|all[aá]|"
-    r"as[ií]|pues|entonces|ya)\b",
-    re.IGNORECASE,
-)
-
-
-def looks_spanish(text: str) -> bool:
-    """Heuristic: does ``text`` look like Spanish-speaking input?
-
-    Three layered signals (any wins): (1) a Spanish-speaking TLD in a URL,
-    (2) a Spanish-only glyph (ñ, accented vowel, ¿/¡), or (3) two-or-more
-    Spanish stop-word hits. Conservative on purpose — a single ``esta`` in
-    an English sentence (the demonstrative ``ESTA Inc``) won't trip it."""
-    if not text:
-        return False
-    if _SPANISH_DOMAIN_TLD.search(text):
-        return True
-    if _SPANISH_GLYPH.search(text):
-        return True
-    if len(_SPANISH_STOPWORDS.findall(text)) >= 2:
-        return True
-    return False
-
-
-# --- PlanGuard: defense-in-depth on the agent's declared route ------------
-# The persona's "NEVER ATTACK" list (race, ethnicity, gender, sexuality,
-# nationality, disability, neurodivergence, illness, trauma, body, poverty,
-# accent) is currently enforced ONLY in the post-hoc roast text via antidrift
-# packs — i.e. the agent has already scraped, spent credit, and burned tokens
-# by the time the guard fires. PlanGuard moves the same policy UP to the
-# plan step: when ``declare_plan`` declares "fetch founder's ethnic
-# background", fi-runner inspects the steps BEFORE the agent fires any
-# follow-up tool and re-emits a soft ``plan_rejected`` event (see
-# fi_runner.Runner.run_stream). The consumer (this repo's /chat/stream) just
-# forwards the rejection to the UI — the agent's own retry path picks up the
-# reinforcement and re-declares.
-#
-# Patterns are intentionally NARROW: a roast plan step that says "Scrape acme
-# pricing page" must not trip; one that says "Search founder's racial
-# background" must. The blocklist targets IDENTITY-ATTRIBUTE vocabulary that
-# is rarely legitimate in a fact-finding plan — we tolerate occasional false
-# positives because the rejection is SOFT (the turn retries; nothing dies).
-_ETHICS_REINFORCEMENT = (
-    "PlanGuard rejected your previous plan because one or more steps targeted "
-    "an identity attribute that the ETHICS rule forbids (race / ethnicity / "
-    "nationality / gender identity / sexual orientation / disability / "
-    "neurodivergence / mental-health history / body / class / accent). Re-declare "
-    "the plan: attack the BEHAVIOR (arguments, broken promises, hypocrisy, what "
-    "they SHIP) and the SYSTEMS, never the BEING. Rewrite the offending step(s) "
-    "to target a behavior or claim instead."
-)
-_ETHICS_BLOCKLIST: tuple[str, ...] = (
-    # Race / ethnicity / nationality framing — broad; "ethnic"/"racial" rarely
-    # appears legitimately in a roast-plan step.
-    r"\b(?:race|racial|ethnic(?:ity)?|ethnically|skin\s*color|caucasian|african[\s-]?american|asian\s+american|latino|latina|hispanic|heritage(?:\s+background)?)\b",
-    # Gender identity / sexual orientation — same logic. "gender" alone is rare
-    # in a roast plan; "gender identity" / "sexual orientation" never legitimate.
-    r"\b(?:gender\s+identity|sexual\s+orientation|sexuality|lgbtq?\+?|transgender|trans\s+(?:woman|man|person)|gay|lesbian|bisexual|queer)\b",
-    # Disability / neurodivergence
-    r"\b(?:disabilit(?:y|ies)|disabled|autis(?:m|tic)|asperger'?s?|adhd|neurodivergen(?:t|ce)|developmental\s+disorder)\b",
-    # Mental-health / trauma framing
-    r"\b(?:mental\s+illness|mental[\s-]health\s+history|psychiatric\s+(?:history|record)|depression\s+history|trauma\s+history|abuse\s+(?:history|background)|addiction\s+history)\b",
-    # Body / appearance — contextual: require a person/role anchor so "page
-    # appearance" / "site looks" don't trip. The anchor is a possessive or
-    # bare role noun before the attribute.
-    r"\b(?:founder|co[\s-]?founder|ceo|cto|cofounder|executive|owner)('?s)?\s+(?:looks|appearance|body|weight|physique|attractiveness)\b",
-    r"\bobesit(?:y|e)\b",
-    # Class / poverty as an identity attribute (not "low pricing tier")
-    r"\b(?:poverty\s+(?:childhood|background)|poor\s+background|underclass|broke\s+(?:childhood|upbringing))\b",
-    # Accent / grammar mocking (the persona's "accent/grammar" never-attack item)
-    r"\b(?:foreign\s+accent|speech\s+accent|broken\s+english|english\s+as\s+(?:a\s+)?second\s+language|esl(?:\s+grammar)?|grammar\s+(?:mistakes?|errors?))\b",
-)
-
-
-def _build_plan_guard() -> PlanGuard:
-    """Compose the PlanGuard for the roast persona. Returns a single guard so
-    fi-runner's ``Runner.plan_guard`` slot stays one-to-one with our policy
-    (the runner only inspects ONE PlanGuard; multiple require a wrapper)."""
-    return plan_guard(
-        blocked_patterns=_ETHICS_BLOCKLIST,
-        reinforcement=_ETHICS_REINFORCEMENT,
-        name="insult_ai_ethics",
-    )
-
-
-def _build_roast_guards(target_hint: str | None) -> list:
-    """Compose the roast guard chain. EN patterns + style packs are always
-    on; ES patterns layer in when ``target_hint`` looks Spanish so the
-    Spanish-side roast can still be guard-checked. See module-level
-    comment for the rationale."""
-    style_packs = [
-        *packs.MARKDOWN_DRIFT,
-        *packs.SUMMARIZING,
-        *packs.STAGE_DIRECTIONS,
-    ]
-    language_packs = list(packs.DEFAULT_EN)
-    if target_hint and looks_spanish(target_hint):
-        # Prepend ES patterns so they catch first on a Spanish turn; EN stays
-        # on too (the model can still drift to English mid-Spanish-roast).
-        language_packs = [*packs.DEFAULT_ES, *language_packs]
-    return [
-        antidrift_guard(
-            break_patterns=[*language_packs, *style_packs],
-            reinforcement=packs.GENERIC_REINFORCEMENT,
-        )
-    ]
-
-
-def _build_brief_guards(target_hint: str | None) -> list:
-    """Compose the brief guard chain. CRITICAL difference vs the roast: the
-    brief INTENTIONALLY uses markdown headers + bullet summaries (it IS a
-    structured briefing document). So ``MARKDOWN_DRIFT`` and ``SUMMARIZING``
-    packs would false-positive on every brief — drop them. ``STAGE_DIRECTIONS``
-    stays on (no "*reviews their pricing page*" cues even in a brief).
-    ``DEFAULT_EN/ES`` stays on too — assistant tone + AI-disclosure are still
-    drift the brief shouldn't ship."""
-    language_packs = list(packs.DEFAULT_EN)
-    if target_hint and looks_spanish(target_hint):
-        language_packs = [*packs.DEFAULT_ES, *language_packs]
-    return [
-        antidrift_guard(
-            break_patterns=[*language_packs, *packs.STAGE_DIRECTIONS],
-            reinforcement=packs.GENERIC_REINFORCEMENT,
-        )
-    ]
-
-
-def _build_clinical_guards(target_hint: str | None) -> list:
-    """Clinical-mode guards: drop the markdown/summary/stage-direction packs
-    (the persona emits JSON, those would false-positive constantly) and
-    KEEP the four drift surfaces that ARE specific to a clinical-coaching
-    voice — fi-core already catalogs them:
-
-      - ``ASSISTANT_TONE_*``    — "as an AI" / "soy un asistente" leaks
-      - ``THERAPY_SPEAK_*``     — "let's hold space" / "let's unpack that"
-                                  corporate-therapist tone the compadre
-                                  must avoid
-      - ``OVER_VALIDATION_*``   — "your feelings are SO valid", saccharine
-                                  affirmation the persona's `validation`
-                                  move replaces with something terser
-      - ``MORALIZING_*``        — "I want you to know …", lecturing tone
-
-    Adding ES variants on top of EN when the input looks Spanish, same
-    pattern the roast/brief modes use.
-
-    The ETHICS PlanGuard still applies (built separately in
-    `_build_plan_guard`) — heavier defense, pre-execution veto on
-    identity-attribute attacks. `never_attack.md` matches the same shape."""
-    en_packs = [
-        *packs.ASSISTANT_TONE_EN,
-        *packs.THERAPY_SPEAK_EN,
-        *packs.OVER_VALIDATION_EN,
-        *packs.MORALIZING_EN,
-    ]
-    es_packs = [
-        *packs.ASSISTANT_TONE_ES,
-        *packs.THERAPY_SPEAK_ES,
-        *packs.OVER_VALIDATION_ES,
-        *packs.MORALIZING_ES,
-    ]
-    language_packs = list(en_packs)
-    if target_hint and looks_spanish(target_hint):
-        language_packs = [*es_packs, *language_packs]
-    return [
-        antidrift_guard(
-            break_patterns=language_packs,
-            reinforcement=packs.GENERIC_REINFORCEMENT,
-        )
-    ]
-
-
-_GUARDS_BY_MODE: dict[Mode, Callable[[str | None], list]] = {
-    "roast": _build_roast_guards,
-    "brief": _build_brief_guards,
-    "clinical": _build_clinical_guards,
-}
-
 
 # --- Chat conversation store ----------------------------------------------
 # Module-level so multi-turn chat sessions persist across `/chat/stream` calls
@@ -362,6 +193,7 @@ def _make_backend(name: str) -> ClaudeCodeBackend | CodexBackend:
     explicit intent to use the subscription, so drop any ambient API key and
     let the SDK fall through to OAuth. No-op in the container (the entrypoint
     env carries no ANTHROPIC_API_KEY)."""
+    name = normalize_backend_name(name)
     if name == "codex":
         # API-motor mode: Codex CLI pointed at Azure OpenAI. Key read from
         # AZURE_OPENAI_API_KEY in the env (never passed inline).
@@ -382,6 +214,7 @@ def _get_backend(name: str) -> ClaudeCodeBackend | CodexBackend:
     """Process-wide backend cache (one per name). Reusing the same backend
     instance keeps its internal SDK client + MCP pool alive across turns,
     so the @brightdata/mcp subprocess isn't re-spawned on every chat turn."""
+    name = normalize_backend_name(name)
     inst = _BACKENDS.get(name)
     if inst is None:
         inst = _make_backend(name)
@@ -423,7 +256,7 @@ def build_runner(
 
     The Runner itself is cheap (a config holder); the BACKEND is the expensive
     bit and it's cached process-wide — see :func:`_get_backend`."""
-    backend_name = (backend or os.getenv("INSULT_AI_BACKEND", "claude")).lower()
+    backend_name = normalize_backend_name(backend)
     agent_backend = _get_backend(backend_name)
 
     # Capabilities (fi-core MCPs, resolved by fi-runner — we never import fi_core):
@@ -465,14 +298,14 @@ def build_runner(
         # against the brief. Guards are built per-turn because the language layer
         # depends on the target — Runner is cheap; the BACKEND is what's cached
         # (see _get_backend).
-        guards=_GUARDS_BY_MODE[mode](target_hint),
+        guards=build_guards(mode, target_hint),
         # Plan-first ethics defense: inspects the agent's `declare_plan` BEFORE
         # any other tool fires. Pairs with the persona's PLAN BEFORE YOU ACT
         # contract — the persona orders the agent to write its route, this guard
         # vetoes a route that targets identity attributes. Static (no language
         # branch): the plan is always in English per persona instructions
         # ("4-8 short imperative labels"), regardless of the roast's output language.
-        plan_guard=_build_plan_guard(),
+        plan_guard=build_plan_guard(),
         retry_policy=RetryPolicy(max_attempts=2),
         # Multi-turn chat memory (None = stateless single-shot, like /roast).
         conversation_store=conversation_store,
@@ -482,105 +315,121 @@ def build_runner(
     )
 
 
-# A message "looks like a roast target" if it carries a URL/domain or is short
-# enough to plausibly be a claim ("Elon founded OpenAI"). Long free-form chat
-# ("hey, can you summarize what you found?") goes through unwrapped. This keeps
-# the first chat turn natural when the user opens with conversation instead of
-# a target — without breaking the single-shot `/roast` flow (which calls
-# `roast_prompt` directly, no heuristic).
-_URL_OR_DOMAIN = re.compile(
-    r"https?://|\b[a-z0-9-]{2,}\.(?:com|org|io|net|ai|co|app|dev|me|xyz|sh|tech)\b",
-    re.IGNORECASE,
-)
+# --- Clinical mode orchestration -------------------------------------------
+# The pure clinical safety decisions (crisis envelope, parse+judge, degrade,
+# finalize, ceiling-raise) live in :mod:`insult_ai.clinical_pipeline`. What
+# stays here is the ORCHESTRATOR — the glue that ties the engine (build_runner,
+# the chat store) to those decisions across the regenerate-once-then-degrade
+# loop. See .claude/rules/clinical.md for the contract.
 
 
-def looks_like_roast_target(message: str) -> bool:
-    """Heuristic: does ``message`` read like a thing to roast vs free-form chat?"""
-    if "://" in message or _URL_OR_DOMAIN.search(message):
-        return True
-    return len(message.split()) <= 8
+async def _persist_clinical(
+    session_id: str | None, user_message: str, assistant_json: str
+) -> None:
+    """Append the FINAL (post-pipeline) exchange to the shared chat store.
 
-
-def roast_prompt(target: str, corpus_id: str | None = None) -> str:
-    """The turn instruction for a roast — ONE source of truth. The bench imports
-    this instead of re-hardcoding the wording, so the two never drift."""
-    base = f"Roast & fact-check this using live web data: {target}"
-    if corpus_id:
-        base += (
-            f"\n\nThe user also has a document corpus (id: '{corpus_id}'). Use the"
-            " search_documents tool over it for extra context and ammo about the"
-            " target before roasting — cite anything you use in the receipts."
+    We persist manually — the clinical runner runs store-less, so an unjudged or
+    regenerated draft never lands in history; only what the user actually saw
+    does. Persistence failure is logged, not fatal (the next turn just loses
+    this exchange from context)."""
+    if not session_id:
+        return
+    try:
+        await _CHAT_STORE.append(
+            session_id,
+            [
+                Message(role="user", content=user_message),
+                Message(role="assistant", content=assistant_json),
+            ],
         )
-    return base
+    except Exception as exc:  # noqa: BLE001 - persistence is best-effort
+        _log.warning("clinical_safety persist_failed session=%s err=%s", session_id, exc)
 
 
-def brief_prompt(target: str, corpus_id: str | None = None) -> str:
-    """The turn instruction for a BRIEF — sibling to ``roast_prompt``. Same
-    target shape, different framing: produce a structured competitive
-    intelligence brief instead of a roast. The persona supplies the section
-    headers + voice; this wrapper just sets the goal."""
-    base = (
-        f"Produce a competitive intelligence brief on this target using live "
-        f"web data: {target}"
+async def _clinical_turn(
+    message: str,
+    *,
+    session_id: str | None,
+    backend: str | None,
+    corpus_id: str | None,
+    tone: Tone,
+    on_event: Callable[[str, dict], None] | None,
+) -> ClinicalResult:
+    """Run one clinical turn through the full safety pipeline (see the module
+    comment above for the four stages) and return a finalized envelope —
+    validated, judged, and, if needed, degraded to something safe."""
+    floor = classify_safety(message)
+    is_spanish = looks_spanish(message)
+
+    # Stage 1 — crisis hard-stop. The regex caught an acute signal; do NOT run
+    # the LLM. Hand off immediately with a localized resource.
+    if floor == "crisis":
+        _log.info("clinical_safety hard_stop=crisis session=%s", session_id)
+        final = finalize(crisis_envelope(message, is_spanish), message, is_spanish)
+        await _persist_clinical(session_id, message, final)
+        return ClinicalResult(text=final, session_id=session_id)
+
+    effective_corpus_id = _resolve_clinical_corpus_id(corpus_id, "clinical")
+    if effective_corpus_id and effective_corpus_id != corpus_id:
+        _log.info(
+            "psych_corpus_resolved entrypoint=clinical session_id=%s corpus_id=%s",
+            session_id, effective_corpus_id,
+        )
+
+    # Store-less runner — we persist the final envelope ourselves below.
+    runner = build_runner(
+        backend,
+        mode="clinical",
+        with_rag=bool(effective_corpus_id),
+        conversation_store=None,
+        on_event=on_event,
+        target_hint=message,
     )
-    if corpus_id:
-        base += (
-            f"\n\nThe user also has a document corpus (id: '{corpus_id}'). Use the"
-            " search_documents tool over it for additional context about the"
-            " target before composing the brief — cite anything you use in the"
-            " Receipts section."
-        )
-    return base
-
-
-def clinical_prompt(message: str, corpus_id: str | None = None) -> str:
-    """The turn instruction for the CLINICAL mode.
-
-    Frames the user's message inside a tone-context envelope the persona
-    reads BEFORE generating its JSON output. The tone is appended at call
-    time by `chat_stream` (the only entry point that knows the tone
-    parameter — see app.py:ChatRequest); when the bench calls in directly
-    without a tone, the default (`medium`) wins.
-
-    When ``corpus_id`` is set (Slice 3 — either user-provided or resolved by
-    ``_resolve_clinical_corpus_id``), an instruction block tells the persona
-    that a knowledge corpus is available via the ``search_documents`` tool
-    and how to populate the envelope's optional ``sources`` field from the
-    in-chunk ``[Source: ... | URL: ... | License: ...]`` header that
-    ``bench/ingest_psychology_corpus.py --commit`` writes. Chunks without
-    that header are uncitable and must be left out of ``sources``."""
-    base = (
-        f"User message:\n{message}\n\nRespond with the JSON envelope as specified."
+    history = await _CHAT_STORE.load(session_id) if session_id else []
+    transcript = render_transcript(history, message)
+    base_prompt = wrap_with_tone(
+        clinical_prompt(transcript, effective_corpus_id), tone
     )
-    if corpus_id:
-        base += (
-            f"\n\n[System: A psychology knowledge corpus is available "
-            f"(id: '{corpus_id}'). When grounding a reflection or reframe in "
-            "general psychoeducation, call the search_documents tool over this "
-            "corpus. Chunks you actually use begin with a header line like "
-            "'[Source: NIMH | URL: <url> | License: public-domain-us-federal]'. "
-            "Copy those (max 3) into the envelope's optional `sources` array "
-            "exactly as parsed from the chunk header. Cite only chunks where "
-            "the [Source: ...] header is visible at the top; chunks without it "
-            "are useful for content but uncitable. Omit the `sources` field "
-            "entirely if you did not use the corpus this turn — do not emit "
-            "null and do not emit an empty array.]"
+    prompt = wrap_with_safety_floor(base_prompt, floor)
+
+    # Stage 2 — first attempt.
+    result = await runner.run(prompt)
+    decision, env, reinforce = evaluate(result.text, floor)
+    usage = result.usage
+    if decision == "ship":
+        final = finalize(env, message, is_spanish)  # type: ignore[arg-type]
+        await _persist_clinical(session_id, message, final)
+        return ClinicalResult(text=final, usage=usage, session_id=session_id)
+    if decision == "crisis":
+        _log.warning("clinical_safety crisis_violation session=%s -> fallback", session_id)
+        final = finalize(crisis_envelope(message, is_spanish), message, is_spanish)
+        await _persist_clinical(session_id, message, final)
+        return ClinicalResult(text=final, usage=usage, session_id=session_id)
+
+    # Stage 3 — regenerate ONCE with reinforcement.
+    _log.info("clinical_safety regenerate session=%s", session_id)
+    result2 = await runner.run(f"{prompt}\n\n[System: {reinforce}]")
+    decision2, env2, _ = evaluate(result2.text, floor)
+    usage = result2.usage or usage
+    if decision2 == "ship":
+        final = finalize(env2, message, is_spanish)  # type: ignore[arg-type]
+        await _persist_clinical(session_id, message, final)
+        return ClinicalResult(text=final, usage=usage, session_id=session_id)
+    if decision2 == "crisis":
+        _log.warning(
+            "clinical_safety crisis_violation_retry session=%s -> fallback", session_id
         )
-    return base
+        final = finalize(crisis_envelope(message, is_spanish), message, is_spanish)
+        await _persist_clinical(session_id, message, final)
+        return ClinicalResult(text=final, usage=usage, session_id=session_id)
 
-
-_PROMPT_BY_MODE: dict[Mode, Callable[[str, str | None], str]] = {
-    "roast": roast_prompt,
-    "brief": brief_prompt,
-    "clinical": clinical_prompt,
-}
-
-
-def _wrap_with_tone(prompt: str, tone: Tone) -> str:
-    """Prepend a one-line tone directive to the turn prompt. The clinical
-    persona reads `Tone: <value>` and adjusts roast_line accordingly.
-    No-op for roast/brief (those modes ignore tone by design)."""
-    return f"Tone: {tone}\n\n{prompt}"
+    # Stage 3b — degrade to a deterministic safe envelope.
+    _log.warning("clinical_safety degrade session=%s (regenerate failed)", session_id)
+    final = finalize(
+        degraded_envelope(floor, env2 or env, message, is_spanish), message, is_spanish
+    )
+    await _persist_clinical(session_id, message, final)
+    return ClinicalResult(text=final, usage=usage, session_id=session_id)
 
 
 async def roast(
@@ -605,26 +454,27 @@ async def roast(
 
     The function is still called ``roast`` for backwards compatibility
     with the API + bench, but it dispatches all three modes."""
-    effective_corpus_id = _resolve_clinical_corpus_id(corpus_id, mode)
-    if effective_corpus_id and effective_corpus_id != corpus_id:
-        # Slice 3 telemetry: the public psychology corpus is in play this
-        # turn (the user did NOT supply their own corpus_id and the
-        # INSULT_AI_PSYCH_CORPUS_ENABLED flag is on). This is the per-turn
-        # signal that proves Slice 3's wiring fired without depending on
-        # TurnResult.tool_calls inspection.
-        _log.info(
-            "psych_corpus_resolved entrypoint=roast mode=%s corpus_id=%s",
-            mode, effective_corpus_id,
+    # Clinical runs the full safety pipeline (pre-LLM classifier, envelope
+    # judge, regenerate-once-then-degrade, crisis hand-off) instead of a bare
+    # turn. Single-shot /roast has no session, so no multi-turn history or
+    # persistence — the pipeline still validates and degrades the one turn.
+    if mode == "clinical":
+        return await _clinical_turn(
+            target,
+            session_id=None,
+            backend=backend,
+            corpus_id=corpus_id,
+            tone=tone,
+            on_event=None,
         )
+    effective_corpus_id = _resolve_clinical_corpus_id(corpus_id, mode)
     runner = build_runner(
         backend,
         mode=mode,
         with_rag=bool(effective_corpus_id),
         target_hint=target,
     )
-    prompt = _PROMPT_BY_MODE[mode](target, effective_corpus_id)
-    if mode == "clinical":
-        prompt = _wrap_with_tone(prompt, tone)
+    prompt = PROMPT_BY_MODE[mode](target, effective_corpus_id)
     return await runner.run(prompt)
 
 
@@ -658,17 +508,27 @@ async def chat_stream(
     (URL/claim → roast/brief); follow-ups go in as plain chat. We detect
     "first turn" via the shared conversation store. The Runner is built per
     turn (cheap) but shares ``_CHAT_STORE`` so prior turns are replayed for
-    context."""
-    effective_corpus_id = _resolve_clinical_corpus_id(corpus_id, mode)
-    if effective_corpus_id and effective_corpus_id != corpus_id:
-        # Slice 3 telemetry: the public psychology corpus is in play this
-        # turn. See _resolve_clinical_corpus_id docstring. Per-turn signal
-        # that proves the wiring fired; tool-call evidence still lives in
-        # the existing on_event observability piped by app.py.
-        _log.info(
-            "psych_corpus_resolved entrypoint=chat_stream session_id=%s mode=%s corpus_id=%s",
-            session_id, mode, effective_corpus_id,
+    context.
+
+    Clinical mode does NOT stream a live chain-of-thought — it's one-shot
+    conversational, and its output must be validated/degraded as a whole
+    before it reaches the browser. So it bypasses ``run_stream`` entirely:
+    ``_clinical_turn`` runs the full safety pipeline and we emit a single
+    synthetic ``result`` event carrying the finalized envelope JSON. The UI's
+    clinical renderer replaces on ``result`` anyway, so nothing is lost."""
+    if mode == "clinical":
+        result = await _clinical_turn(
+            message,
+            session_id=session_id,
+            backend=backend,
+            corpus_id=corpus_id,
+            tone=tone,
+            on_event=on_event,
         )
+        yield {"type": "result", "result": result}
+        return
+
+    effective_corpus_id = _resolve_clinical_corpus_id(corpus_id, mode)
     runner = build_runner(
         backend,
         mode=mode,
@@ -688,19 +548,10 @@ async def chat_stream(
     # weirdly; the heuristic gates it. Subsequent turns ALWAYS go raw (the
     # conversation already carries the context via the conversation_store
     # replay).
-    # Clinical mode is conversational from turn 1 — there's no "target" to
-    # wrap; the persona just consumes the user message + tone. The roast/
-    # brief modes preserve the legacy "first turn looks like a target →
-    # wrap with the mode prompt" behavior.
-    if mode == "clinical":
-        prompt = _wrap_with_tone(
-            _PROMPT_BY_MODE[mode](message, effective_corpus_id), tone
-        )
-    else:
-        prompt = (
-            _PROMPT_BY_MODE[mode](message, effective_corpus_id)
-            if is_first_turn and looks_like_roast_target(message)
-            else message
-        )
+    prompt = (
+        PROMPT_BY_MODE[mode](message, effective_corpus_id)
+        if is_first_turn and looks_like_roast_target(message)
+        else message
+    )
     async for event in runner.run_stream(prompt, session_id=session_id):
         yield event

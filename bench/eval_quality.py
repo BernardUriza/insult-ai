@@ -58,7 +58,8 @@ load_dotenv(_API / ".env")
 sys.path.insert(0, str(_API))
 
 from fi_runner import ToolCall  # noqa: E402  (reconstruct tool_calls on --rescore)
-from insult_ai.runner import BRIGHTDATA_MCP, build_runner, roast_prompt  # noqa: E402
+from insult_ai.prompts import roast_prompt  # noqa: E402
+from insult_ai.runner import BRIGHTDATA_MCP, build_runner  # noqa: E402
 
 EVAL_SET = _HERE / "eval_set.jsonl"
 BASELINE = _HERE / "baseline_quality.json"

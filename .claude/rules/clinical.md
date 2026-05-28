@@ -55,7 +55,8 @@ judge invariants, and the policy docs:
 | Safety regex fast-path | `api/insult_ai/safety.py` | `classify_safety(message)` — bilingual EN+ES. |
 | Local judge (mechanical + lexical) | `api/insult_ai/judge.py` | `judge(env) → JudgeVerdict`. Catches red-attribute attacks + AI leaks + length sanity. |
 | Crisis fallback dispatch | `api/insult_ai/crisis_resources.py` | `pick_resources(message, is_spanish)` + `crisis_fallback`. |
-| Runner wiring | `api/insult_ai/runner.py` | `Mode = "clinical"` entry in the three dispatch tables. Clinical-specific guards. |
+| Clinical safety pipeline (pure) | `api/insult_ai/clinical_pipeline.py` | `evaluate` / `crisis_envelope` / `degraded_envelope` / `apply_safety_floor` / `finalize` + `ClinicalResult`. The LLM-free, runner-free decision half. |
+| Runner wiring + orchestration | `api/insult_ai/runner.py` | `_clinical_turn` (the pre-LLM classifier → parse+judge → regenerate-once-then-degrade loop) + `_PERSONA_BY_MODE`. Guards now live in `guards.py`, prompts in `prompts.py`, `Mode`/`Tone` in `modes.py`. |
 | UI rendering | `web/components/chat/ClinicalEnvelope.tsx` | `parseEnvelope`, `ClinicalEnvelopeView`, `ClinicalEnvelopeTrace`. |
 | UI tone selector | `web/components/chat/IntensitySelector.tsx` | Four-chip selector + LowerIntensityButton. |
 | UI consent gate | `web/components/chat/OnboardingDialog.tsx` | One-time, localStorage-gated. |
