@@ -66,7 +66,7 @@ export function ReportView({
           <Image
             src="/logo.png"
             alt=""
-            width={72}
+            width={91}
             height={72}
             priority
             className="iai-drift-slow opacity-90 drop-shadow-[0_0_24px_rgb(var(--color-iai-fire-rgb)/0.4)]"

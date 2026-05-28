@@ -8,6 +8,7 @@ import {
   apiHeaders,
   fetchApi,
 } from "../../lib/api";
+import { newId } from "../../lib/id";
 
 /** One document that's been ingested THIS browser session. The API has no
  * /documents/list endpoint yet, so the front holds its own session record —
@@ -33,10 +34,6 @@ export type IngestedDoc = {
   at: number;
 };
 
-/** Mint a short id without depending on `crypto.randomUUID` (Safari 14 etc.). */
-function newId(): string {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
 
 /** State + actions for the /library page.
  *

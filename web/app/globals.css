@@ -42,10 +42,12 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    overflow-x: clip;
   }
 
   body {
     @apply min-h-full bg-iai-bg text-zinc-200 antialiased;
+    overflow-x: clip;
   }
 }
 

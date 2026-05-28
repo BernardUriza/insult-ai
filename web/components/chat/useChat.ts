@@ -9,30 +9,125 @@ import {
   apiHeaders,
   apiUrl,
 } from "../../lib/api";
+import { newId } from "../../lib/id";
+import { parseSseFrame } from "../../lib/sse";
 import { receiptsFrom } from "../../lib/text";
-import type { ChatMessage, ChatMeta, Plan, PlanRejection, PlanStep, Step } from "./types";
+import type { ChatMessage, ChatMeta, ChatMode, ChatTone, Plan, PlanRejection, PlanStep, Step } from "./types";
 
-/** Mint a short id without depending on `crypto.randomUUID` (Safari 14 etc.). */
-function newId(): string {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+function closeOpenPlanSteps(plan: Plan | null, error?: string): Plan | null {
+  if (!plan) return null;
+  return {
+    ...plan,
+    steps: plan.steps.map((step) => {
+      if (step.status !== "pending" && step.status !== "running") return step;
+      return error ? { ...step, status: "failed", error } : { ...step, status: "done" };
+    }),
+  };
 }
 
-/** Parse one SSE frame ("event: foo\ndata: {...}") into {event, data}. SSE
- * frames are separated by a blank line — the caller splits on `\n\n` first. */
-function parseFrame(frame: string): { event: string; data: unknown } | null {
-  const lines = frame.split("\n");
-  let event = "message";
-  const dataLines: string[] = [];
-  for (const line of lines) {
-    if (line.startsWith("event:")) event = line.slice(6).trim();
-    else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+/** Pure reducer: given the current assistant message and one parsed SSE event,
+ * return the patch to apply. Returns {} for unrecognised events. */
+function applyStreamEvent(
+  m: ChatMessage & { role: "assistant" },
+  event: string,
+  data: Record<string, unknown>,
+): Partial<ChatMessage & { role: "assistant" }> {
+  if (event === "tool_call") {
+    const step: Step = {
+      id: (data.id as string) ?? null,
+      name: (data.name as string) ?? "",
+      server: (data.server as string | null) ?? null,
+      isError: (data.is_error as boolean | null) ?? null,
+    };
+    return { steps: [...m.steps, step], status: "streaming" };
   }
-  if (dataLines.length === 0) return null;
-  try {
-    return { event, data: JSON.parse(dataLines.join("\n")) };
-  } catch {
-    return null;
+
+  if (event === "plan") {
+    // A fresh plan clears any prior rejection — the agent is re-trying.
+    const labels = (data.steps as unknown[]) ?? [];
+    const plan: Plan = {
+      steps: labels.map((s) => ({ label: String(s), status: "pending" as const })),
+      rejection: null,
+    };
+    return { plan, status: "streaming" };
   }
+
+  if (event === "plan_rejected") {
+    if (!m.plan) return {};
+    const rejection: PlanRejection = {
+      reason: (data.reason as string) ?? "plan rejected",
+      matched: ((data.matched as Array<Record<string, unknown>>) ?? []).map((r) => ({
+        index: Number(r.index ?? 0),
+        label: String(r.label ?? ""),
+      })),
+      guard: (data.guard as string | null) ?? null,
+    };
+    return { plan: { ...m.plan, rejection } };
+  }
+
+  if (event === "step_started") {
+    const idx = Number(data.step_index);
+    if (!m.plan || !Number.isFinite(idx) || idx < 0 || idx >= m.plan.steps.length) return {};
+    const next = m.plan.steps.map((step, i) => {
+      if (i < idx && (step.status === "pending" || step.status === "running")) {
+        return { ...step, status: "done" as const };
+      }
+      return step;
+    });
+    next[idx] = { ...next[idx], status: "running" };
+    return { plan: { ...m.plan, steps: next } };
+  }
+
+  if (event === "step_done") {
+    const idx = Number(data.step_index);
+    if (!m.plan || !Number.isFinite(idx) || idx < 0 || idx >= m.plan.steps.length) return {};
+    const next = m.plan.steps.slice();
+    const failed = data.status === "failed";
+    const patch: PlanStep = { ...next[idx], status: failed ? "failed" : "done" };
+    const summary = (data.summary as string | null) ?? "";
+    if (!failed && summary) patch.summary = summary;
+    const errorMsg = (data.error as string | null) ?? "";
+    if (failed && errorMsg) patch.error = errorMsg;
+    next[idx] = patch;
+    return { plan: { ...m.plan, steps: next } };
+  }
+
+  if (event === "text") {
+    const delta = (data.delta as string) ?? "";
+    if (!delta) return {};
+    return { content: m.content + delta, status: "streaming" };
+  }
+
+  if (event === "result") {
+    // Replace, don't append — post-guard text may diverge from streamed deltas.
+    const finalText = (data.text as string) ?? "";
+    const finalSteps = ((data.tool_calls as Array<Record<string, unknown>>) ?? []).map((tc) => ({
+      id: (tc.id as string) ?? null,
+      name: (tc.name as string) ?? "",
+      server: (tc.server as string | null) ?? null,
+      isError: (tc.is_error as boolean | null) ?? null,
+    }));
+    return {
+      content: finalText,
+      steps: finalSteps,
+      plan: closeOpenPlanSteps(m.plan),
+      receipts: receiptsFrom(finalText),
+      usage: (data.usage as Record<string, unknown> | null) ?? null,
+      status: "done",
+    };
+  }
+
+  if (event === "meta") {
+    return { meta: data as ChatMeta };
+  }
+
+  if (event === "error") {
+    const msg = (data.message as string) ?? "stream error";
+    return { status: "error", errorMessage: msg };
+  }
+
+  // `open`, `done`, and unknown events are wire-only — no state change.
+  return {};
 }
 
 /** The chat state machine. Owns `messages`, the `sessionId` (one per
@@ -43,9 +138,6 @@ function parseFrame(frame: string): { event: string; data: unknown } | null {
  * (rag_store MCP) for extra ammo before composing the roast/brief. Wired
  * from the /library page (sticky) and the ``?corpus=`` query param on /chat
  * so a "Use →" click from the library lands in chat with the corpus armed. */
-export type ChatMode = "roast" | "brief" | "clinical";
-export type ChatTone = "soft" | "medium" | "spicy" | "no_insults";
-
 export function useChat(opts?: {
   corpusId?: string;
   mode?: ChatMode;
@@ -57,11 +149,9 @@ export function useChat(opts?: {
   const tone = opts?.tone ?? "medium";
   const backend = opts?.backend?.trim() || undefined;
   // One id per browser session so the API folds prior turns into the prompt.
-  // Held in a ref so re-renders don't churn it.
   const sessionRef = useRef<string>(newId());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streaming, setStreaming] = useState(false);
-  // Abort controller for the current /chat/stream fetch (user can cancel mid-roast).
   const abortRef = useRef<AbortController | null>(null);
 
   /** Mutate the in-flight assistant message by id (functional update so
@@ -83,12 +173,11 @@ export function useChat(opts?: {
       const trimmed = text.trim();
       if (!trimmed || streaming) return;
       if (trimmed.length > MAX_CHAT_MESSAGE_CHARS) {
-        const assistantId = newId();
         setMessages((prev) => [
           ...prev,
           { id: newId(), role: "user", content: trimmed.slice(0, MAX_CHAT_MESSAGE_CHARS) },
           {
-            id: assistantId,
+            id: newId(),
             role: "assistant",
             content: "",
             steps: [],
@@ -103,20 +192,12 @@ export function useChat(opts?: {
         return;
       }
 
-      const userMsg: ChatMessage = { id: newId(), role: "user", content: trimmed };
       const assistantId = newId();
-      const assistantMsg: ChatMessage = {
-        id: assistantId,
-        role: "assistant",
-        content: "",
-        steps: [],
-        plan: null,
-        receipts: [],
-        usage: null,
-        meta: null,
-        status: "thinking",
-      };
-      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+      setMessages((prev) => [
+        ...prev,
+        { id: newId(), role: "user", content: trimmed },
+        { id: assistantId, role: "assistant", content: "", steps: [], plan: null, receipts: [], usage: null, meta: null, status: "thinking" },
+      ]);
       setStreaming(true);
 
       const controller = new AbortController();
@@ -130,10 +211,7 @@ export function useChat(opts?: {
       try {
         const res = await fetch(apiUrl("/chat/stream"), {
           method: "POST",
-          headers: apiHeaders({
-            "Content-Type": "application/json",
-            Accept: "text/event-stream",
-          }),
+          headers: apiHeaders({ "Content-Type": "application/json", Accept: "text/event-stream" }),
           body: JSON.stringify({
             session_id: sessionRef.current,
             message: trimmed,
@@ -151,8 +229,6 @@ export function useChat(opts?: {
         const decoder = new TextDecoder();
         let buffer = "";
 
-        // SSE loop: drain the byte stream, split on blank lines, parse, dispatch.
-        // We keep the trailing partial frame in `buffer` between reads.
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
@@ -160,141 +236,46 @@ export function useChat(opts?: {
           const frames = buffer.split("\n\n");
           buffer = frames.pop() ?? "";
           for (const raw of frames) {
-            const parsed = parseFrame(raw);
+            const parsed = parseSseFrame(raw);
             if (!parsed) continue;
             const { event, data } = parsed as { event: string; data: Record<string, unknown> };
-
-            if (event === "tool_call") {
-              const step: Step = {
-                id: (data.id as string) ?? null,
-                name: (data.name as string) ?? "",
-                server: (data.server as string | null) ?? null,
-                isError: (data.is_error as boolean | null) ?? null,
-              };
-              patchAssistant(assistantId, (m) => ({
-                steps: [...m.steps, step],
-                status: "streaming",
-              }));
-            } else if (event === "plan") {
-              // The agent committed to a route — replace any prior plan (a
-              // turn that re-declares is non-canonical; per personas/roast.md
-              // "one declare_plan per turn", but we'd rather track the latest
-              // than splice). A fresh plan also CLEARS any prior rejection
-              // banner — the agent is re-trying, the prior verdict is stale.
-              const labels = (data.steps as unknown[]) ?? [];
-              const plan: Plan = {
-                steps: labels.map((s) => ({
-                  label: String(s),
-                  status: "pending" as const,
-                })),
-                rejection: null,
-              };
-              patchAssistant(assistantId, () => ({ plan, status: "streaming" }));
-            } else if (event === "plan_rejected") {
-              const rejection: PlanRejection = {
-                reason: (data.reason as string) ?? "plan rejected",
-                matched: ((data.matched as Array<Record<string, unknown>>) ?? []).map((m) => ({
-                  index: Number(m.index ?? 0),
-                  label: String(m.label ?? ""),
-                })),
-                guard: (data.guard as string | null) ?? null,
-              };
-              patchAssistant(assistantId, (m) => {
-                if (!m.plan) return {};
-                return { plan: { ...m.plan, rejection } };
-              });
-            } else if (event === "step_started") {
-              const idx = Number(data.step_index);
-              patchAssistant(assistantId, (m) => {
-                if (!m.plan || !Number.isFinite(idx) || idx < 0 || idx >= m.plan.steps.length) {
-                  return {};
-                }
-                const next = m.plan.steps.slice();
-                next[idx] = { ...next[idx], status: "running" };
-                return { plan: { steps: next } };
-              });
-            } else if (event === "step_done") {
-              const idx = Number(data.step_index);
-              const failed = data.status === "failed";
-              patchAssistant(assistantId, (m) => {
-                if (!m.plan || !Number.isFinite(idx) || idx < 0 || idx >= m.plan.steps.length) {
-                  return {};
-                }
-                const next = m.plan.steps.slice();
-                const prev = next[idx];
-                const patch: PlanStep = {
-                  ...prev,
-                  status: failed ? "failed" : "done",
-                };
-                // Only attach the non-empty field — keep the object shape tight
-                // so a missing summary doesn't render as an empty line in the UI.
-                const summary = (data.summary as string | null) ?? "";
-                if (!failed && summary) patch.summary = summary;
-                const errorMsg = (data.error as string | null) ?? "";
-                if (failed && errorMsg) patch.error = errorMsg;
-                next[idx] = patch;
-                return { plan: { steps: next } };
-              });
-            } else if (event === "text") {
-              const delta = (data.delta as string) ?? "";
-              if (!delta) continue;
-              patchAssistant(assistantId, (m) => ({
-                content: m.content + delta,
-                status: "streaming",
-              }));
-            } else if (event === "result") {
-              // Replace, don't append — post-guard text may diverge from the
-              // streamed deltas. Backfill is_error on steps from the final list.
-              const finalText = (data.text as string) ?? "";
-              const finalSteps = ((data.tool_calls as Array<Record<string, unknown>>) ?? []).map((tc) => ({
-                id: (tc.id as string) ?? null,
-                name: (tc.name as string) ?? "",
-                server: (tc.server as string | null) ?? null,
-                isError: (tc.is_error as boolean | null) ?? null,
-              }));
-              patchAssistant(assistantId, () => ({
-                content: finalText,
-                steps: finalSteps,
-                receipts: receiptsFrom(finalText),
-                usage: (data.usage as Record<string, unknown> | null) ?? null,
-                status: "done",
-              }));
-            } else if (event === "meta") {
-              // Per-turn observability — see ChatMeta in types.ts. The full
-              // payload is stored on the message so MessageBubble can render
-              // a compact footer ("✓ 2.3s · 4 tools · 1,234 tokens").
-              patchAssistant(assistantId, () => ({ meta: data as ChatMeta }));
-            } else if (event === "error") {
-              const msg = (data.message as string) ?? "stream error";
-              patchAssistant(assistantId, () => ({ status: "error", errorMessage: msg }));
-            }
-            // `open` and `done` are wire-only — UI doesn't need them.
+            patchAssistant(assistantId, (m) => applyStreamEvent(m, event, data));
           }
         }
+
         if (buffer.trim()) {
-          const parsed = parseFrame(buffer);
-          if (parsed?.event === "error" && parsed.data && typeof parsed.data === "object") {
-            const data = parsed.data as Record<string, unknown>;
-            patchAssistant(assistantId, () => ({
-              status: "error",
-              errorMessage: String(data.message ?? "stream error"),
-            }));
+          const parsed = parseSseFrame(buffer);
+          if (parsed?.data && typeof parsed.data === "object") {
+            patchAssistant(assistantId, (m) =>
+              applyStreamEvent(m, parsed.event, parsed.data as Record<string, unknown>),
+            );
           }
         }
         reader.releaseLock();
+        patchAssistant(assistantId, (m) => {
+          if (m.status !== "thinking" && m.status !== "streaming") return {};
+          return { status: "done", plan: closeOpenPlanSteps(m.plan) };
+        });
       } catch (e) {
-        // AbortError on user cancel is not a real error.
         const aborted = e instanceof DOMException && e.name === "AbortError";
         if (timedOut) {
-          patchAssistant(assistantId, () => ({
+          patchAssistant(assistantId, (m) => ({
             status: "error",
             errorMessage: `request timed out after ${Math.round(CHAT_STREAM_TIMEOUT_MS / 1000)}s`,
+            plan: closeOpenPlanSteps(m.plan, "timed out"),
           }));
         } else if (!aborted) {
           const msg = e instanceof Error ? e.message : "request failed";
-          patchAssistant(assistantId, () => ({ status: "error", errorMessage: msg }));
+          patchAssistant(assistantId, (m) => ({
+            status: "error",
+            errorMessage: msg,
+            plan: closeOpenPlanSteps(m.plan, msg),
+          }));
         } else {
-          patchAssistant(assistantId, () => ({ status: "done" }));
+          patchAssistant(assistantId, (m) => ({
+            status: "done",
+            plan: closeOpenPlanSteps(m.plan, "stopped"),
+          }));
         }
       } finally {
         window.clearTimeout(timeout);
@@ -310,8 +291,7 @@ export function useChat(opts?: {
   }, []);
 
   /** Wipe the conversation locally AND on the backend (new session id). The
-   * server's store keeps the old session under its old id, but we never refer
-   * to it again — InMemoryConversationStore is per-process, fine to leak. */
+   * server's store keeps the old session under its old id — fine to leak. */
   const reset = useCallback(() => {
     sessionRef.current = newId();
     setMessages([]);

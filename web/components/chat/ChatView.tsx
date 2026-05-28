@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef } from "react";
 import { MessageBubble } from "./MessageBubble";
 import type { ChatMessage } from "./types";
-import type { ChatMode } from "./useChat";
+import type { ChatMode } from "./types";
 
 const EMPTY_STATE_BY_MODE: Record<ChatMode, { headline: string; subcopy: string }> = {
   roast: {
@@ -73,7 +73,7 @@ export function ChatView({
         <Image
           src="/logo.png"
           alt=""
-          width={80}
+          width={101}
           height={80}
           priority
           className="opacity-90 drop-shadow-[0_0_24px_rgb(var(--color-iai-fire-rgb)/0.4)]"

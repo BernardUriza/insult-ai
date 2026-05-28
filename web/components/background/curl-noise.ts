@@ -30,14 +30,21 @@ export function valueNoise(x: number, y: number): number {
   return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
 }
 
+/** Two-octave fractional Brownian motion: coarse structure (0.625) + fine
+ *  detail (0.375) at 2.1× frequency. Costs 2× the valueNoise calls but
+ *  eliminates the visible flow-field repetition of a single octave. */
+function fbm2(x: number, y: number): number {
+  return valueNoise(x, y) * 0.625 + valueNoise(x * 2.1, y * 2.1) * 0.375;
+}
+
 /** Curl of the scalar field: (∂N/∂y, -∂N/∂x). Divergence-free → swirls.
  *  `EPSILON` is the central-difference step for the numerical gradient. */
 export function curl(x: number, y: number): [number, number] {
   const EPSILON = 0.35;
-  const n1 = valueNoise(x, y + EPSILON);
-  const n2 = valueNoise(x, y - EPSILON);
-  const n3 = valueNoise(x + EPSILON, y);
-  const n4 = valueNoise(x - EPSILON, y);
+  const n1 = fbm2(x, y + EPSILON);
+  const n2 = fbm2(x, y - EPSILON);
+  const n3 = fbm2(x + EPSILON, y);
+  const n4 = fbm2(x - EPSILON, y);
   const dx = (n1 - n2) / (2 * EPSILON);
   const dy = (n3 - n4) / (2 * EPSILON);
   return [dy, -dx];

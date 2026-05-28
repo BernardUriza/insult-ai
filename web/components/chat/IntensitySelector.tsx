@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChatTone } from "./useChat";
+import type { ChatTone } from "./types";
 
 /** Tone selector for the clinical_compadre mode.
  *

@@ -14,7 +14,7 @@ import { MarkdownRenderer } from "./MarkdownRenderer";
 import { PlanChecklist } from "./PlanChecklist";
 import { ThinkingPanel } from "./ThinkingPanel";
 import type { ChatMessage, ChatMeta } from "./types";
-import type { ChatMode } from "./useChat";
+import type { ChatMode } from "./types";
 
 const DoneIcon = getStatusIcon("done");
 const WarnIcon = getStatusIcon("warning");

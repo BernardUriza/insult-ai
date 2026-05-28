@@ -15,7 +15,7 @@ export default function NotFound() {
       <Image
         src="/logo.png"
         alt=""
-        width={96}
+        width={122}
         height={96}
         className="opacity-80"
       />

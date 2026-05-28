@@ -3,6 +3,9 @@
  * Keep this file pure data + helpers — no React, no fetch. The hook (useChat)
  * consumes these and the components only see the in-memory ChatMessage. */
 
+export type ChatMode = "roast" | "brief" | "clinical";
+export type ChatTone = "soft" | "medium" | "spicy" | "no_insults";
+
 /** One Bright Data / RAG tool call surfaced as a "thinking step". Mirrors the
  * sanitized payload the backend sends (see app.py:_tool_call_safe — `input` is
  * dropped on purpose; the real sources land in `receipts` on the result). */

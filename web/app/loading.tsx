@@ -18,7 +18,7 @@ export default function Loading() {
       <Image
         src="/logo.png"
         alt="Insult AI"
-        width={128}
+        width={162}
         height={128}
         priority
         className="animate-pulse drop-shadow-[0_0_40px_rgb(var(--color-iai-fire-rgb)/0.6)]"

@@ -25,7 +25,7 @@ export default function Error({
   }
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-iai-bg px-6 text-center">
-      <Image src="/logo.png" alt="" width={96} height={96} />
+      <Image src="/logo.png" alt="" width={122} height={96} />
       <h1 className="text-3xl font-extrabold text-zinc-100">
         Something burned down.
       </h1>

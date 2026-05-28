@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import {
   EMBER_ACTIVITY_EVENT,
+  type EmberEngine,
   type EmberEngineOptions,
   createEmberEngine,
 } from "./ember-engine";
@@ -29,7 +30,21 @@ export function EmberField({
   activityDriven = false,
 }: Partial<EmberEngineOptions> & { activityDriven?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const engineRef = useRef<EmberEngine | null>(null);
+  const activityDrivenRef = useRef(activityDriven);
 
+  // Keep activityDriven in sync without restarting the engine.
+  useEffect(() => {
+    activityDrivenRef.current = activityDriven;
+  }, [activityDriven]);
+
+  // Hot-update visual options without tearing down particle state.
+  useEffect(() => {
+    engineRef.current?.updateOptions({ opacity, veilAlpha, glowScale, idleSpeed, activeSpeed });
+  }, [opacity, veilAlpha, glowScale, idleSpeed, activeSpeed]);
+
+  // Engine lifecycle — runs once; options sync handled above via engineRef.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -43,6 +58,7 @@ export function EmberField({
       idleSpeed,
       activeSpeed,
     });
+    engineRef.current = engine;
 
     const resize = () => {
       const W = window.innerWidth;
@@ -78,7 +94,7 @@ export function EmberField({
     document.addEventListener("visibilitychange", onVisibility);
 
     const onActivity = (event: Event) => {
-      if (!activityDriven) return;
+      if (!activityDrivenRef.current) return;
       const detail = (event as CustomEvent<{ activity?: number }>).detail;
       engine.setActivity(Number(detail?.activity ?? 0));
     };
@@ -89,8 +105,9 @@ export function EmberField({
       window.removeEventListener("resize", resize);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener(EMBER_ACTIVITY_EVENT, onActivity);
+      engineRef.current = null;
     };
-  }, [activeSpeed, activityDriven, glowScale, idleSpeed, opacity, veilAlpha]);
+  }, []); // intentional empty deps — engine lifecycle is independent of prop values
 
   return (
     <canvas

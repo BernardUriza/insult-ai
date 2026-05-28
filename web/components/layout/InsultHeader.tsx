@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { type KeyboardEvent, useRef } from "react";
-import { getUIIcon } from "../../lib/icons";
 import type { ChatMode } from "../chat/types";
-
-const FlameIcon = getUIIcon("brand");
 
 type ModeMeta = {
   label: string;
@@ -98,9 +96,14 @@ function BrandBlock({
       aria-label="Insult AI — go to home"
       className="group/brand flex h-11 w-11 shrink-0 items-center justify-center rounded-lg outline-offset-4 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-iai-fire sm:h-auto sm:w-auto sm:min-w-0 sm:items-start sm:justify-start sm:gap-2.5"
     >
-      <FlameIcon
-        className="iai-flame h-6 w-6 shrink-0 transition group-hover/brand:scale-105 sm:mt-0.5 sm:h-7 sm:w-7"
-        aria-hidden
+      <Image
+        src="/logo.png"
+        alt=""
+        width={512}
+        height={405}
+        className="h-8 w-auto shrink-0 object-contain drop-shadow-[0_0_12px_rgb(var(--color-iai-fire-rgb)/0.35)] transition group-hover/brand:scale-105 sm:h-9"
+        aria-hidden="true"
+        priority
       />
       <div className="hidden min-w-0 flex-col sm:flex">
         <div className="flex flex-wrap items-center gap-2">

@@ -129,7 +129,7 @@ export function LandingClient() {
           <Image
             src="/logo.png"
             alt=""
-            width={160}
+            width={202}
             height={160}
             priority
             className="drop-shadow-[0_0_40px_rgb(var(--color-iai-fire-rgb)/0.5)]"

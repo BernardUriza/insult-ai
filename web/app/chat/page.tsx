@@ -13,7 +13,9 @@ import {
   OnboardingDialog,
   isOnboarded,
 } from "../../components/chat/OnboardingDialog";
-import { type ChatMode, type ChatTone, useChat } from "../../components/chat/useChat";
+import { latestOpenToolIndex } from "../../components/chat/toolStatus";
+import { type ChatMode, type ChatTone } from "../../components/chat/types";
+import { useChat } from "../../components/chat/useChat";
 import { useTtsBlob } from "../../components/chat/useTtsBlob";
 import { ReportInput } from "../../components/roast/ReportInput";
 import { ReportPlanPanel } from "../../components/roast/ReportPlanPanel";
@@ -143,9 +145,14 @@ export default function ChatPage() {
       return;
     }
 
-    const stepCount = lastAssistant?.steps.length ?? 0;
-    const planRunning =
-      lastAssistant?.plan?.steps.some((step) => step.status === "running") ?? false;
+    const steps = lastAssistant?.steps ?? [];
+    const stepCount = steps.length;
+    const openToolCount = steps.filter((step) => step.isError === null).length;
+    const hasActiveTool = latestOpenToolIndex(steps) >= 0;
+    const planOpen =
+      lastAssistant?.plan?.steps.some(
+        (step) => step.status === "running" || step.status === "pending",
+      ) ?? false;
     const hasContent = Boolean(lastAssistant?.content);
     const active =
       streaming
@@ -153,7 +160,9 @@ export default function ChatPage() {
             1,
             0.52 +
               stepCount * 0.08 +
-              (planRunning ? 0.18 : 0) +
+              openToolCount * 0.1 +
+              (hasActiveTool ? 0.16 : 0) +
+              (planOpen ? 0.1 : 0) +
               (hasContent ? 0.12 : 0),
           )
         : 0;
@@ -167,7 +176,7 @@ export default function ChatPage() {
     apiDown,
     lastAssistant?.content,
     lastAssistant?.plan?.steps,
-    lastAssistant?.steps.length,
+    lastAssistant?.steps,
     streaming,
   ]);
 

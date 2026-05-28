@@ -17,7 +17,7 @@ export default function GlobalError({
     <html lang="en">
       <body className="min-h-screen bg-iai-bg text-zinc-200">
         <main className="flex min-h-screen flex-col items-center justify-center gap-6 px-6 text-center">
-          <Image src="/logo.png" alt="" width={96} height={96} />
+          <Image src="/logo.png" alt="" width={122} height={96} />
           <h1 className="text-3xl font-extrabold text-zinc-100">
             The app crashed before it could roast back.
           </h1>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ChatTone } from "./useChat";
+import type { ChatTone } from "./types";
 import { IntensitySelector } from "./IntensitySelector";
 
 /** Consent + tone-pick dialog shown ONCE before the user starts a clinical

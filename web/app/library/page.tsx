@@ -10,7 +10,7 @@ import { Button } from "../../components/ui/Button";
 import { PoweredBy } from "../../components/ui/PoweredBy";
 import { Textarea } from "../../components/ui/Textarea";
 import { getStatusIcon } from "../../lib/icons";
-import type { ChatMode } from "../../components/chat/useChat";
+import type { ChatMode } from "../../components/chat/types";
 
 const DoneIcon = getStatusIcon("done");
 const WarnIcon = getStatusIcon("warning");

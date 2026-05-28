@@ -63,6 +63,32 @@ const RISE_GAIN = 0.6; // extra rise multiplier at full activity
 const SPAWN_MARGIN = 20; // off-screen recycle margin (px)
 const VEIL_RGB = "9, 27, 54"; // BD --dark navy, the trail veil color
 
+// ── Gradient sprite cache (one offscreen canvas per warm bucket) ─────────────
+// Pre-baking eliminates ~13k createRadialGradient() calls/sec at 220p×60fps.
+// drawImage() lets the GPU blit the cached texture; CPU only sets globalAlpha.
+const N_SPRITES = 8;
+const SPRITE_SIZE = 64;
+
+function buildSprites(): HTMLCanvasElement[] {
+  return Array.from({ length: N_SPRITES }, (_, i) => {
+    const warm = i / (N_SPRITES - 1);
+    const oc = document.createElement("canvas");
+    oc.width = oc.height = SPRITE_SIZE;
+    const oc_ctx = oc.getContext("2d")!;
+    const half = SPRITE_SIZE / 2;
+    const g = Math.round(92 + warm * (179 - 92));
+    const b = Math.round(40 + warm * (71 - 40));
+    const grd = oc_ctx.createRadialGradient(half, half, 0, half, half, half);
+    grd.addColorStop(0, `rgba(255,${g},${b},1)`);
+    grd.addColorStop(1, `rgba(255,${g},${b},0)`);
+    oc_ctx.fillStyle = grd;
+    oc_ctx.beginPath();
+    oc_ctx.arc(half, half, half, 0, Math.PI * 2);
+    oc_ctx.fill();
+    return oc;
+  });
+}
+
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
 function spawn(W: number, H: number): Particle {
@@ -87,13 +113,16 @@ export interface EmberEngine {
   drawStatic(): void;
   /** Set the target activity level (0–1); eased toward over subsequent steps. */
   setActivity(next: number): void;
+  /** Hot-update visual options without tearing down the particle state. */
+  updateOptions(partial: Partial<EmberEngineOptions>): void;
 }
 
 export function createEmberEngine(
   ctx: CanvasRenderingContext2D,
   options: EmberEngineOptions,
 ): EmberEngine {
-  const { opacity, veilAlpha, glowScale, idleSpeed, activeSpeed } = options;
+  let opts: EmberEngineOptions = { ...options };
+  const sprites = buildSprites();
 
   let W = 0;
   let H = 0;
@@ -104,17 +133,12 @@ export function createEmberEngine(
 
   const drawParticle = (p: Particle) => {
     const fade = Math.min(p.life, p.maxLife - p.life, FADE_FRAMES) / FADE_FRAMES;
-    const alpha = Math.max(0, fade) * opacity;
-    const g = Math.round(92 + p.warm * (179 - 92)); // 92→179 (fire→ember)
-    const b = Math.round(40 + p.warm * (71 - 40)); // 40→71
-    const radius = p.size * 4 * glowScale;
-    const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius);
-    grd.addColorStop(0, `rgba(255, ${g}, ${b}, ${alpha})`);
-    grd.addColorStop(1, `rgba(255, ${g}, ${b}, 0)`);
-    ctx.fillStyle = grd;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-    ctx.fill();
+    const alpha = Math.max(0, fade) * opts.opacity;
+    if (alpha <= 0) return;
+    const spriteIdx = Math.round(p.warm * (N_SPRITES - 1));
+    const radius = p.size * 4 * opts.glowScale;
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(sprites[spriteIdx], p.x - radius, p.y - radius, radius * 2, radius * 2);
   };
 
   const resize: EmberEngine["resize"] = (width, height) => {
@@ -136,15 +160,16 @@ export function createEmberEngine(
 
   const step: EmberEngine["step"] = () => {
     activity += (targetActivity - activity) * ACTIVITY_LERP;
-    const flowBoost = idleSpeed + (activeSpeed - idleSpeed) * activity;
+    const flowBoost = opts.idleSpeed + (opts.activeSpeed - opts.idleSpeed) * activity;
     t += TIME_STEP * flowBoost;
 
     const driftBoost = DRIFT_IDLE + activity * DRIFT_GAIN;
     const riseBoost = RISE * (RISE_IDLE + activity * RISE_GAIN);
 
     // Translucent navy veil → fading trails instead of a hard clear.
+    ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
-    ctx.fillStyle = `rgba(${VEIL_RGB}, ${veilAlpha})`;
+    ctx.fillStyle = `rgba(${VEIL_RGB}, ${opts.veilAlpha})`;
     ctx.fillRect(0, 0, W, H);
 
     ctx.globalCompositeOperation = "lighter";
@@ -169,16 +194,23 @@ export function createEmberEngine(
       }
       drawParticle(p);
     }
+    ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
   };
 
   const drawStatic: EmberEngine["drawStatic"] = () => {
+    ctx.globalAlpha = 1;
     ctx.fillStyle = "#091B36";
     ctx.fillRect(0, 0, W, H);
     ctx.globalCompositeOperation = "lighter";
     for (const p of particles) drawParticle(p);
+    ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
   };
 
-  return { resize, step, drawStatic, setActivity };
+  const updateOptions: EmberEngine["updateOptions"] = (partial) => {
+    Object.assign(opts, partial);
+  };
+
+  return { resize, step, drawStatic, setActivity, updateOptions };
 }

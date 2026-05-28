@@ -8,7 +8,7 @@ import { Textarea } from "../ui/Textarea";
 import { PulseRings } from "./PulseRings";
 import { RecordingTimer } from "./RecordingTimer";
 import { useAudioAnalysis } from "./useAudioAnalysis";
-import type { ChatMode } from "./useChat";
+import type { ChatMode } from "./types";
 import { useVoiceCapture } from "./useVoiceCapture";
 
 const SendIcon = getUIIcon("send");

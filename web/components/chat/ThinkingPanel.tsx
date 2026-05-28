@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getStatusIcon, getToolIcon, getUIIcon, shortToolName, stepStatusKey } from "../../lib/icons";
+import { getStatusIcon, getToolIcon, getUIIcon, shortToolName } from "../../lib/icons";
+import { latestOpenToolIndex, toolStatusLabel, toolVisualStatus } from "./toolStatus";
 import type { Step } from "./types";
-import type { ChatMode } from "./useChat";
+import type { ChatMode } from "./types";
 
 const BotIcon = getUIIcon("bot");
 const WarnIcon = getStatusIcon("warning");
@@ -73,6 +74,7 @@ export function ThinkingPanel({
       : status === "streaming" && steps.length === 0
         ? "writing…"
         : `${steps.length} ${steps.length === 1 ? "step" : "steps"}`;
+  const latestPendingIndex = live ? latestOpenToolIndex(steps) : -1;
 
   return (
     <div className="iai-card-soft mb-2 text-sm">
@@ -101,10 +103,9 @@ export function ThinkingPanel({
         <ol className="mt-2 space-y-1">
           {steps.map((s, i) => {
             const ToolIcon = getToolIcon(s.name);
-            const statusKey = stepStatusKey(s.isError);
-            const StatusIcon = getStatusIcon(statusKey);
+            const statusKey = toolVisualStatus(s, i, latestPendingIndex, live);
             const errored = statusKey === "error";
-            const pending = statusKey === "pending";
+            const active = statusKey === "active";
             return (
               <li
                 key={s.id ?? `${s.name}-${i}`}
@@ -117,12 +118,20 @@ export function ThinkingPanel({
                 {s.server && s.server !== "brightdata" && (
                   <span className="iai-hint text-[10px] uppercase">· {s.server}</span>
                 )}
-                <StatusIcon
-                  className={`ml-auto h-3.5 w-3.5 shrink-0 ${
-                    pending ? "animate-spin text-zinc-500" : errored ? "text-red-400" : "text-emerald-400"
+                <span
+                  className={`ml-auto rounded-full border px-1.5 py-0.5 text-[9px] uppercase tracking-wide ${
+                    active
+                      ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+                      : statusKey === "sent"
+                        ? "border-zinc-500/25 bg-zinc-500/10 text-zinc-400"
+                        : errored
+                          ? "border-red-400/30 bg-red-400/10 text-red-300"
+                          : "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
                   }`}
                   aria-label={statusKey}
-                />
+                >
+                  {toolStatusLabel(statusKey)}
+                </span>
               </li>
             );
           })}

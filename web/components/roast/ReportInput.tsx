@@ -2,7 +2,7 @@
 
 import { type KeyboardEvent, useEffect, useState } from "react";
 import { getUIIcon } from "../../lib/icons";
-import type { ChatMode } from "../chat/useChat";
+import type { ChatMode } from "../chat/types";
 import { Button } from "../ui/Button";
 
 const FlameIcon = getUIIcon("brand");
