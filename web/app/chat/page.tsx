@@ -18,6 +18,7 @@ import { useTtsBlob } from "../../components/chat/useTtsBlob";
 import { ReportInput } from "../../components/roast/ReportInput";
 import { ReportPlanPanel } from "../../components/roast/ReportPlanPanel";
 import { ReportView } from "../../components/roast/ReportView";
+import { emitEmberActivity } from "../../components/background/ember-engine";
 import { ConversationShell } from "../../components/layout/ConversationShell";
 import { InsultHeader } from "../../components/layout/InsultHeader";
 import { PoweredBy } from "../../components/ui/PoweredBy";
@@ -138,7 +139,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (apiDown) {
-      window.dispatchEvent(new CustomEvent("iai:ember-activity", { detail: { activity: 0 } }));
+      emitEmberActivity(0);
       return;
     }
 
@@ -157,12 +158,10 @@ export default function ChatPage() {
           )
         : 0;
 
-    window.dispatchEvent(
-      new CustomEvent("iai:ember-activity", { detail: { activity: active } }),
-    );
+    emitEmberActivity(active);
 
     return () => {
-      window.dispatchEvent(new CustomEvent("iai:ember-activity", { detail: { activity: 0 } }));
+      emitEmberActivity(0);
     };
   }, [
     apiDown,
