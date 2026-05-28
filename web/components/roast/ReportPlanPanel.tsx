@@ -97,7 +97,11 @@ export function ReportPlanPanel({ message }: { message: ChatMessage | null }) {
                         ? "animate-spin text-zinc-500"
                         : errored
                           ? "text-red-400"
-                          : "iai-pulse-dot text-emerald-400"
+                          // Done steps are STATIC — a finished step that keeps
+                          // pulsing reads as "still working". Motion belongs to
+                          // pending (spin) only; iai-pulse-dot here looped
+                          // forever on settled reports.
+                          : "text-emerald-400"
                     }`}
                     aria-label={statusKey}
                   />

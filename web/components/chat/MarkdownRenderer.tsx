@@ -3,6 +3,7 @@
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { stripReceiptsTail } from "../roast/RoastText";
 
 /** Render markdown content with GFM (tables, strikethrough, task lists).
  *
@@ -78,15 +79,27 @@ const markdownComponents: Components = {
 export function MarkdownRenderer({
   content,
   className = "",
+  caret = false,
+  stripReceipts = false,
 }: {
   content: string;
   className?: string;
+  caret?: boolean;
+  stripReceipts?: boolean;
 }) {
+  const body = stripReceipts ? stripReceiptsTail(content) : content;
+
   return (
     <div className={`iai-roast ${className}`}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-        {content}
+        {body}
       </ReactMarkdown>
+      {caret && (
+        <span
+          aria-hidden
+          className="ml-0.5 inline-block h-[1em] w-[0.45em] -mb-[0.15em] animate-pulse bg-iai-brand align-baseline"
+        />
+      )}
     </div>
   );
 }

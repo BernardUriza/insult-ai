@@ -24,11 +24,11 @@ export function RouteBackground() {
   if (pathname === "/chat") {
     return (
       <EmberField
-        opacity={0.1}
-        veilAlpha={0.34}
-        glowScale={0.52}
-        idleSpeed={0.06}
-        activeSpeed={4.2}
+        opacity={0.075}
+        veilAlpha={0.42}
+        glowScale={0.42}
+        idleSpeed={0.18}
+        activeSpeed={14}
         activityDriven
       />
     );

@@ -160,9 +160,10 @@ export function MessageBubble({
           *     about the eventual output (markdown text, no
           *     micro-action box) and surfaced the clinical guardrails
           *     copy in modes that aren't clinical.
-          *   - Streaming with content: lighter <RoastText> with a caret.
-          *     The envelope isn't valid mid-stream (partial JSON), so we
-          *     can't parse it yet. Don't try.
+          *   - Streaming with content: roast/brief use MarkdownRenderer
+          *     immediately, so bullets/headings/bold don't pop in late.
+          *     Clinical envelope isn't valid mid-stream (partial JSON), so
+          *     it stays in lightweight text until settled.
           *   - Settled: try to parse as a clinical envelope. If it
           *     parses, use <ClinicalEnvelopeView>. If not, fall back to
           *     <MarkdownRenderer> (roast/brief modes ship plain text).
@@ -173,7 +174,11 @@ export function MessageBubble({
           mode === "clinical" ? <EnvelopeSkeleton /> : <AgenticSkeleton />
         )}
         {message.content && message.status === "streaming" && (
-          <RoastText text={message.content} caret={true} />
+          mode === "clinical" ? (
+            <RoastText text={message.content} caret={true} />
+          ) : (
+            <MarkdownRenderer content={message.content} caret stripReceipts />
+          )
         )}
         {message.content &&
           message.status !== "streaming" &&
@@ -185,7 +190,7 @@ export function MessageBubble({
                 <ClinicalEnvelopeTrace env={env} />
               </>
             ) : (
-              <MarkdownRenderer content={message.content} />
+              <MarkdownRenderer content={message.content} stripReceipts={mode !== "clinical"} />
             );
           })()}
         {message.status === "error" && (

@@ -15,7 +15,7 @@
  * doesn't match until the heading lands on its own line, so the body
  * transitions cleanly from "with receipts visible" to "without" without a
  * flash. */
-function stripReceiptsTail(text: string): string {
+export function stripReceiptsTail(text: string): string {
   return text.replace(/\n+\s*Receipts\s*\n[\s\S]*$/i, "");
 }
 

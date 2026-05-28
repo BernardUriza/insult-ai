@@ -6,7 +6,6 @@ import { getUIIcon } from "../../lib/icons";
 import { AgenticSkeleton } from "../chat/AgenticSkeleton";
 import { MarkdownRenderer } from "../chat/MarkdownRenderer";
 import type { ChatMessage } from "../chat/types";
-import { RoastText } from "./RoastText";
 
 const FlameIcon = getUIIcon("brand");
 const CopyIcon = getUIIcon("copy");
@@ -129,9 +128,11 @@ export function ReportView({
       <div className="iai-kinetic-content">
         {!message.content && live && <AgenticSkeleton />}
         {message.content && message.status === "streaming" && (
-          <RoastText text={message.content} caret />
+          <MarkdownRenderer content={message.content} caret stripReceipts />
         )}
-        {message.content && settled && <MarkdownRenderer content={message.content} />}
+        {message.content && settled && (
+          <MarkdownRenderer content={message.content} stripReceipts />
+        )}
       </div>
 
       {message.status === "error" && (

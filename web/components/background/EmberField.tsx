@@ -128,7 +128,7 @@ export function EmberField({
 
     const NOISE_SCALE = 0.0016;
     const SPEED = 0.55;
-    const RISE = 0.18; // upward bias — embers float up
+    const RISE = 0.28; // upward bias — embers float up (stronger than 0.18 so they visibly rise)
     let targetActivity = 0;
     let activity = 0;
     let t = 0;
@@ -152,8 +152,8 @@ export function EmberField({
 
     const step = () => {
       activity += (targetActivity - activity) * 0.08;
-      const speedBoost = idleSpeed + (activeSpeed - idleSpeed) * activity;
-      const riseBoost = RISE * (0.35 + activity * 1.65);
+      const driftBoost = 0.28 + activity * 0.42;
+      const riseBoost = RISE * (0.4 + activity * 0.6);
 
       // Translucent navy veil → fading trails instead of a hard clear.
       ctx.globalCompositeOperation = "source-over";
@@ -163,10 +163,10 @@ export function EmberField({
       ctx.globalCompositeOperation = "lighter";
       for (const p of particles) {
         const [cx, cy] = curl(p.x * NOISE_SCALE, p.y * NOISE_SCALE + t);
-        p.vx += cx * SPEED * speedBoost;
-        p.vy += cy * SPEED * speedBoost - riseBoost;
-        p.vx *= 0.92;
-        p.vy *= 0.92;
+        p.vx += cx * SPEED * driftBoost;
+        p.vy += cy * SPEED * driftBoost - riseBoost;
+        p.vx *= 0.9;
+        p.vy *= 0.9;
         p.x += p.vx;
         p.y += p.vy;
         p.life += 1;
@@ -174,6 +174,7 @@ export function EmberField({
         if (
           p.life >= p.maxLife ||
           p.y < -20 ||
+          p.y > H + 20 ||
           p.x < -20 ||
           p.x > W + 20
         ) {
@@ -190,7 +191,8 @@ export function EmberField({
 
     let raf = 0;
     const loop = () => {
-      t += 0.00018 + activity * 0.0032;
+      const flowBoost = idleSpeed + (activeSpeed - idleSpeed) * activity;
+      t += 0.00012 * flowBoost;
       step();
       raf = requestAnimationFrame(loop);
     };
