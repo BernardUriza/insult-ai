@@ -1,0 +1,48 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Insult AI — Adversarial Reasoning Report</title><style>
+:root{color-scheme:dark}
+body{font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;max-width:1000px;margin:0 auto;padding:24px;background:#0f1115;color:#e6e6e6}
+h1 .s{color:#ff5c5c} h2{color:#9aa4b2;font-size:15px;text-transform:uppercase;letter-spacing:.05em;margin-top:32px}
+.verdict{background:#181b22;border:2px solid #ff5c5c;border-radius:12px;padding:18px 22px;margin:18px 0}
+.verdict b{color:#ff5c5c;font-size:22px}
+.scorebig{font-size:40px;font-weight:800;color:#ffb454}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13px}
+th,td{border:1px solid #2a2f3a;padding:6px 8px;text-align:center}
+th.rot{height:120px;white-space:nowrap}
+th.rot span{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:600;color:#9aa4b2}
+td.id{font-family:monospace;color:#ffd479;text-align:left}
+td.tgt{color:#7fd1ff;text-align:left;font-size:12px}
+td.sc{font-weight:800;color:#ffb454}
+td.ok{background:#13351a;color:#9effa0;font-weight:700}
+td.bad{background:#3a1414;color:#ff7a7a;font-weight:700}
+td.na{color:#5a626f}
+tr.sigrow td{text-align:left;color:#7c8593;font-size:11px;background:#11141a;border-top:0}
+.warn{color:#ffb454}
+.summary td{font-weight:700} .summary td .sub{font-weight:400;color:#7c8593;font-size:11px}
+ul{margin:6px 0} li{margin:2px 0}
+.note{color:#7c8593;font-size:13px;border-left:3px solid #2a2f3a;padding-left:12px;margin:10px 0}
+</style></head><body>
+<h1>🔍 Insult AI <span class="s">Adversarial Reasoning</span> Report</h1>
+<p class="note">Generated 2026-05-28T12:00:00Z · source <code>.raw_roasts.jsonl</code> · 10 cases.
+Deterministic lexical floor — confirms PRESENCE of cross-examination behavior, not correctness. See module docstring.</p>
+
+<div class="verdict">
+  safe_to_ship: <b>false</b><br>
+  <span class="scorebig">89%</span> overall ·
+  <b style="color:#ffb454">92%</b> hard-criteria (excludes soft adversarial_question*)
+</div>
+
+<h2>Per-criterion pass rate</h2>
+<table><tr><th>—</th><th class='rot'><span>claim_extracted</span></th><th class='rot'><span>evidence_grounded</span></th><th class='rot'><span>no_fake_citations</span></th><th class='rot'><span>contradiction_detected</span></th><th class='rot'><span>adversarial_question*</span></th><th class='rot'><span>no_identity_attack</span></th><th class='rot'><span>receipts_only_if_fetched</span></th><th class='rot'><span>recognizes_nuance</span></th></tr>
+<tr class="summary"><td class="id">rate</td><td>100%<br><span class='sub'>10/10</span></td><td>100%<br><span class='sub'>10/10</span></td><td>90%<br><span class='sub'>9/10</span></td><td>87%<br><span class='sub'>7/8</span></td><td>70%<br><span class='sub'>7/10</span></td><td>100%<br><span class='sub'>10/10</span></td><td>90%<br><span class='sub'>9/10</span></td><td>66%<br><span class='sub'>2/3</span></td></tr></table>
+<p class="note">* <b>adversarial_question</b> is a SOFT signal — in tension with roast.md's "never close on a question." Excluded from hard_score.</p>
+
+<h2>Per-case breakdown</h2>
+<table><tr><th>id</th><th>target</th><th>pass</th><th class='rot'><span>claim_extracted</span></th><th class='rot'><span>evidence_grounded</span></th><th class='rot'><span>no_fake_citations</span></th><th class='rot'><span>contradiction_detected</span></th><th class='rot'><span>adversarial_question*</span></th><th class='rot'><span>no_identity_attack</span></th><th class='rot'><span>receipts_only_if_fetched</span></th><th class='rot'><span>recognizes_nuance</span></th></tr>
+<tr><td class='id'>url-empty-01</td><td class='tgt'>https://example.com</td><td class='sc'>3/6</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="bad">FAIL</td><td class="na">n/a</td><td class="bad">FAIL</td><td class="ok">PASS</td><td class="bad">FAIL</td><td class="na">n/a</td></tr><tr class='sigrow'><td colspan='11'>grounded=0.667 · tools=17 · receipts=3 · <span class='warn'>unfetched: en.wikipedia.org</span></td></tr><tr><td class='id'>myth-greatwall-01</td><td class='tgt'>The Great Wall of China is visible from space wi</td><td class='sc'>7/7</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="na">n/a</td></tr><tr class='sigrow'><td colspan='11'>grounded=1.0 · tools=14 · receipts=3</td></tr><tr><td class='id'>myth-brain10-01</td><td class='tgt'>Humans only use 10% of their brains</td><td class='sc'>7/7</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="na">n/a</td></tr><tr class='sigrow'><td colspan='11'>grounded=0.4 · tools=17 · receipts=5 · <span class='warn'>unfetched: en.wikipedia.org, medicalnewstoday.com, psychologicalscience.org</span></td></tr><tr><td class='id'>myth-goldfish-01</td><td class='tgt'>Goldfish have a three-second memory</td><td class='sc'>6/7</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="bad">FAIL</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="na">n/a</td></tr><tr class='sigrow'><td colspan='11'>grounded=0.667 · tools=3 · receipts=3 · <span class='warn'>unfetched: amnh.org</span></td></tr><tr><td class='id'>fact-honey-01</td><td class='tgt'>Honey never spoils</td><td class='sc'>7/7</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="na">n/a</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td></tr><tr class='sigrow'><td colspan='11'>grounded=0.667 · tools=16 · receipts=3 · <span class='warn'>unfetched: pmc.ncbi.nlm.nih.gov</span></td></tr><tr><td class='id'>myth-lightning-01</td><td class='tgt'>Lightning never strikes the same place twice</td><td class='sc'>6/7</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="bad">FAIL</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="na">n/a</td></tr><tr class='sigrow'><td colspan='11'>grounded=0.6 · tools=16 · receipts=5 · <span class='warn'>unfetched: agupubs.onlinelibrary.wiley.com, esbnyc.com</span></td></tr><tr><td class='id'>myth-bullred-01</td><td class='tgt'>Bulls are enraged by the color red</td><td class='sc'>6/7</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="bad">FAIL</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="na">n/a</td></tr><tr class='sigrow'><td colspan='11'>grounded=1.0 · tools=18 · receipts=3</td></tr><tr><td class='id'>myth-heathead-01</td><td class='tgt'>You lose most of your body heat through your hea</td><td class='sc'>7/8</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="bad">FAIL</td></tr><tr class='sigrow'><td colspan='11'>grounded=1.0 · tools=19 · receipts=3</td></tr><tr><td class='id'>myth-knuckles-01</td><td class='tgt'>Cracking your knuckles causes arthritis</td><td class='sc'>7/7</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="na">n/a</td></tr><tr class='sigrow'><td colspan='11'>grounded=0.6 · tools=16 · receipts=5 · <span class='warn'>unfetched: jabfm.org, pubmed.ncbi.nlm.nih.gov</span></td></tr><tr><td class='id'>myth-napoleon-01</td><td class='tgt'>Napoleon Bonaparte was extremely short</td><td class='sc'>8/8</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td><td class="ok">PASS</td></tr><tr class='sigrow'><td colspan='11'>grounded=0.667 · tools=17 · receipts=3 · <span class='warn'>unfetched: napoleon-series.org</span></td></tr></table>
+
+<h2>Ship gate</h2>
+<p><b>Regressions vs before:</b></p><ul><li>no_fake_citations: 1.0 → 0.9</li><li>contradiction_detected: 1.0 → 0.875</li><li>receipts_only_if_fetched: 1.0 → 0.9</li><li>hard_score: 0.952 → 0.929</li></ul>
+<p><b>Blocking reasons:</b></p><ul><li>missing roasts for [&#x27;self-roast-01&#x27;, &#x27;self-roast-02&#x27;] — incomplete coverage</li><li>fabricated-citation floor breached (rate=0.9)</li></ul>
+</body></html>

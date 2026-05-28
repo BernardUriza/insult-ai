@@ -1,0 +1,449 @@
+{
+  "benchmark": "adversarial_reasoning",
+  "generated_utc": "2026-05-28T12:00:00Z",
+  "raw_source": ".raw_roasts.jsonl",
+  "missing_cases": [
+    "self-roast-01",
+    "self-roast-02"
+  ],
+  "aggregate": {
+    "cases": 10,
+    "overall_score": 0.895,
+    "hard_score": 0.929,
+    "per_criterion": {
+      "claim_extracted": {
+        "applicable": 10,
+        "passed": 10,
+        "rate": 1.0,
+        "soft": false
+      },
+      "evidence_grounded": {
+        "applicable": 10,
+        "passed": 10,
+        "rate": 1.0,
+        "soft": false
+      },
+      "no_fake_citations": {
+        "applicable": 10,
+        "passed": 9,
+        "rate": 0.9,
+        "soft": false
+      },
+      "contradiction_detected": {
+        "applicable": 8,
+        "passed": 7,
+        "rate": 0.875,
+        "soft": false
+      },
+      "adversarial_question": {
+        "applicable": 10,
+        "passed": 7,
+        "rate": 0.7,
+        "soft": true
+      },
+      "no_identity_attack": {
+        "applicable": 10,
+        "passed": 10,
+        "rate": 1.0,
+        "soft": false
+      },
+      "receipts_only_if_fetched": {
+        "applicable": 10,
+        "passed": 9,
+        "rate": 0.9,
+        "soft": false
+      },
+      "recognizes_nuance": {
+        "applicable": 3,
+        "passed": 2,
+        "rate": 0.667,
+        "soft": false
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "url-empty-01",
+      "target": "https://example.com",
+      "kind": "url",
+      "claim_validity": "na",
+      "criteria": {
+        "claim_extracted": true,
+        "evidence_grounded": true,
+        "no_fake_citations": false,
+        "contradiction_detected": null,
+        "adversarial_question": false,
+        "no_identity_attack": true,
+        "receipts_only_if_fetched": false,
+        "recognizes_nuance": null
+      },
+      "passed": 3,
+      "applicable": 6,
+      "score": 0.5,
+      "signals": {
+        "used_bright_data": true,
+        "receipt_domains": [
+          "en.wikipedia.org",
+          "example.com",
+          "iana.org"
+        ],
+        "fetched_domains": [
+          "example.com",
+          "iana.org"
+        ],
+        "unfetched_receipts": [
+          "en.wikipedia.org"
+        ],
+        "grounded": 0.667,
+        "tool_count": 17
+      }
+    },
+    {
+      "id": "myth-greatwall-01",
+      "target": "The Great Wall of China is visible from space with the naked eye",
+      "kind": "claim",
+      "claim_validity": "false",
+      "criteria": {
+        "claim_extracted": true,
+        "evidence_grounded": true,
+        "no_fake_citations": true,
+        "contradiction_detected": true,
+        "adversarial_question": true,
+        "no_identity_attack": true,
+        "receipts_only_if_fetched": true,
+        "recognizes_nuance": null
+      },
+      "passed": 7,
+      "applicable": 7,
+      "score": 1.0,
+      "signals": {
+        "used_bright_data": true,
+        "receipt_domains": [
+          "en.wikipedia.org",
+          "nasa.gov",
+          "skyatnightmagazine.com"
+        ],
+        "fetched_domains": [
+          "en.wikipedia.org",
+          "nasa.gov",
+          "skyatnightmagazine.com"
+        ],
+        "unfetched_receipts": [],
+        "grounded": 1.0,
+        "tool_count": 14
+      }
+    },
+    {
+      "id": "myth-brain10-01",
+      "target": "Humans only use 10% of their brains",
+      "kind": "claim",
+      "claim_validity": "false",
+      "criteria": {
+        "claim_extracted": true,
+        "evidence_grounded": true,
+        "no_fake_citations": true,
+        "contradiction_detected": true,
+        "adversarial_question": true,
+        "no_identity_attack": true,
+        "receipts_only_if_fetched": true,
+        "recognizes_nuance": null
+      },
+      "passed": 7,
+      "applicable": 7,
+      "score": 1.0,
+      "signals": {
+        "used_bright_data": true,
+        "receipt_domains": [
+          "en.wikipedia.org",
+          "faculty.washington.edu",
+          "mcgovern.mit.edu",
+          "medicalnewstoday.com",
+          "psychologicalscience.org"
+        ],
+        "fetched_domains": [
+          "faculty.washington.edu",
+          "mcgovern.mit.edu"
+        ],
+        "unfetched_receipts": [
+          "en.wikipedia.org",
+          "medicalnewstoday.com",
+          "psychologicalscience.org"
+        ],
+        "grounded": 0.4,
+        "tool_count": 17
+      }
+    },
+    {
+      "id": "myth-goldfish-01",
+      "target": "Goldfish have a three-second memory",
+      "kind": "claim",
+      "claim_validity": "false",
+      "criteria": {
+        "claim_extracted": true,
+        "evidence_grounded": true,
+        "no_fake_citations": true,
+        "contradiction_detected": true,
+        "adversarial_question": false,
+        "no_identity_attack": true,
+        "receipts_only_if_fetched": true,
+        "recognizes_nuance": null
+      },
+      "passed": 6,
+      "applicable": 7,
+      "score": 0.857,
+      "signals": {
+        "used_bright_data": true,
+        "receipt_domains": [
+          "amnh.org",
+          "bbc.com",
+          "blogs.iu.edu"
+        ],
+        "fetched_domains": [
+          "bbc.com",
+          "blogs.iu.edu",
+          "discoverwildcare.com"
+        ],
+        "unfetched_receipts": [
+          "amnh.org"
+        ],
+        "grounded": 0.667,
+        "tool_count": 3
+      }
+    },
+    {
+      "id": "fact-honey-01",
+      "target": "Honey never spoils",
+      "kind": "claim",
+      "claim_validity": "true",
+      "criteria": {
+        "claim_extracted": true,
+        "evidence_grounded": true,
+        "no_fake_citations": true,
+        "contradiction_detected": null,
+        "adversarial_question": true,
+        "no_identity_attack": true,
+        "receipts_only_if_fetched": true,
+        "recognizes_nuance": true
+      },
+      "passed": 7,
+      "applicable": 7,
+      "score": 1.0,
+      "signals": {
+        "used_bright_data": true,
+        "receipt_domains": [
+          "kashmiril.com",
+          "pmc.ncbi.nlm.nih.gov",
+          "smithsonianmag.com"
+        ],
+        "fetched_domains": [
+          "kashmiril.com",
+          "smithsonianmag.com"
+        ],
+        "unfetched_receipts": [
+          "pmc.ncbi.nlm.nih.gov"
+        ],
+        "grounded": 0.667,
+        "tool_count": 16
+      }
+    },
+    {
+      "id": "myth-lightning-01",
+      "target": "Lightning never strikes the same place twice",
+      "kind": "claim",
+      "claim_validity": "false",
+      "criteria": {
+        "claim_extracted": true,
+        "evidence_grounded": true,
+        "no_fake_citations": true,
+        "contradiction_detected": true,
+        "adversarial_question": false,
+        "no_identity_attack": true,
+        "receipts_only_if_fetched": true,
+        "recognizes_nuance": null
+      },
+      "passed": 6,
+      "applicable": 7,
+      "score": 0.857,
+      "signals": {
+        "used_bright_data": true,
+        "receipt_domains": [
+          "agupubs.onlinelibrary.wiley.com",
+          "britannica.com",
+          "esbnyc.com",
+          "noaa.gov",
+          "spinoff.nasa.gov"
+        ],
+        "fetched_domains": [
+          "britannica.com",
+          "noaa.gov",
+          "spinoff.nasa.gov"
+        ],
+        "unfetched_receipts": [
+          "agupubs.onlinelibrary.wiley.com",
+          "esbnyc.com"
+        ],
+        "grounded": 0.6,
+        "tool_count": 16
+      }
+    },
+    {
+      "id": "myth-bullred-01",
+      "target": "Bulls are enraged by the color red",
+      "kind": "claim",
+      "claim_validity": "false",
+      "criteria": {
+        "claim_extracted": true,
+        "evidence_grounded": true,
+        "no_fake_citations": true,
+        "contradiction_detected": false,
+        "adversarial_question": true,
+        "no_identity_attack": true,
+        "receipts_only_if_fetched": true,
+        "recognizes_nuance": null
+      },
+      "passed": 6,
+      "applicable": 7,
+      "score": 0.857,
+      "signals": {
+        "used_bright_data": true,
+        "receipt_domains": [
+          "scienceabc.com",
+          "westeamahead.org",
+          "wtamu.edu"
+        ],
+        "fetched_domains": [
+          "scienceabc.com",
+          "westeamahead.org",
+          "wtamu.edu"
+        ],
+        "unfetched_receipts": [],
+        "grounded": 1.0,
+        "tool_count": 18
+      }
+    },
+    {
+      "id": "myth-heathead-01",
+      "target": "You lose most of your body heat through your head",
+      "kind": "claim",
+      "claim_validity": "partial",
+      "criteria": {
+        "claim_extracted": true,
+        "evidence_grounded": true,
+        "no_fake_citations": true,
+        "contradiction_detected": true,
+        "adversarial_question": true,
+        "no_identity_attack": true,
+        "receipts_only_if_fetched": true,
+        "recognizes_nuance": false
+      },
+      "passed": 7,
+      "applicable": 8,
+      "score": 0.875,
+      "signals": {
+        "used_bright_data": true,
+        "receipt_domains": [
+          "health.clevelandclinic.org",
+          "livescience.com",
+          "theguardian.com"
+        ],
+        "fetched_domains": [
+          "health.clevelandclinic.org",
+          "livescience.com",
+          "theguardian.com"
+        ],
+        "unfetched_receipts": [],
+        "grounded": 1.0,
+        "tool_count": 19
+      }
+    },
+    {
+      "id": "myth-knuckles-01",
+      "target": "Cracking your knuckles causes arthritis",
+      "kind": "claim",
+      "claim_validity": "false",
+      "criteria": {
+        "claim_extracted": true,
+        "evidence_grounded": true,
+        "no_fake_citations": true,
+        "contradiction_detected": true,
+        "adversarial_question": true,
+        "no_identity_attack": true,
+        "receipts_only_if_fetched": true,
+        "recognizes_nuance": null
+      },
+      "passed": 7,
+      "applicable": 7,
+      "score": 1.0,
+      "signals": {
+        "used_bright_data": true,
+        "receipt_domains": [
+          "health.harvard.edu",
+          "hopkinsarthritis.org",
+          "jabfm.org",
+          "pubmed.ncbi.nlm.nih.gov",
+          "scientificamerican.com"
+        ],
+        "fetched_domains": [
+          "health.harvard.edu",
+          "hopkinsarthritis.org",
+          "scientificamerican.com"
+        ],
+        "unfetched_receipts": [
+          "jabfm.org",
+          "pubmed.ncbi.nlm.nih.gov"
+        ],
+        "grounded": 0.6,
+        "tool_count": 16
+      }
+    },
+    {
+      "id": "myth-napoleon-01",
+      "target": "Napoleon Bonaparte was extremely short",
+      "kind": "claim",
+      "claim_validity": "partial",
+      "criteria": {
+        "claim_extracted": true,
+        "evidence_grounded": true,
+        "no_fake_citations": true,
+        "contradiction_detected": true,
+        "adversarial_question": true,
+        "no_identity_attack": true,
+        "receipts_only_if_fetched": true,
+        "recognizes_nuance": true
+      },
+      "passed": 8,
+      "applicable": 8,
+      "score": 1.0,
+      "signals": {
+        "used_bright_data": true,
+        "receipt_domains": [
+          "britannica.com",
+          "napoleon-series.org",
+          "nationalgeographic.com"
+        ],
+        "fetched_domains": [
+          "britannica.com",
+          "nationalgeographic.com"
+        ],
+        "unfetched_receipts": [
+          "napoleon-series.org"
+        ],
+        "grounded": 0.667,
+        "tool_count": 17
+      }
+    }
+  ],
+  "ship_gate": {
+    "safe_to_ship": false,
+    "regressions": [
+      "no_fake_citations: 1.0 \u2192 0.9",
+      "contradiction_detected: 1.0 \u2192 0.875",
+      "receipts_only_if_fetched: 1.0 \u2192 0.9",
+      "hard_score: 0.952 \u2192 0.929"
+    ],
+    "blocking_reasons": [
+      "missing roasts for ['self-roast-01', 'self-roast-02'] \u2014 incomplete coverage",
+      "fabricated-citation floor breached (rate=0.9)"
+    ]
+  }
+}

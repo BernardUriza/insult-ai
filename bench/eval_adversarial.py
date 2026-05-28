@@ -465,6 +465,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Benchmark 3 — adversarial reasoning (cross-examination).")
     ap.add_argument("--raw", type=Path, default=RAW_DEFAULT, help="raw_roasts dump to score (default .raw_roasts.jsonl)")
     ap.add_argument("--before", type=Path, help="prior baseline_adversarial.json to diff for regressions")
+    ap.add_argument("--out", type=Path, default=BASELINE, help="where to write the JSON baseline (default baseline_adversarial.json)")
+    ap.add_argument("--html", type=Path, default=REPORT_HTML, help="where to write the HTML report")
     ap.add_argument("--no-write", action="store_true", help="print only; don't write baseline/html")
     args = ap.parse_args()
 
@@ -474,8 +476,8 @@ def main() -> None:
     report["ship_gate"] = gate
 
     if not args.no_write:
-        BASELINE.write_text(json.dumps(report, indent=2) + "\n")
-        write_html(report, gate, REPORT_HTML)
+        args.out.write_text(json.dumps(report, indent=2) + "\n")
+        write_html(report, gate, args.html)
 
     agg = report["aggregate"]
     print(f"\n=== Adversarial Reasoning — {agg['cases']} cases ===")
@@ -495,8 +497,8 @@ def main() -> None:
         for r in gate["blocking_reasons"]:
             print(f"  - {r}")
     if not args.no_write:
-        print(f"\n→ {BASELINE.relative_to(_HERE.parent)}")
-        print(f"→ {REPORT_HTML.relative_to(_HERE.parent)}")
+        print(f"\n→ {args.out}")
+        print(f"→ {args.html}")
 
 
 if __name__ == "__main__":
