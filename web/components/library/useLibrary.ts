@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { apiHeaders, apiUrl } from "../../lib/api";
+import {
+  MAX_LIBRARY_TEXT_CHARS,
+  MAX_LIBRARY_UPLOAD_BYTES,
+  apiErrorMessage,
+  apiHeaders,
+  fetchApi,
+} from "../../lib/api";
 
 /** One document that's been ingested THIS browser session. The API has no
  * /documents/list endpoint yet, so the front holds its own session record —
@@ -52,25 +58,21 @@ export function useLibrary() {
       const trimmed = text.trim();
       const corpus = corpusId.trim();
       if (!trimmed || !corpus || busy) return null;
+      if (trimmed.length > MAX_LIBRARY_TEXT_CHARS) {
+        setError(`document text too long (${trimmed.length}/${MAX_LIBRARY_TEXT_CHARS} chars)`);
+        return null;
+      }
       setBusy(true);
       setError("");
       const docId = `doc-${newId()}`;
       try {
-        const res = await fetch(apiUrl("/documents"), {
+        const res = await fetchApi("/documents", {
           method: "POST",
           headers: apiHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({ corpus_id: corpus, doc_id: docId, text: trimmed }),
         });
         if (!res.ok) {
-          // The API returns { detail: "..." } on 4xx via the FastAPI default.
-          let detail = `${res.status}`;
-          try {
-            const j = (await res.json()) as { detail?: string };
-            if (j?.detail) detail = j.detail;
-          } catch {
-            /* not JSON, keep the status code */
-          }
-          throw new Error(detail);
+          throw new Error(await apiErrorMessage(res));
         }
         const data = (await res.json()) as { chunks?: number };
         const doc: IngestedDoc = {
@@ -109,6 +111,16 @@ export function useLibrary() {
         setError(`unsupported file type — only .txt and .md are accepted (got ${file.name})`);
         return null;
       }
+      if (file.size > MAX_LIBRARY_UPLOAD_BYTES) {
+        setError(
+          `file too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max is ${(
+            MAX_LIBRARY_UPLOAD_BYTES /
+            1024 /
+            1024
+          ).toFixed(0)} MB.`,
+        );
+        return null;
+      }
       setBusy(true);
       setError("");
       const docId = `doc-${newId()}`;
@@ -120,26 +132,19 @@ export function useLibrary() {
         // NOTE: deliberately NOT setting Content-Type — the browser sets
         // multipart/form-data + the boundary string for us. Setting it
         // manually drops the boundary and FastAPI rejects the body.
-        const res = await fetch(apiUrl("/documents/upload"), {
+        const res = await fetchApi("/documents/upload", {
           method: "POST",
           headers: apiHeaders(),
           body: form,
         });
         if (!res.ok) {
-          let detail = `${res.status}`;
-          try {
-            const j = (await res.json()) as { detail?: string };
-            if (j?.detail) detail = j.detail;
-          } catch {
-            /* not JSON */
-          }
-          throw new Error(detail);
+          throw new Error(await apiErrorMessage(res));
         }
         const data = (await res.json()) as { chunks?: number };
         const doc: IngestedDoc = {
           docId,
           corpusId: corpus,
-          preview: `📎 ${file.name}`,
+          preview: `File: ${file.name}`,
           chunks: data.chunks ?? 0,
           at: Date.now(),
         };

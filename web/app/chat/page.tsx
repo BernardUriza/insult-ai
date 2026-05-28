@@ -15,6 +15,7 @@ import {
 } from "../../components/chat/OnboardingDialog";
 import { type ChatMode, type ChatTone, useChat } from "../../components/chat/useChat";
 import { useTtsBlob } from "../../components/chat/useTtsBlob";
+import { ConversationShell } from "../../components/layout/ConversationShell";
 import { InsultHeader } from "../../components/layout/InsultHeader";
 import { PoweredBy } from "../../components/ui/PoweredBy";
 
@@ -107,85 +108,84 @@ export default function ChatPage() {
     }
   }, []);
 
-  return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-5 pb-8">
-      <InsultHeader
-        activeMode={mode}
-        onModeChange={handleModeChange}
-        isLoading={streaming}
-      />
+  // Tone row — clinical only. Lives in the shell's topBar slot.
+  const topBar =
+    mode === "clinical" ? (
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <IntensitySelector value={tone} onChange={setTone} disabled={streaming} />
+        <LowerIntensityButton value={tone} onLower={setTone} disabled={streaming} />
+      </div>
+    ) : null;
 
-      {/* Tone control — clinical-only, its own row so the global header
-        * stays consistent across modes (and doesn't overflow on the chat's
-        * max-w-3xl frame when the four-chip selector would compete with
-        * the mode switcher). Safety can lower the effective tone server-
-        * side regardless of what's picked here. */}
-      {mode === "clinical" && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <IntensitySelector value={tone} onChange={setTone} disabled={streaming} />
-          <LowerIntensityButton value={tone} onLower={setTone} disabled={streaming} />
-        </div>
-      )}
-
-      {/* Demo prompts — only in clinical mode AND only when the chat is
-        * empty (first turn). Tap fills the composer; user can edit before
-        * sending. The crisis prompt is the load-bearing demo differentiator
-        * — comedy as UX, infrastructure as behavior. */}
-      {mode === "clinical" && messages.length === 0 && (
-        <DemoPrompts
-          disabled={streaming}
-          onPick={(p) => {
-            setSeedDraft(p.text);
-            setTone(p.suggested_tone);
-          }}
-        />
-      )}
-
-      <ChatView
-        messages={messages}
-        onSpeak={handleSpeak}
-        speakingId={speakingId}
+  // Composer + footer — the shell's bottomBar slot.
+  const bottomBar = (
+    <>
+      <ChatInput
+        onSend={send}
+        onAbort={abort}
+        streaming={streaming}
+        seedDraft={seedDraft}
         mode={mode}
       />
-
-      <div className="sticky bottom-2 mt-2">
-        <ChatInput
-          onSend={send}
-          onAbort={abort}
-          streaming={streaming}
-          seedDraft={seedDraft}
-          mode={mode}
-        />
-        <div className="mt-2 flex items-center justify-center gap-3 text-[10px]">
-          <PoweredBy />
-          <span className="text-zinc-700">·</span>
-          <a
-            href="/library"
-            className="iai-hint hover:text-zinc-300"
-            title="Manage uploaded documents and corpora"
-          >
-            Knowledge base →
-          </a>
-        </div>
+      <div className="mt-2 flex items-center justify-center gap-3 text-[10px]">
+        <PoweredBy />
+        <span className="text-zinc-700">·</span>
+        <a
+          href="/library"
+          className="iai-hint hover:text-zinc-300"
+          title="Manage uploaded documents and corpora"
+        >
+          Knowledge base →
+        </a>
       </div>
+    </>
+  );
 
-      {/* Floating audio player — visible while a TTS request is in-flight
-        * or playing. Position is fixed (out of normal flow); rendered as
-        * a sibling of the chat so its z-index sits above messages. */}
-      {(speakingId || tts.isLoading || tts.error) && (
-        <AudioPlayer
-          audioUrl={tts.audioUrl}
-          isLoading={tts.isLoading}
-          error={tts.error}
-          retryStatus={tts.retryStatus}
-          onClose={handlePlayerClose}
-          voiceLabel="onyx"
-        />
-      )}
+  // Docked audio player — rendered by the shell, never overlaps the composer.
+  const player =
+    speakingId || tts.isLoading || tts.error ? (
+      <AudioPlayer
+        audioUrl={tts.audioUrl}
+        isLoading={tts.isLoading}
+        error={tts.error}
+        retryStatus={tts.retryStatus}
+        onClose={handlePlayerClose}
+        voiceLabel="onyx"
+      />
+    ) : null;
 
-      {/* Onboarding dialog — shown the first time a user lands on the
-        * clinical persona (whether via deep-link or mode-switch).
-        * localStorage gates re-show. */}
+  return (
+    <>
+      <ConversationShell
+        header={
+          <InsultHeader activeMode={mode} onModeChange={handleModeChange} isLoading={streaming} />
+        }
+        topBar={topBar}
+        bottomBar={bottomBar}
+        player={player}
+      >
+        <div className="flex flex-col gap-4">
+          {/* Demo prompts — clinical only, first turn. The crisis prompt is
+            * the load-bearing demo differentiator (comedy as UX). */}
+          {mode === "clinical" && messages.length === 0 && (
+            <DemoPrompts
+              disabled={streaming}
+              onPick={(p) => {
+                setSeedDraft(p.text);
+                setTone(p.suggested_tone);
+              }}
+            />
+          )}
+          <ChatView
+            messages={messages}
+            onSpeak={handleSpeak}
+            speakingId={speakingId}
+            mode={mode}
+          />
+        </div>
+      </ConversationShell>
+
+      {/* Onboarding dialog — first clinical landing only; localStorage-gated. */}
       {showOnboarding && (
         <OnboardingDialog
           initialTone={tone}
@@ -196,6 +196,6 @@ export default function ChatPage() {
           onDismiss={() => setShowOnboarding(false)}
         />
       )}
-    </main>
+    </>
   );
 }

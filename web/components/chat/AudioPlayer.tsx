@@ -159,11 +159,13 @@ export function AudioPlayer({
 
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  // Container: glass bar fixed near bottom-center, narrow enough to feel
-  // like a player not a banner. Sticks above the chat composer (which is
-  // already sticky-bottom-2 in /chat).
+  // Container: a self-contained glass card. Positioning is the SHELL's job
+  // (ConversationShell docks it in the bottom region) — the player no longer
+  // pins itself to the viewport, which is what made the old `fixed` variant
+  // overlap the composer. Width caps so it reads as a player, not a banner;
+  // the shell right-aligns it.
   const containerCls =
-    "fixed bottom-20 left-1/2 z-40 w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-iai-fire/30 bg-iai-bg/85 px-4 py-3 shadow-[0_8px_40px_-12px_rgba(255,92,40,0.45)] backdrop-blur-md";
+    "w-full max-w-[640px] rounded-2xl border border-iai-fire/30 bg-iai-bg/95 px-4 py-3 shadow-[0_8px_40px_-12px_rgba(255,92,40,0.45)]";
 
   if (error) {
     return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { type ChangeEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import { MAX_CHAT_MESSAGE_CHARS, MAX_INLINE_ATTACHMENT_BYTES } from "../../lib/api";
 import { getUIIcon } from "../../lib/icons";
 import { Button } from "../ui/Button";
 import { Textarea } from "../ui/Textarea";
@@ -14,8 +15,6 @@ const SendIcon = getUIIcon("send");
 const StopIcon = getUIIcon("stop");
 const MicIcon = getUIIcon("mic");
 const AttachIcon = getUIIcon("attach");
-
-const ATTACH_MAX_BYTES = 256 * 1024; // 256 KB — text/md only; anything bigger should go through /library's pgvector path.
 
 const PLACEHOLDER_BY_MODE: Record<ChatMode, string> = {
   roast:
@@ -127,7 +126,7 @@ export function ChatInput({
       setAttachError(`only .txt and .md supported (got ${file.name})`);
       return;
     }
-    if (file.size > ATTACH_MAX_BYTES) {
+    if (file.size > MAX_INLINE_ATTACHMENT_BYTES) {
       setAttachError(
         `file too large (${(file.size / 1024).toFixed(0)} KB). Use /library for bigger docs.`,
       );
@@ -140,7 +139,16 @@ export function ChatInput({
         return;
       }
       const block = `\n\n--- ${file.name} ---\n${trimmed}\n--- end ---\n`;
-      setDraft((prev) => (prev ? prev + block : block.trimStart()));
+      setDraft((prev) => {
+        const next = prev ? prev + block : block.trimStart();
+        if (next.length > MAX_CHAT_MESSAGE_CHARS) {
+          setAttachError(`draft would exceed ${MAX_CHAT_MESSAGE_CHARS} chars`);
+          return prev;
+        }
+        return next;
+      });
+    }).catch(() => {
+      setAttachError("could not read file");
     });
   };
 
@@ -172,6 +180,7 @@ export function ChatInput({
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
           disabled={streaming}
+          maxLength={MAX_CHAT_MESSAGE_CHARS}
           aria-label="message to the agent"
         />
         <div className="flex items-stretch gap-2">

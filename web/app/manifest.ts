@@ -27,10 +27,15 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Insult AI",
     description:
       "AI roasts, intelligence briefs, and sharp coaching — with guardrails.",
+    id: "/",
     start_url: "/",
+    scope: "/",
     display: "standalone",
+    display_override: ["window-controls-overlay", "standalone", "browser"],
     background_color: "#091B36",
     theme_color: "#FF5C28",
+    categories: ["productivity", "utilities", "entertainment"],
+    orientation: "portrait-primary",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
@@ -39,6 +44,29 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
+      },
+    ],
+    shortcuts: [
+      {
+        name: "Start Roast",
+        short_name: "Roast",
+        description: "Open Insult AI in roast mode.",
+        url: "/chat?mode=roast",
+        icons: [{ src: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+      },
+      {
+        name: "Get Briefed",
+        short_name: "Brief",
+        description: "Open Insult AI in intelligence brief mode.",
+        url: "/chat?mode=brief",
+        icons: [{ src: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+      },
+      {
+        name: "Clinical Coaching",
+        short_name: "Clinical",
+        description: "Open Insult AI in clinical coaching mode.",
+        url: "/chat?mode=clinical",
+        icons: [{ src: "/icon-192.png", sizes: "192x192", type: "image/png" }],
       },
     ],
   };

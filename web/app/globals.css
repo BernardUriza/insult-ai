@@ -40,6 +40,10 @@
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply min-h-full bg-iai-bg text-zinc-200 antialiased;
   }
@@ -169,5 +173,72 @@
     @apply inline-flex items-center gap-1 rounded-full border border-iai-fire/40
            bg-iai-fire/10 px-2 py-0.5 text-[10px] font-semibold uppercase
            tracking-wider text-iai-fire;
+  }
+
+  .iai-landing-shell {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .iai-landing-shell::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 50% 0%, rgb(var(--color-iai-fire-rgb) / 0.13), transparent 30rem),
+      linear-gradient(135deg, rgb(77 248 226 / 0.08), transparent 34%),
+      linear-gradient(225deg, rgb(157 151 244 / 0.09), transparent 38%);
+    animation: iai-bg-breathe 10s ease-in-out infinite alternate;
+  }
+
+  .iai-logo-float {
+    animation: iai-logo-float 4.5s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  .iai-motion-card {
+    will-change: transform;
+  }
+
+  @keyframes iai-bg-breathe {
+    from {
+      opacity: 0.72;
+      transform: translate3d(0, -1%, 0) scale(1);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 1%, 0) scale(1.04);
+    }
+  }
+
+  @keyframes iai-logo-float {
+    0%, 100% {
+      transform: translate3d(0, 0, 0) rotate(-1deg);
+    }
+    50% {
+      transform: translate3d(0, -8px, 0) rotate(1deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.001ms !important;
+    }
+
+    .iai-logo-float,
+    .iai-landing-shell::before {
+      animation: none;
+    }
   }
 }

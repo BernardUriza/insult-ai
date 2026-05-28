@@ -1,10 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { apiHeaders, apiUrl } from "../../lib/api";
+import {
+  MAX_VOICE_UPLOAD_BYTES,
+  apiErrorMessage,
+  apiHeaders,
+  fetchApi,
+} from "../../lib/api";
 import { fetchWithRetry } from "./voiceRetry";
 
 type CaptureState = "idle" | "recording" | "transcribing";
+const MAX_RECORDING_SECONDS = 120;
 
 export interface TranscribeRetryStatus {
   attempt: number;
@@ -40,9 +46,13 @@ export function useVoiceCapture(opts: {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const cleanup = useCallback(() => {
     recorderRef.current = null;
+    abortRef.current?.abort();
+    abortRef.current = null;
     chunksRef.current = [];
     const s = streamRef.current;
     if (s) {
@@ -54,6 +64,10 @@ export function useVoiceCapture(opts: {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    if (maxTimerRef.current) {
+      clearTimeout(maxTimerRef.current);
+      maxTimerRef.current = null;
+    }
   }, []);
 
   useEffect(() => () => cleanup(), [cleanup]);
@@ -61,6 +75,10 @@ export function useVoiceCapture(opts: {
   const start = useCallback(async () => {
     if (state !== "idle") return;
     try {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        onError?.("voice capture is not supported in this browser");
+        return;
+      }
       const newStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = newStream;
       setStream(newStream);
@@ -80,8 +98,18 @@ export function useVoiceCapture(opts: {
           setRecordingTime(0);
           return;
         }
+        if (blob.size > MAX_VOICE_UPLOAD_BYTES) {
+          onError?.(
+            `recording too large (${(blob.size / 1024 / 1024).toFixed(1)} MB). Try a shorter clip.`,
+          );
+          setState("idle");
+          setRecordingTime(0);
+          return;
+        }
         setState("transcribing");
         setRetryStatus(null);
+        const controller = new AbortController();
+        abortRef.current = controller;
         try {
           // The blob is captured once; retries re-send the SAME bytes.
           // FormData is rebuilt each attempt so the boundary header
@@ -90,31 +118,34 @@ export function useVoiceCapture(opts: {
             () => {
               const fd = new FormData();
               fd.append("audio", blob, `recording.${ext}`);
-              return fetch(apiUrl("/voice/transcribe"), {
+              return fetchApi("/voice/transcribe", {
                 method: "POST",
                 headers: apiHeaders(),
                 body: fd,
+                signal: controller.signal,
               });
             },
             {
               onRetry: ({ attempt, waitMs }) =>
                 setRetryStatus({ attempt, waitMs }),
+              signal: controller.signal,
             },
           );
           if (!res.ok) {
-            const detail = await res.text().catch(() => "");
-            throw new Error(`HTTP ${res.status}: ${detail || res.statusText}`);
+            throw new Error(await apiErrorMessage(res));
           }
           const data = (await res.json()) as { text?: string };
           const text = (data.text ?? "").trim();
           if (text) onTranscribed(text);
         } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") return;
           const msg = err instanceof Error ? err.message : "transcription failed";
           onError?.(msg);
         } finally {
           setState("idle");
           setRecordingTime(0);
           setRetryStatus(null);
+          if (abortRef.current === controller) abortRef.current = null;
         }
       };
       recorder.start();
@@ -123,6 +154,10 @@ export function useVoiceCapture(opts: {
       timerRef.current = setInterval(() => {
         setRecordingTime((t) => t + 1);
       }, 1000);
+      maxTimerRef.current = setTimeout(() => {
+        const r = recorderRef.current;
+        if (r && r.state !== "inactive") r.stop();
+      }, MAX_RECORDING_SECONDS * 1000);
     } catch (err) {
       cleanup();
       setState("idle");

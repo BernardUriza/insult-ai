@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { apiHeaders, apiUrl } from "../../lib/api";
+import { MAX_TTS_CHARS, apiErrorMessage, apiHeaders, fetchApi } from "../../lib/api";
 import { fetchWithRetry } from "./voiceRetry";
 
 export type TTSVoice = "onyx" | "echo" | "alloy";
@@ -37,8 +37,11 @@ export function useTtsBlob() {
   const [error, setError] = useState<string | null>(null);
   const [retryStatus, setRetryStatus] = useState<TtsRetryStatus | null>(null);
   const blobUrlRef = useRef<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const revoke = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     const u = blobUrlRef.current;
     if (u) {
       URL.revokeObjectURL(u);
@@ -56,33 +59,42 @@ export function useTtsBlob() {
       setRetryStatus(null);
       const trimmed = text.trim();
       if (!trimmed) return;
+      if (trimmed.length > MAX_TTS_CHARS) {
+        setError(`text too long for speech (${trimmed.length}/${MAX_TTS_CHARS} chars)`);
+        return;
+      }
       setIsLoading(true);
+      const controller = new AbortController();
+      abortRef.current = controller;
       try {
         const res = await fetchWithRetry(
           () =>
-            fetch(apiUrl("/voice/speak"), {
+            fetchApi("/voice/speak", {
               method: "POST",
               headers: apiHeaders({ "Content-Type": "application/json" }),
               body: JSON.stringify({ text: trimmed, voice }),
+              signal: controller.signal,
             }),
           {
             onRetry: ({ attempt, waitMs }) => setRetryStatus({ attempt, waitMs }),
+            signal: controller.signal,
           },
         );
         if (!res.ok) {
-          const detail = await res.text().catch(() => "");
-          throw new Error(`HTTP ${res.status}: ${detail || res.statusText}`);
+          throw new Error(await apiErrorMessage(res));
         }
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         blobUrlRef.current = url;
         setAudioUrl(url);
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         const msg = err instanceof Error ? err.message : "could not synthesize";
         setError(msg);
       } finally {
         setIsLoading(false);
         setRetryStatus(null);
+        if (abortRef.current === controller) abortRef.current = null;
       }
     },
     [revoke],

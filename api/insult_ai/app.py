@@ -9,6 +9,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import time
 from typing import Literal
 
@@ -16,14 +17,15 @@ from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from fi_runner.rag_store import RagStoreClient
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from .runner import chat_stream, roast
+from .runner import chat_stream, normalize_backend_name, roast
 from .voice import (
     DEFAULT_VOICE,
+    MAX_TTS_CHARS,
     TTSVoice,
     VoiceError,
     VoiceRateLimitError,
@@ -66,7 +68,31 @@ app = FastAPI(title="Insult AI", version="0.1.0")
 # the better fix is trimming the persona's research depth so turns finish
 # well under the cap. Overridable via env for quick ops tuning without a
 # redeploy of code.
-CHAT_TURN_TIMEOUT_S = int(os.getenv("INSULT_AI_CHAT_TURN_TIMEOUT_S", "180"))
+def _positive_int_env(name: str, default: int) -> int:
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        _log.warning("%s=%r is invalid; using default %s", name, raw, default)
+        return default
+    if value <= 0:
+        _log.warning("%s=%r must be positive; using default %s", name, raw, default)
+        return default
+    return value
+
+
+CHAT_TURN_TIMEOUT_S = _positive_int_env("INSULT_AI_CHAT_TURN_TIMEOUT_S", 180)
+REQUEST_TEXT_MAX_CHARS = _positive_int_env("INSULT_AI_REQUEST_TEXT_MAX_CHARS", 12000)
+INGEST_TEXT_MAX_BYTES = _positive_int_env(
+    "INSULT_AI_INGEST_TEXT_MAX_BYTES", 1 * 1024 * 1024
+)
+VOICE_UPLOAD_MAX_BYTES = _positive_int_env(
+    "INSULT_AI_VOICE_UPLOAD_MAX_BYTES", 12 * 1024 * 1024
+)
+UPLOAD_READ_CHUNK_BYTES = 1024 * 1024
+_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 
 # CORS — accept the origins listed in ``CORS_ALLOW_ORIGINS`` (comma-separated)
 # or fall back to wide-open in dev. Production sets this to the SWA URL via
@@ -195,9 +221,9 @@ else:
 
 
 class RoastRequest(BaseModel):
-    target: str  # a URL or a claim to roast + fact-check
+    target: str = Field(..., min_length=1, max_length=REQUEST_TEXT_MAX_CHARS)
     backend: str | None = None  # "claude" | "codex" (defaults to INSULT_AI_BACKEND)
-    corpus_id: str | None = None  # if set, the agent also mines this document corpus
+    corpus_id: str | None = Field(default=None, max_length=128)
     # Product mode — three personas over the SAME Runner (see runner.py:Mode):
     # roast (hook), brief (business value), clinical (compa-clínico coach).
     # Default keeps existing callers on the roast path; the other two are
@@ -206,6 +232,9 @@ class RoastRequest(BaseModel):
     # Only meaningful for `mode=clinical`. The other modes ignore it.
     # soft / medium / spicy / no_insults — see policies/tone_levels.md.
     tone: Literal["soft", "medium", "spicy", "no_insults"] = "medium"
+
+    class Config:
+        extra = "forbid"
 
 
 class RoastResponse(BaseModel):
@@ -218,9 +247,12 @@ class RoastResponse(BaseModel):
 
 
 class IngestRequest(BaseModel):
-    corpus_id: str
-    doc_id: str
-    text: str
+    corpus_id: str = Field(..., min_length=1, max_length=128)
+    doc_id: str = Field(..., min_length=1, max_length=128)
+    text: str = Field(..., min_length=1, max_length=REQUEST_TEXT_MAX_CHARS * 10)
+
+    class Config:
+        extra = "forbid"
 
 
 class IngestResponse(BaseModel):
@@ -228,11 +260,14 @@ class IngestResponse(BaseModel):
 
 
 class SpeakRequest(BaseModel):
-    text: str
+    text: str = Field(..., min_length=1, max_length=MAX_TTS_CHARS)
     # Curated to the three voices the product exposes (see voice.py). Default
     # is onyx — the deadpan-anchor tone that matches the roast persona's
     # voice. Adding more is a one-line change in voice.py + here.
     voice: TTSVoice = DEFAULT_VOICE
+
+    class Config:
+        extra = "forbid"
 
 
 class TranscribeResponse(BaseModel):
@@ -240,10 +275,10 @@ class TranscribeResponse(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    session_id: str  # client-generated; same id across turns = same conversation
-    message: str
+    session_id: str = Field(..., min_length=1, max_length=128)
+    message: str = Field(..., min_length=1, max_length=REQUEST_TEXT_MAX_CHARS)
     backend: str | None = None  # "claude" | "codex" (only claude streams live)
-    corpus_id: str | None = None  # optional rag_store doc corpus to mine
+    corpus_id: str | None = Field(default=None, max_length=128)
     # Persona for THIS turn. Switching mid-conversation is allowed (the
     # conversation_store replays prior turns into the new persona's context)
     # — that's the whole point of three modes over one engine.
@@ -252,6 +287,86 @@ class ChatRequest(BaseModel):
     # The UI's intensity selector maps to this field. Safety can override it
     # downward at runtime — see policies/tone_levels.md.
     tone: Literal["soft", "medium", "spicy", "no_insults"] = "medium"
+
+    class Config:
+        extra = "forbid"
+
+
+def _clean_text(value: str, *, field: str, max_chars: int) -> str:
+    value = value.strip()
+    if not value:
+        raise HTTPException(status_code=400, detail=f"{field} is empty")
+    if len(value) > max_chars:
+        raise HTTPException(
+            status_code=413,
+            detail=f"{field} is too long ({len(value)} chars); max {max_chars}",
+        )
+    return value
+
+
+def _clean_optional_id(value: str | None, *, field: str) -> str | None:
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    _validate_id(value, field=field)
+    return value
+
+
+def _validate_id(value: str, *, field: str) -> str:
+    value = value.strip()
+    if not _ID_RE.fullmatch(value):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"{field} must be 1-128 chars and contain only letters, "
+                "numbers, underscore, dot, colon, or dash"
+            ),
+        )
+    return value
+
+
+def _validate_backend(backend: str | None) -> str | None:
+    if backend is None:
+        return None
+    try:
+        return normalize_backend_name(backend)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _public_error_message(exc: Exception) -> str:
+    """Return a client-safe boundary error.
+
+    Full details stay in server logs. The browser should not receive SDK
+    tracebacks, upstream URLs, local filesystem paths, or provider error bodies.
+    """
+    if isinstance(exc, TimeoutError):
+        return f"turn exceeded {CHAT_TURN_TIMEOUT_S}s timeout"
+    return "request failed while generating a response"
+
+
+async def _read_upload_limited(file: UploadFile, *, max_bytes: int) -> bytes:
+    """Read an UploadFile with a hard byte ceiling while streaming chunks.
+
+    ``await file.read()`` loads the whole multipart part before checking size;
+    this helper refuses the payload as soon as it crosses the cap.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(UPLOAD_READ_CHUNK_BYTES)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"file too large ({total} bytes); max {max_bytes} bytes",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 @app.get("/health")
@@ -268,13 +383,25 @@ async def do_roast(request: Request, req: RoastRequest) -> RoastResponse:
     # SlowAPI needs the ``request: Request`` parameter to extract the client
     # IP for ``get_remote_address``. Don't drop it even if the body doesn't
     # use it — the decorator wraps this signature.
-    result = await roast(
-        req.target,
-        backend=req.backend,
-        corpus_id=req.corpus_id,
-        mode=req.mode,
-        tone=req.tone,
-    )
+    target = _clean_text(req.target, field="target", max_chars=REQUEST_TEXT_MAX_CHARS)
+    backend = _validate_backend(req.backend)
+    corpus_id = _clean_optional_id(req.corpus_id, field="corpus_id")
+    try:
+        result = await roast(
+            target,
+            backend=backend,
+            corpus_id=corpus_id,
+            mode=req.mode,
+            tone=req.tone,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - external agent boundary
+        _log.exception("roast failed mode=%s backend=%s", req.mode, backend)
+        raise HTTPException(
+            status_code=502,
+            detail="agent backend failed while generating a response",
+        ) from exc
     return RoastResponse(roast=result.text, usage=result.usage)
 
 
@@ -287,7 +414,23 @@ async def ingest_document(request: Request, req: IngestRequest) -> IngestRespons
     # to let a real onboarding flow paste 20 documents in a row.
     # Low min_chunk_size so short pastes (a paragraph, a bio) still get stored,
     # not silently dropped.
-    chunks = await _rag.ingest(req.corpus_id, req.doc_id, req.text, min_chunk_size=30)
+    corpus_id = _validate_id(req.corpus_id, field="corpus_id")
+    doc_id = _validate_id(req.doc_id, field="doc_id")
+    text = _clean_text(req.text, field="text", max_chars=REQUEST_TEXT_MAX_CHARS * 10)
+    text_bytes = len(text.encode("utf-8"))
+    if text_bytes > INGEST_TEXT_MAX_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"text too large ({text_bytes} bytes); max {INGEST_TEXT_MAX_BYTES} bytes",
+        )
+    try:
+        chunks = await _rag.ingest(corpus_id, doc_id, text, min_chunk_size=30)
+    except Exception as exc:  # noqa: BLE001 - RAG store boundary
+        _log.exception("document ingest failed corpus_id=%s doc_id=%s", corpus_id, doc_id)
+        raise HTTPException(
+            status_code=502,
+            detail="document store failed while ingesting text",
+        ) from exc
     return IngestResponse(chunks=chunks)
 
 
@@ -318,30 +461,40 @@ async def upload_document(
     PDFs aren't supported here yet — adding `pypdf` and an extra branch
     would handle them, but the v1 demo target ("paste a bio / drop a
     .md") doesn't need it. Adding it later is one dep + ~6 lines."""
-    filename = file.filename or "uploaded.txt"
-    dot = filename.rfind(".")
-    ext = filename[dot:].lower() if dot >= 0 else ""
-    if ext not in _UPLOAD_ALLOWED_EXTENSIONS:
-        raise HTTPException(
-            status_code=415,
-            detail=(
-                f"unsupported file type {ext!r}; "
-                f"allowed: {sorted(_UPLOAD_ALLOWED_EXTENSIONS)}"
-            ),
-        )
-    raw = await file.read()
-    if len(raw) > _UPLOAD_MAX_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"file too large ({len(raw)} bytes); max {_UPLOAD_MAX_BYTES} bytes",
-        )
-    # `errors="replace"` rather than strict — the demo's "paste a bio" flow
-    # doesn't gain from being strict about bad bytes in a corpus doc. Bad
-    # bytes become U+FFFD; the doc is still useful for the agent's search.
-    text = raw.decode("utf-8", errors="replace")
-    if not text.strip():
-        raise HTTPException(status_code=400, detail="file contains no text")
-    chunks = await _rag.ingest(corpus_id, doc_id, text, min_chunk_size=30)
+    corpus_id = _validate_id(corpus_id, field="corpus_id")
+    doc_id = _validate_id(doc_id, field="doc_id")
+    try:
+        filename = file.filename or "uploaded.txt"
+        dot = filename.rfind(".")
+        ext = filename[dot:].lower() if dot >= 0 else ""
+        if ext not in _UPLOAD_ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=415,
+                detail=(
+                    f"unsupported file type {ext!r}; "
+                    f"allowed: {sorted(_UPLOAD_ALLOWED_EXTENSIONS)}"
+                ),
+            )
+        raw = await _read_upload_limited(file, max_bytes=_UPLOAD_MAX_BYTES)
+        # `errors="replace"` rather than strict — the demo's "paste a bio" flow
+        # doesn't gain from being strict about bad bytes in a corpus doc. Bad
+        # bytes become U+FFFD; the doc is still useful for the agent's search.
+        text = raw.decode("utf-8", errors="replace").strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="file contains no text")
+        try:
+            chunks = await _rag.ingest(corpus_id, doc_id, text, min_chunk_size=30)
+        except Exception as exc:  # noqa: BLE001 - RAG store boundary
+            _log.exception(
+                "document upload ingest failed corpus_id=%s doc_id=%s filename=%s",
+                corpus_id, doc_id, filename,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail="document store failed while ingesting upload",
+            ) from exc
+    finally:
+        await file.close()
     return IngestResponse(chunks=chunks)
 
 
@@ -380,6 +533,12 @@ async def chat_stream_endpoint(request: Request, req: ChatRequest) -> StreamingR
     keeps the raw ones for a "thinking" detail view — so both panels stay in
     sync even if the persona ever stops calling ``declare_plan``.
     """
+    session_id = _validate_id(req.session_id, field="session_id")
+    message = _clean_text(
+        req.message, field="message", max_chars=REQUEST_TEXT_MAX_CHARS
+    )
+    backend = _validate_backend(req.backend)
+    corpus_id = _clean_optional_id(req.corpus_id, field="corpus_id")
 
     # Capture fi_runner telemetry for THIS turn. Lives in the closure so each
     # request gets its own list (no cross-request leak). Server-side log fires
@@ -411,22 +570,22 @@ async def chat_stream_endpoint(request: Request, req: ChatRequest) -> StreamingR
             _log.info(
                 "chat.event %s",
                 event,
-                extra={"event": event, "session_id": req.session_id, "fields": fields},
+                extra={"event": event, "session_id": session_id, "fields": fields},
             )
 
     async def gen():
         # Tell the client the stream is live so the UI can flip 'thinking…' on
         # before the first tool_call lands (otherwise nothing happens for ~1s).
-        yield _sse("open", {"session_id": req.session_id})
+        yield _sse("open", {"session_id": session_id})
         try:
             # Hard ceiling on a turn — see CHAT_TURN_TIMEOUT_S above for the
             # tuning rationale (heavy roast/brief turns can exceed it).
             async with asyncio.timeout(CHAT_TURN_TIMEOUT_S):
                 async for event in chat_stream(
-                    req.message,
-                    session_id=req.session_id,
-                    backend=req.backend,
-                    corpus_id=req.corpus_id,
+                    message,
+                    session_id=session_id,
+                    backend=backend,
+                    corpus_id=corpus_id,
                     mode=req.mode,
                     tone=req.tone,
                     on_event=_capture,
@@ -458,7 +617,7 @@ async def chat_stream_endpoint(request: Request, req: ChatRequest) -> StreamingR
                         # The UI MUST REPLACE, not append — antidrift may have
                         # rewritten the live deltas. ``fallback_session_id`` covers
                         # backends that don't round-trip the client-issued id.
-                        payload = result_to_wire(event["result"], fallback_session_id=req.session_id)
+                        payload = result_to_wire(event["result"], fallback_session_id=session_id)
                         yield _sse("result", dict(payload))
                     # Any other event type from fi_runner (telemetry, etc.) is
                     # skipped — only the ones above are part of our wire contract.
@@ -484,24 +643,27 @@ async def chat_stream_endpoint(request: Request, req: ChatRequest) -> StreamingR
             # otherwise the turn keeps running in the shadow, burning tokens
             # and holding the MCP busy. The `finally` still fires its `done`.
             raise
-        except TimeoutError:
+        except TimeoutError as exc:
             # Log server-side too — a recurring timeout means the persona's
             # runtime is outgrowing the cap, which the client-only error
             # never surfaced to ops.
             _log.error(
                 "chat turn exceeded %ss timeout (session=%s, mode=%s)",
-                CHAT_TURN_TIMEOUT_S, req.session_id, req.mode,
+                CHAT_TURN_TIMEOUT_S, session_id, req.mode,
             )
-            yield _sse("error", {"message": f"turn exceeded {CHAT_TURN_TIMEOUT_S}s timeout", "kind": "TimeoutError"})
+            yield _sse("error", {"message": _public_error_message(exc), "kind": "TimeoutError"})
         except Exception as exc:  # noqa: BLE001 - boundary: surface to UI
             # `_log.exception` captures the full traceback in the Container
             # App log stream. Before this, the only place the cause appeared
             # was the SSE error event the browser rendered — impossible to
             # copy out of a live demo. Now ops can read the stack.
             _log.exception(
-                "chat turn failed (session=%s, mode=%s)", req.session_id, req.mode
+                "chat turn failed (session=%s, mode=%s)", session_id, req.mode
             )
-            yield _sse("error", {"message": str(exc), "kind": type(exc).__name__})
+            yield _sse(
+                "error",
+                {"message": _public_error_message(exc), "kind": type(exc).__name__},
+            )
         finally:
             yield _sse("done", {})
 
@@ -536,11 +698,15 @@ async def voice_transcribe(
     """Multipart upload → Whisper → text. The frontend posts the
     MediaRecorder blob directly; no client-side transcoding."""
     try:
-        audio_bytes = await audio.read()
+        filename = audio.filename or "audio.webm"
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "webm"
+        if ext not in {"webm", "mp3", "wav", "m4a", "ogg", "flac", "mp4", "mpeg", "mpga", "oga"}:
+            raise HTTPException(status_code=415, detail=f"unsupported audio type .{ext}")
+        audio_bytes = await _read_upload_limited(audio, max_bytes=VOICE_UPLOAD_MAX_BYTES)
         if not audio_bytes:
             raise HTTPException(status_code=400, detail="empty audio payload")
         text = await transcribe_audio(
-            audio_bytes, filename=audio.filename or "audio.webm"
+            audio_bytes, filename=filename
         )
     except VoiceRateLimitError as exc:
         # 429 = upstream rate-limit. Propagate AS 429 (not 502) and surface
@@ -554,6 +720,8 @@ async def voice_transcribe(
         # from a 4xx caller error (bad audio, missing key) so the frontend
         # can decide whether to retry or surface as user-facing error.
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    finally:
+        await audio.close()
     return TranscribeResponse(text=text)
 
 
@@ -563,10 +731,16 @@ async def voice_speak(request: Request, req: SpeakRequest) -> Response:
     """Text → TTS (onyx by default) → audio/mpeg blob. Returns the raw
     MP3 bytes so the browser can play it via `new Audio(URL.createObjectURL(blob))`
     without a streaming protocol on top."""
-    if not req.text.strip():
+    text = req.text.strip()
+    if not text:
         raise HTTPException(status_code=400, detail="text is empty")
+    if len(text) > MAX_TTS_CHARS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"text is too long ({len(text)} chars); max {MAX_TTS_CHARS}",
+        )
     try:
-        audio_bytes = await synthesize_speech(req.text, voice=req.voice)
+        audio_bytes = await synthesize_speech(text, voice=req.voice)
     except VoiceRateLimitError as exc:
         headers = {"Retry-After": str(exc.retry_after_seconds)} if exc.retry_after_seconds else {}
         raise HTTPException(status_code=429, detail=str(exc), headers=headers) from exc

@@ -7,13 +7,36 @@
  * Note on Next.js: `NEXT_PUBLIC_*` is **build-time** inlined into the bundle,
  * not read at runtime. The Azure SWA pipeline must inject this before
  * ``next build``; otherwise the production chat hits localhost. */
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+const DEFAULT_DEV_API_URL = "http://localhost:8080";
+
+export const API_URL = normalizeApiUrl(
+  process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_DEV_API_URL,
+);
+
+export const CHAT_STREAM_TIMEOUT_MS = 210_000;
+export const API_REQUEST_TIMEOUT_MS = 30_000;
+export const MAX_CHAT_MESSAGE_CHARS = 12_000;
+export const MAX_LIBRARY_TEXT_CHARS = 120_000;
+export const MAX_LIBRARY_UPLOAD_BYTES = 5 * 1024 * 1024;
+export const MAX_INLINE_ATTACHMENT_BYTES = 256 * 1024;
+export const MAX_VOICE_UPLOAD_BYTES = 12 * 1024 * 1024;
+export const MAX_TTS_CHARS = 4096;
+
+function normalizeApiUrl(raw: string): string {
+  const value = raw.trim();
+  try {
+    const url = new URL(value);
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    if (process.env.NODE_ENV !== "production") return DEFAULT_DEV_API_URL;
+    throw new Error(`Invalid NEXT_PUBLIC_API_URL: ${value}`);
+  }
+}
 
 /** Join a path onto the API base, normalizing the slash. */
 export function apiUrl(path: string): string {
-  const base = API_URL.endsWith("/") ? API_URL.slice(0, -1) : API_URL;
   const tail = path.startsWith("/") ? path : `/${path}`;
-  return `${base}${tail}`;
+  return `${API_URL}${tail}`;
 }
 
 /** Optional shared API key — same caveat as `API_URL`: `NEXT_PUBLIC_*` is
@@ -38,4 +61,53 @@ export function apiHeaders(extra?: HeadersInit): HeadersInit {
     Object.assign(base, extra);
   }
   return base;
+}
+
+export async function apiErrorMessage(res: Response): Promise<string> {
+  let body = "";
+  try {
+    const contentType = res.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const json = (await res.json()) as { detail?: unknown; error?: unknown; message?: unknown };
+      const detail = json.detail ?? json.error ?? json.message;
+      if (typeof detail === "string") body = detail;
+      else if (Array.isArray(detail)) body = detail.map((d) => String(d?.msg ?? d)).join("; ");
+      else if (detail) body = String(detail);
+    } else {
+      body = await res.text();
+    }
+  } catch {
+    body = "";
+  }
+  return body ? `HTTP ${res.status}: ${body}` : `HTTP ${res.status}: ${res.statusText}`;
+}
+
+export async function fetchApi(
+  path: string,
+  init: RequestInit = {},
+  timeoutMs = API_REQUEST_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const callerSignal = init.signal;
+  let timedOut = false;
+  const timeout = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  const onAbort = () => controller.abort();
+  if (callerSignal) {
+    if (callerSignal.aborted) controller.abort();
+    else callerSignal.addEventListener("abort", onAbort, { once: true });
+  }
+
+  try {
+    return await fetch(apiUrl(path), { ...init, signal: controller.signal });
+  } catch (err) {
+    if (timedOut) throw new Error(`request timed out after ${Math.round(timeoutMs / 1000)}s`);
+    throw err;
+  } finally {
+    window.clearTimeout(timeout);
+    callerSignal?.removeEventListener("abort", onAbort);
+  }
 }

@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { API_URL, apiHeaders, apiUrl } from "../../lib/api";
+import {
+  API_URL,
+  CHAT_STREAM_TIMEOUT_MS,
+  MAX_CHAT_MESSAGE_CHARS,
+  apiErrorMessage,
+  apiHeaders,
+  apiUrl,
+} from "../../lib/api";
 import { receiptsFrom } from "../../lib/text";
 import type { ChatMessage, ChatMeta, Plan, PlanRejection, PlanStep, Step } from "./types";
 
@@ -73,6 +80,26 @@ export function useChat(opts?: {
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || streaming) return;
+      if (trimmed.length > MAX_CHAT_MESSAGE_CHARS) {
+        const assistantId = newId();
+        setMessages((prev) => [
+          ...prev,
+          { id: newId(), role: "user", content: trimmed.slice(0, MAX_CHAT_MESSAGE_CHARS) },
+          {
+            id: assistantId,
+            role: "assistant",
+            content: "",
+            steps: [],
+            plan: null,
+            receipts: [],
+            usage: null,
+            meta: null,
+            status: "error",
+            errorMessage: `message too long (${trimmed.length}/${MAX_CHAT_MESSAGE_CHARS} chars)`,
+          },
+        ]);
+        return;
+      }
 
       const userMsg: ChatMessage = { id: newId(), role: "user", content: trimmed };
       const assistantId = newId();
@@ -92,6 +119,11 @@ export function useChat(opts?: {
 
       const controller = new AbortController();
       abortRef.current = controller;
+      let timedOut = false;
+      const timeout = window.setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, CHAT_STREAM_TIMEOUT_MS);
 
       try {
         const res = await fetch(apiUrl("/chat/stream"), {
@@ -109,7 +141,8 @@ export function useChat(opts?: {
           }),
           signal: controller.signal,
         });
-        if (!res.ok || !res.body) throw new Error(`API responded ${res.status}`);
+        if (!res.ok) throw new Error(await apiErrorMessage(res));
+        if (!res.body) throw new Error("API returned an empty stream");
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
@@ -235,16 +268,33 @@ export function useChat(opts?: {
             // `open` and `done` are wire-only — UI doesn't need them.
           }
         }
+        if (buffer.trim()) {
+          const parsed = parseFrame(buffer);
+          if (parsed?.event === "error" && parsed.data && typeof parsed.data === "object") {
+            const data = parsed.data as Record<string, unknown>;
+            patchAssistant(assistantId, () => ({
+              status: "error",
+              errorMessage: String(data.message ?? "stream error"),
+            }));
+          }
+        }
+        reader.releaseLock();
       } catch (e) {
         // AbortError on user cancel is not a real error.
         const aborted = e instanceof DOMException && e.name === "AbortError";
-        if (!aborted) {
+        if (timedOut) {
+          patchAssistant(assistantId, () => ({
+            status: "error",
+            errorMessage: `request timed out after ${Math.round(CHAT_STREAM_TIMEOUT_MS / 1000)}s`,
+          }));
+        } else if (!aborted) {
           const msg = e instanceof Error ? e.message : "request failed";
           patchAssistant(assistantId, () => ({ status: "error", errorMessage: msg }));
         } else {
           patchAssistant(assistantId, () => ({ status: "done" }));
         }
       } finally {
+        window.clearTimeout(timeout);
         setStreaming(false);
         abortRef.current = null;
       }

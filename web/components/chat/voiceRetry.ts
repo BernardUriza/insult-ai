@@ -34,6 +34,8 @@ export interface FetchWithRetryOptions {
   onRetry?: (event: RetryEvent) => void;
   /** Override the default max retries (2). */
   maxRetries?: number;
+  /** Abort retries and sleeps when the caller cancels. */
+  signal?: AbortSignal;
 }
 
 function parseRetryAfter(header: string | null, fallbackMs: number): number {
@@ -48,7 +50,19 @@ function parseRetryAfter(header: string | null, fallbackMs: number): number {
   return fallbackMs;
 }
 
-const sleep = (ms: number) => new Promise<void>((res) => setTimeout(res, ms));
+const sleep = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const timer = window.setTimeout(resolve, ms);
+    const onAbort = () => {
+      window.clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 
 /** Wrap a fetch invocation with retry-on-429/503 + Retry-After awareness.
  * The supplied `requestFn` MUST be idempotent — both endpoints we use it
@@ -59,10 +73,11 @@ export async function fetchWithRetry(
   requestFn: () => Promise<Response>,
   options: FetchWithRetryOptions = {},
 ): Promise<Response> {
-  const { onRetry, maxRetries = MAX_RETRIES } = options;
+  const { onRetry, maxRetries = MAX_RETRIES, signal } = options;
   let lastResponse: Response | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
     const response = await requestFn();
     if (response.ok) return response;
     lastResponse = response;
@@ -76,7 +91,7 @@ export async function fetchWithRetry(
       waitMs,
       reason: response.status === 429 ? "rate-limit" : "transient",
     });
-    await sleep(waitMs);
+    await sleep(waitMs, signal);
   }
 
   // Unreachable: the loop always returns. The non-null assertion is

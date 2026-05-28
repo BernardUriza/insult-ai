@@ -43,6 +43,24 @@ _AZURE_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION") or "2024-02-15-previe
 _WHISPER_DEPLOYMENT = os.getenv("AZURE_OPENAI_WHISPER_DEPLOYMENT") or "whisper"
 _TTS_DEPLOYMENT = os.getenv("AZURE_OPENAI_TTS_DEPLOYMENT") or "tts"
 
+
+def _positive_int_env(name: str, default: int) -> int:
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        _log.warning("%s=%r is invalid; using default %s", name, raw, default)
+        return default
+    if value <= 0:
+        _log.warning("%s=%r must be positive; using default %s", name, raw, default)
+        return default
+    return value
+
+
+MAX_TTS_CHARS = _positive_int_env("INSULT_AI_TTS_MAX_CHARS", 4096)
+
 # Per-call timeout. Whisper on a 30s clip is ~3-5s; TTS on 200 chars is ~2-3s.
 # 60s gives plenty of headroom for a slow Azure region without blocking the
 # uvicorn worker indefinitely if Azure wedges.
@@ -159,6 +177,13 @@ async def synthesize_speech(text: str, voice: TTSVoice = DEFAULT_VOICE) -> bytes
     chars — well under. We don't pre-truncate here so a misuse surfaces as
     an Azure 400, not a silent half-roast.
     """
+    text = text.strip()
+    if not text:
+        raise VoiceError("tts input is empty")
+    if len(text) > MAX_TTS_CHARS:
+        raise VoiceError(
+            f"tts input is too long ({len(text)} chars); max {MAX_TTS_CHARS}"
+        )
     api_key = _require_key()
     url = (
         f"{_AZURE_ENDPOINT}/openai/deployments/{_TTS_DEPLOYMENT}"
