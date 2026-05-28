@@ -176,3 +176,12 @@ anyway, for three reasons:
   `golden_conversations/`; PR-gates retrieval relevance.
 
 The slices are independently mergeable. Each one is reversible.
+
+---
+
+## Remote ingest prerequisite (Slice 3 staging gate)
+
+Remote runtime images intentionally exclude `bench/` and `corpus/`.
+Production/staging corpus ingest requires a dedicated ops workflow or
+job; do not enable `INSULT_AI_PSYCH_CORPUS_ENABLED` until
+`psych_public_v1` exists in the configured RAG store.
