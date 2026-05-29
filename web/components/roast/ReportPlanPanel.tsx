@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   getToolIcon,
   getUIIcon,
@@ -8,7 +8,9 @@ import {
 } from "../../lib/icons";
 import { PlanChecklist } from "../chat/PlanChecklist";
 import { latestOpenToolIndex, toolStatusLabel, toolVisualStatus } from "../chat/toolStatus";
-import type { ChatMessage } from "../chat/types";
+import type { ChatMessage, Step } from "../chat/types";
+
+type AssistantMessage = Extract<ChatMessage, { role: "assistant" }>;
 
 const CheckIcon = getUIIcon("check");
 
@@ -19,31 +21,179 @@ const EMPTY_STEPS = [
   "Cross-examine the claim",
 ];
 
-/** Left column of the report view: the agent's plan + the raw tool calls it
- *  made, plus the REAL total time/tools/tokens from the turn meta.
+function totalsLabel(totalMs: number | null, toolCount: number): string {
+  return [
+    totalMs != null ? `${(totalMs / 1000).toFixed(1)}s` : null,
+    `${toolCount} tools`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** The raw tool-call list. Shared by the live side-panel and the settled bar's
+ *  expanded body. `live` drives the kinetic glow + the in-flight "active" pip;
+ *  a settled render passes live=false so nothing animates. */
+function StepsList({
+  steps,
+  live,
+  latestPendingIndex,
+  totalMs,
+  toolCount,
+}: {
+  steps: Step[];
+  live: boolean;
+  latestPendingIndex: number;
+  totalMs: number | null;
+  toolCount: number;
+}) {
+  if (steps.length === 0) return null;
+  return (
+    <div className={`iai-card-soft text-sm ${live ? "iai-kinetic-panel" : ""}`}>
+      <div className="iai-kinetic-content mb-2 flex items-center justify-between gap-2 text-zinc-300">
+        <span className="font-medium">Steps</span>
+        <span className="iai-hint text-xs tabular-nums">{steps.length}</span>
+      </div>
+      <ol className="iai-kinetic-content space-y-1">
+        {steps.map((s, i) => {
+          const ToolIcon = getToolIcon(s.name);
+          const statusKey = toolVisualStatus(s, i, latestPendingIndex, live);
+          const errored = statusKey === "error";
+          const active = statusKey === "active";
+          // Bright Data steps are the live-web fetches — the hackathon's
+          // "Application of Technology" proof. Brand-blue rail + wordmark badge.
+          const isBrightData = s.server === "brightdata";
+          return (
+            <li
+              key={s.id ?? `${s.name}-${i}`}
+              className={`flex items-center gap-2 rounded-md text-xs ${
+                errored ? "text-red-400" : "text-zinc-400"
+              } ${isBrightData ? "border-l-2 border-iai-brand/60 bg-iai-brand/5 pl-1.5" : ""}`}
+            >
+              <span className="iai-hint w-4 shrink-0 text-right tabular-nums">{i + 1}</span>
+              <ToolIcon
+                className={`h-3.5 w-3.5 shrink-0 ${isBrightData ? "text-iai-brand" : ""}`}
+                aria-hidden
+              />
+              <span className="flex-1 truncate">{shortToolName(s.name)}</span>
+              {isBrightData ? (
+                <span className="inline-flex shrink-0 items-center rounded-full border border-iai-brand/40 bg-iai-brand/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-iai-brand">
+                  Bright Data
+                </span>
+              ) : (
+                s.server && <span className="iai-hint text-[10px] uppercase">{s.server}</span>
+              )}
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                  active
+                    ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+                    : statusKey === "sent"
+                      ? "border-zinc-500/25 bg-zinc-500/10 text-zinc-400"
+                    : errored
+                      ? "border-red-400/30 bg-red-400/10 text-red-300"
+                      : "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
+                }`}
+                aria-label={statusKey}
+              >
+                {toolStatusLabel(statusKey)}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      {(totalMs != null || toolCount > 0) && (
+        <div className="iai-hint iai-kinetic-content mt-3 flex items-center justify-between border-t border-iai-border/60 pt-2 text-xs">
+          <span>Total</span>
+          <span className="tabular-nums text-zinc-400">{totalsLabel(totalMs, toolCount)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Settled state: a full-width horizontal TOOLBAR (not the narrow side column).
+ *  Collapsed it's a single bar; clicking expands it DOWNWARD (vertical
+ *  accordion) to reveal the plan + steps full-width, then the roast keeps the
+ *  rest of the room. Own component so its useState doesn't sit behind the
+ *  parent's conditional returns (hook-order safety). */
+function PlanBar({ message }: { message: AssistantMessage }) {
+  const [open, setOpen] = useState(false);
+  const steps = message.steps;
+  const meta = message.meta;
+  const totalMs = typeof meta?.latency_ms === "number" ? meta.latency_ms : null;
+  const toolCount = typeof meta?.tool_count === "number" ? meta.tool_count : steps.length;
+  const planSteps = message.plan?.steps ?? [];
+  const planDone = planSteps.filter((s) => s.status === "done").length;
+
+  return (
+    <div className="iai-card-soft">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 text-left text-xs text-zinc-400 transition-colors hover:text-zinc-200"
+        aria-expanded={open}
+        aria-label={open ? "Hide the plan and steps" : "Show the plan and steps"}
+      >
+        <span className="inline-flex items-center gap-2">
+          <CheckIcon className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden />
+          <span className="font-semibold text-zinc-200">Plan complete</span>
+          {planSteps.length > 0 && (
+            <span className="iai-hint">
+              {planDone}/{planSteps.length} steps
+            </span>
+          )}
+        </span>
+        <span className="iai-hint shrink-0 tabular-nums">
+          {totalsLabel(totalMs, toolCount)} · {open ? "hide" : "show steps"}
+        </span>
+      </button>
+      {open && (
+        <div className="mt-3 flex flex-col gap-3 border-t border-iai-border/60 pt-3">
+          <PlanChecklist plan={message.plan} />
+          <StepsList
+            steps={steps}
+            live={false}
+            latestPendingIndex={-1}
+            totalMs={totalMs}
+            toolCount={toolCount}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The agent's plan + raw tool calls.
  *
- *  Honesty rule (per the approved scope): there is NO per-step timing on the
- *  wire — `step_done` carries a summary + status, never a duration. So this
- *  panel does NOT fabricate "0.7s / 4.2s" per step. It shows humanized step
- *  labels + status, and the ONE real timing we have: the turn total from
- *  `meta.latency_ms`. If there's no meta yet (turn in flight / errored), the
- *  total line is hidden — never a guessed number.
+ *  Two shapes, picked by `variant`:
+ *    - "panel" (live): the tall side-column view — watch the plan tick + tools
+ *      fire while the turn runs.
+ *    - "bar" (settled): a full-width horizontal toolbar that collapses
+ *      vertically, so a finished turn hands the width back to the roast text.
+ *
+ *  Honesty rule: there's NO per-step timing on the wire, so this never fakes
+ *  "0.7s / step" — it shows step labels + status + the one real number, the
+ *  turn total from meta.latency_ms.
  */
-export function ReportPlanPanel({ message }: { message: ChatMessage | null }) {
+export function ReportPlanPanel({
+  message,
+  variant = "panel",
+}: {
+  message: ChatMessage | null;
+  variant?: "panel" | "bar";
+}) {
   if (!message || message.role !== "assistant") {
+    // The bar only exists for a settled turn; nothing to show without one.
+    if (variant === "bar") return null;
     return (
       <aside className="iai-card-soft flex flex-col gap-4 bg-iai-bg/70 text-sm backdrop-blur-md">
         <div className="flex flex-col gap-2">
           <p className="iai-tag self-start">Plan</p>
-          <h2 className="text-lg font-bold text-zinc-100">
-            How the roast gets built
-          </h2>
+          <h2 className="text-lg font-bold text-zinc-100">How the roast gets built</h2>
           <p className="leading-relaxed text-zinc-300">
-            Drop a URL or claim. I&apos;ll inspect it, gather receipts, check
-            the plan, then write the roast.
+            Drop a URL or claim. I&apos;ll inspect it, gather receipts, check the
+            plan, then write the roast.
           </p>
         </div>
-
         <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
           {EMPTY_STEPS.map((step, i) => (
             <li
@@ -61,145 +211,26 @@ export function ReportPlanPanel({ message }: { message: ChatMessage | null }) {
     );
   }
 
+  if (variant === "bar") return <PlanBar message={message} />;
+
+  // "panel" — the live side column.
   const steps = message.steps;
   const meta = message.meta;
   const totalMs = typeof meta?.latency_ms === "number" ? meta.latency_ms : null;
   const toolCount = typeof meta?.tool_count === "number" ? meta.tool_count : steps.length;
   const live = message.status === "thinking" || message.status === "streaming";
-  const settled = !live;
   const latestPendingIndex = live ? latestOpenToolIndex(steps) : -1;
-  const planSteps = message.plan?.steps ?? [];
-  const planDone = planSteps.filter((s) => s.status === "done").length;
-
-  // Expanded while the turn is live (so the user watches progress), auto-
-  // collapsed once it settles so the roast text gets the room back. A settled
-  // turn that's still glowing/expanded reads as "not finished"; collapsing is
-  // the visual "done" signal. The user can re-expand to inspect the trace.
-  const [expanded, setExpanded] = useState(false);
-  useEffect(() => {
-    setExpanded(live);
-  }, [live]);
-
-  // Collapsed summary — one line, one click from the full trace.
-  if (settled && !expanded) {
-    const totals = [
-      totalMs != null ? `${(totalMs / 1000).toFixed(1)}s` : null,
-      `${toolCount} tools`,
-    ]
-      .filter(Boolean)
-      .join(" · ");
-    return (
-      <button
-        type="button"
-        onClick={() => setExpanded(true)}
-        className="iai-card-soft flex w-full items-center justify-between gap-2 text-left text-xs text-zinc-400 transition-colors hover:text-zinc-200"
-        aria-label="Show the plan and steps"
-      >
-        <span className="inline-flex items-center gap-2">
-          <CheckIcon className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden />
-          <span className="font-medium text-zinc-300">Plan complete</span>
-          {planSteps.length > 0 && (
-            <span className="iai-hint">
-              {planDone}/{planSteps.length} steps
-            </span>
-          )}
-        </span>
-        <span className="iai-hint tabular-nums">{totals ? `${totals} · show` : "show"}</span>
-      </button>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-4">
-      {settled && (
-        <button
-          type="button"
-          onClick={() => setExpanded(false)}
-          className="iai-hint self-start text-xs hover:text-zinc-300"
-          aria-label="Hide the plan and steps"
-        >
-          Hide plan + steps
-        </button>
-      )}
       <PlanChecklist plan={message.plan} />
-
-      {steps.length > 0 && (
-        <div className={`iai-card-soft text-sm ${live ? "iai-kinetic-panel" : ""}`}>
-          <div className="iai-kinetic-content mb-2 flex items-center justify-between gap-2 text-zinc-300">
-            <span className="font-medium">Steps</span>
-            <span className="iai-hint text-xs tabular-nums">{steps.length}</span>
-          </div>
-          <ol className="iai-kinetic-content space-y-1">
-            {steps.map((s, i) => {
-              const ToolIcon = getToolIcon(s.name);
-              const statusKey = toolVisualStatus(s, i, latestPendingIndex, live);
-              const errored = statusKey === "error";
-              const active = statusKey === "active";
-              // Bright Data steps are the live-web fetches — the hackathon's
-              // "Application of Technology" proof. Make them UNMISSABLE: a
-              // brand-blue left rail + the "Bright Data" wordmark badge (the
-              // product has no logo asset; the wordmark in BD's Pantone blue
-              // IS the brand identity, same as PoweredBy). Other steps
-              // (task_tracker, ToolSearch) stay quiet.
-              const isBrightData = s.server === "brightdata";
-              return (
-                <li
-                  key={s.id ?? `${s.name}-${i}`}
-                  className={`flex items-center gap-2 rounded-md text-xs ${
-                    errored ? "text-red-400" : "text-zinc-400"
-                  } ${isBrightData ? "border-l-2 border-iai-brand/60 bg-iai-brand/5 pl-1.5" : ""}`}
-                >
-                  <span className="iai-hint w-4 shrink-0 text-right tabular-nums">{i + 1}</span>
-                  <ToolIcon
-                    className={`h-3.5 w-3.5 shrink-0 ${isBrightData ? "text-iai-brand" : ""}`}
-                    aria-hidden
-                  />
-                  <span className="flex-1 truncate">{shortToolName(s.name)}</span>
-                  {isBrightData ? (
-                    <span className="inline-flex shrink-0 items-center rounded-full border border-iai-brand/40 bg-iai-brand/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-iai-brand">
-                      Bright Data
-                    </span>
-                  ) : (
-                    s.server && (
-                      <span className="iai-hint text-[10px] uppercase">{s.server}</span>
-                    )
-                  )}
-                  <span
-                    className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${
-                      active
-                        ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
-                        : statusKey === "sent"
-                          ? "border-zinc-500/25 bg-zinc-500/10 text-zinc-400"
-                        : errored
-                          ? "border-red-400/30 bg-red-400/10 text-red-300"
-                          : "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
-                    }`}
-                    aria-label={statusKey}
-                  >
-                    {toolStatusLabel(statusKey)}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-
-          {/* Real totals only — the per-step timing the mockup showed does
-              not exist on the wire, so it's omitted rather than faked. */}
-          {(totalMs != null || toolCount > 0) && (
-            <div className="iai-hint iai-kinetic-content mt-3 flex items-center justify-between border-t border-iai-border/60 pt-2 text-xs">
-              <span>Total</span>
-              <span className="tabular-nums text-zinc-400">
-                {[
-                  totalMs != null ? `${(totalMs / 1000).toFixed(1)}s` : null,
-                  `${toolCount} tools`,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+      <StepsList
+        steps={steps}
+        live={live}
+        latestPendingIndex={latestPendingIndex}
+        totalMs={totalMs}
+        toolCount={toolCount}
+      />
     </div>
   );
 }

@@ -266,7 +266,15 @@ export default function ChatPage() {
             </div>
           )
         }
-        secondary={isReport ? <ReportPlanPanel message={lastAssistant} /> : undefined}
+        secondary={
+          // Side column only while the turn is LIVE (watch progress) or empty
+          // (the "how it works" placeholder). Once it settles, the plan drops
+          // out of the column and becomes a full-width toolbar in the main —
+          // so the roast gets the whole width.
+          isReport && (streaming || !lastAssistant) ? (
+            <ReportPlanPanel message={lastAssistant} />
+          ) : undefined
+        }
         bottomBar={
           isReport ? undefined : (
             <>
@@ -285,7 +293,18 @@ export default function ChatPage() {
       >
         {isReport ? (
           <div className="flex flex-col gap-4">
-            {streaming && targetIsUrl && <TargetPreview url={lastUserContent} />}
+            {/* Settled: the plan as a full-width horizontal toolbar (collapses
+                vertically), above the roast. */}
+            {!streaming && lastAssistant && (
+              <ReportPlanPanel message={lastAssistant} variant="bar" />
+            )}
+            {/* Live: a contained browser-style preview of the target inline
+                with the roast — capped so it never mega-grows the column. */}
+            {streaming && targetIsUrl && (
+              <div className="max-w-md">
+                <TargetPreview url={lastUserContent} />
+              </div>
+            )}
             <ReportView
               mode={reportMode}
               message={lastAssistant}
