@@ -2,18 +2,32 @@
 
 /** Browser-style live preview of the target URL, shown WHILE the roast streams.
  *
- *  Renders the target page itself inside an iframe wrapped in fake browser
- *  chrome (the "tipo navegador" look — three dots + URL bar). This replaces an
- *  earlier microlink approach: microlink's free tier could not pass antibot
- *  protections on sites like JMIR (EPROXYNEEDED), so the preview silently
- *  disappeared. The iframe path is the page itself — no external service, no
- *  rate limit, no screenshot pipeline.
+ *  Earlier attempts failed: microlink's free tier hit antibot protection on
+ *  JMIR (EPROXYNEEDED), and a raw iframe showed the JMIR newsletter signup +
+ *  cookie banner instead of the article (the site rewrites the body when
+ *  framed). For the hackathon demo we hardcode a small allowlist of known-good
+ *  previews — the demo target (JMIR) + room for siblings — backed by the
+ *  site's own og:image so it reads as "the page". Anything not in the
+ *  allowlist renders nothing (silent), which is the same shape as a
+ *  microlink-failure: never block the roast on a missing preview.
  *
- *  Caveat: a target that sends `X-Frame-Options: DENY|SAMEORIGIN` or a CSP
- *  `frame-ancestors` directive will render blank. The demo target (JMIR) sends
- *  neither. Sandbox flags + a stale referrer policy keep this defensive: the
- *  iframe runs with its own scripts but cannot reach top-level navigation. */
+ *  TODO when there's time: a backend /preview endpoint that fetches the target
+ *  server-side and parses og:image + og:title, replacing this allowlist. */
 type Props = { url: string };
+
+type PreviewEntry = { image: string; title: string };
+
+const PREVIEW_ALLOWLIST: Array<{ match: RegExp; data: PreviewEntry }> = [
+  {
+    match: /mental\.jmir\.org/i,
+    data: {
+      image:
+        "https://asset.jmir.pub/assets/71694ab078263b79711066f614b29fa8.png",
+      title:
+        "The Opportunities and Risks of Large Language Models in Mental Health",
+    },
+  },
+];
 
 function hostOf(url: string): string {
   try {
@@ -23,7 +37,16 @@ function hostOf(url: string): string {
   }
 }
 
+function lookupPreview(url: string): PreviewEntry | null {
+  for (const entry of PREVIEW_ALLOWLIST) {
+    if (entry.match.test(url)) return entry.data;
+  }
+  return null;
+}
+
 export function TargetPreview({ url }: Props) {
+  const preview = lookupPreview(url);
+  if (!preview) return null;
   const host = hostOf(url);
   return (
     <div className="iai-card overflow-hidden p-0">
@@ -36,14 +59,14 @@ export function TargetPreview({ url }: Props) {
         </span>
         <span className="iai-hint truncate text-xs">{host}</span>
       </div>
-      {/* The page itself, embedded. */}
+      {/* og:image — the site's own canonical card. */}
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-iai-surface/20">
-        <iframe
-          src={url}
-          title={`preview of ${host}`}
-          className="h-full w-full border-0"
+        {/* eslint-disable-next-line @next/next/no-img-element -- cross-origin og:image, not optimizable by next/image */}
+        <img
+          src={preview.image}
+          alt={preview.title}
+          className="h-full w-full object-cover object-top"
           referrerPolicy="no-referrer"
-          sandbox="allow-scripts allow-same-origin allow-popups"
           loading="lazy"
         />
       </div>
