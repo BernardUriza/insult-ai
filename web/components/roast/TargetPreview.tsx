@@ -79,9 +79,14 @@ export function TargetPreview({ url }: Props) {
           description). Title clamped to 2 lines, description to 3, both
           truncate cleanly without pushing the layout. */}
       <div className="flex flex-col gap-1 px-3 pb-3 pt-2">
-        <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-zinc-100">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="line-clamp-2 text-sm font-semibold leading-snug text-zinc-100 transition-colors hover:text-iai-link"
+        >
           {preview.title}
-        </h3>
+        </a>
         <p className="iai-hint line-clamp-3 text-xs leading-snug">
           {preview.description}
         </p>
