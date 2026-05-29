@@ -71,7 +71,9 @@ async def generate_question_records(
     body = {
         "messages": _question_prompt(corpus_id, source_label, source_excerpt),
         "temperature": 0.35,
-        "max_tokens": 420,
+        # 5 objects × (question + image_query) needs headroom; 420 truncated the
+        # JSON array, which fails json.loads wholesale → 0 questions, not 4-of-5.
+        "max_tokens": 800,
     }
 
     try:
