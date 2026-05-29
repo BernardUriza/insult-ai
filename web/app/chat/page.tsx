@@ -20,6 +20,7 @@ import { useTtsBlob } from "../../components/chat/useTtsBlob";
 import { ReportInput } from "../../components/roast/ReportInput";
 import { ReportPlanPanel } from "../../components/roast/ReportPlanPanel";
 import { ReportView } from "../../components/roast/ReportView";
+import { TargetPreview } from "../../components/roast/TargetPreview";
 import { emitEmberActivity } from "../../components/background/ember-engine";
 import { ConversationShell } from "../../components/layout/ConversationShell";
 import { InsultHeader } from "../../components/layout/InsultHeader";
@@ -138,6 +139,13 @@ export default function ChatPage() {
   // one-target-one-report, not a scrollback.
   const lastAssistant =
     [...messages].reverse().find((m) => m.role === "assistant") ?? null;
+
+  // Target URL for the live browser-style preview: the most recent user turn,
+  // when it's a URL. Only shown while streaming a report (gives the viewer the
+  // page being cross-examined to look at during the long agentic turn).
+  const lastUserContent =
+    [...messages].reverse().find((m) => m.role === "user")?.content?.trim() ?? "";
+  const targetIsUrl = /^https?:\/\/\S+$/i.test(lastUserContent);
 
   useEffect(() => {
     if (apiDown) {
@@ -277,6 +285,7 @@ export default function ChatPage() {
       >
         {isReport ? (
           <div className="flex flex-col gap-4">
+            {streaming && targetIsUrl && <TargetPreview url={lastUserContent} />}
             <ReportView
               mode={reportMode}
               message={lastAssistant}

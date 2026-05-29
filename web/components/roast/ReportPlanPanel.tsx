@@ -1,12 +1,16 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   getToolIcon,
+  getUIIcon,
   shortToolName,
 } from "../../lib/icons";
 import { PlanChecklist } from "../chat/PlanChecklist";
 import { latestOpenToolIndex, toolStatusLabel, toolVisualStatus } from "../chat/toolStatus";
 import type { ChatMessage } from "../chat/types";
+
+const CheckIcon = getUIIcon("check");
 
 const EMPTY_STEPS = [
   "Read the target",
@@ -62,14 +66,65 @@ export function ReportPlanPanel({ message }: { message: ChatMessage | null }) {
   const totalMs = typeof meta?.latency_ms === "number" ? meta.latency_ms : null;
   const toolCount = typeof meta?.tool_count === "number" ? meta.tool_count : steps.length;
   const live = message.status === "thinking" || message.status === "streaming";
+  const settled = !live;
   const latestPendingIndex = live ? latestOpenToolIndex(steps) : -1;
+  const planSteps = message.plan?.steps ?? [];
+  const planDone = planSteps.filter((s) => s.status === "done").length;
+
+  // Expanded while the turn is live (so the user watches progress), auto-
+  // collapsed once it settles so the roast text gets the room back. A settled
+  // turn that's still glowing/expanded reads as "not finished"; collapsing is
+  // the visual "done" signal. The user can re-expand to inspect the trace.
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    setExpanded(live);
+  }, [live]);
+
+  // Collapsed summary — one line, one click from the full trace.
+  if (settled && !expanded) {
+    const totals = [
+      totalMs != null ? `${(totalMs / 1000).toFixed(1)}s` : null,
+      `${toolCount} tools`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    return (
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        className="iai-card-soft flex w-full items-center justify-between gap-2 text-left text-xs text-zinc-400 transition-colors hover:text-zinc-200"
+        aria-label="Show the plan and steps"
+      >
+        <span className="inline-flex items-center gap-2">
+          <CheckIcon className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden />
+          <span className="font-medium text-zinc-300">Plan complete</span>
+          {planSteps.length > 0 && (
+            <span className="iai-hint">
+              {planDone}/{planSteps.length} steps
+            </span>
+          )}
+        </span>
+        <span className="iai-hint tabular-nums">{totals ? `${totals} · show` : "show"}</span>
+      </button>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
+      {settled && (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          className="iai-hint self-start text-xs hover:text-zinc-300"
+          aria-label="Hide the plan and steps"
+        >
+          Hide plan + steps
+        </button>
+      )}
       <PlanChecklist plan={message.plan} />
 
       {steps.length > 0 && (
-        <div className="iai-card-soft iai-kinetic-panel text-sm">
+        <div className={`iai-card-soft text-sm ${live ? "iai-kinetic-panel" : ""}`}>
           <div className="iai-kinetic-content mb-2 flex items-center justify-between gap-2 text-zinc-300">
             <span className="font-medium">Steps</span>
             <span className="iai-hint text-xs tabular-nums">{steps.length}</span>
