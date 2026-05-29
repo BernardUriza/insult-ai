@@ -15,7 +15,7 @@
  *  server-side and parses og:image + og:title, replacing this allowlist. */
 type Props = { url: string };
 
-type PreviewEntry = { image: string; title: string };
+type PreviewEntry = { image: string; title: string; description: string };
 
 const PREVIEW_ALLOWLIST: Array<{ match: RegExp; data: PreviewEntry }> = [
   {
@@ -25,6 +25,10 @@ const PREVIEW_ALLOWLIST: Array<{ match: RegExp; data: PreviewEntry }> = [
         "https://asset.jmir.pub/assets/71694ab078263b79711066f614b29fa8.png",
       title:
         "The Opportunities and Risks of Large Language Models in Mental Health",
+      // Trimmed from the paper's own meta description so it stays within the
+      // ~160-char sweet spot Slack/X/LinkedIn cards target.
+      description:
+        "Global rates of mental health concerns are rising and existing models of care will not adequately expand to meet the demand. JMIR Mental Health, 2024.",
     },
   },
 ];
@@ -69,6 +73,18 @@ export function TargetPreview({ url }: Props) {
           referrerPolicy="no-referrer"
           loading="lazy"
         />
+      </div>
+      {/* Title + description under the image — modern rich-link-card layout
+          (Slack / X / LinkedIn shape: image on top, then headline, then a short
+          description). Title clamped to 2 lines, description to 3, both
+          truncate cleanly without pushing the layout. */}
+      <div className="flex flex-col gap-1 px-3 pb-3 pt-2">
+        <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-zinc-100">
+          {preview.title}
+        </h3>
+        <p className="iai-hint line-clamp-3 text-xs leading-snug">
+          {preview.description}
+        </p>
       </div>
     </div>
   );
