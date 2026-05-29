@@ -8,6 +8,7 @@ This never invents evidence: it only lists URLs already present in the trace.
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from typing import Any
 from urllib.parse import urlparse
@@ -90,6 +91,16 @@ def ensure_receipts_section(text: str, tool_calls: list[Any]) -> str:
 
 
 def ensure_result_receipts(result: Any) -> Any:
-    """Mutate and return a TurnResult-like object with a receipt section."""
-    result.text = ensure_receipts_section(result.text or "", result.tool_calls or [])
+    """Return a TurnResult-like object with a receipt section.
+
+    fi-runner's ``TurnResult`` is a FROZEN dataclass — assigning ``result.text``
+    raises ``FrozenInstanceError``. Use ``dataclasses.replace`` to produce a copy
+    with the new text; fall back to in-place mutation for mutable test doubles /
+    non-dataclasses."""
+    new_text = ensure_receipts_section(result.text or "", result.tool_calls or [])
+    if new_text == (result.text or ""):
+        return result
+    if dataclasses.is_dataclass(result) and not isinstance(result, type):
+        return dataclasses.replace(result, text=new_text)
+    result.text = new_text
     return result
