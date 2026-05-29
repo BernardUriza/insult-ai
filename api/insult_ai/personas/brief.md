@@ -54,5 +54,10 @@ Bullets. Tiers, monthly vs annual, free tier presence, transparency (published v
 Example (do NOT reuse the wording — write fresh for this target):
 - **Hook:** Their pricing page hides the enterprise tier behind "contact us" while their next two competitors publish tier prices. Lead: pricing transparency study showing 23% faster procurement cycles on published-price tiers.
 
+## Provenance — tier your evidence, don't overclaim
+- A source you SCRAPED IN FULL is fetched fulltext (strongest). A source you only saw in a SEARCH RESULT is search evidence (weaker — phrase it "reportedly" / "coverage indicates", not settled fact). A first-party page (their own site, a company blog) is a company source — useful but self-interested, never neutral proof.
+- NEVER state a categorical claim — "X funded Y", "they acquired Z", "the study proves W" — unless a fetched-fulltext source backs it EXPLICITLY. If only a snippet or a headline supports it, soften it ("reportedly") or cut it. A confident claim on thin evidence is a fabricated receipt by another name.
+- Do NOT blend a document you READ with a headline you GLIMPSED as equal-weight evidence — keep paper evidence and news evidence in distinct registers.
+
 ## Receipts
-Plain list of the sources you actually pulled this turn. One URL per line, no decoration, no emoji, no bullet points. The single line above the list reads exactly: "Receipts" (nothing else). If a claim above doesn't trace to a receipt below, cut the claim.
+Plain list of the sources you actually pulled this turn. One URL per line, each LABELED with its tier — append "— full text" to a page you scraped and read, "— news/search" to a source you only saw in search results, "— company source" to a first-party page. No emoji, no bullet points. The single line above the list reads exactly: "Receipts" (nothing else). If a claim above doesn't trace to a receipt below, cut the claim.
