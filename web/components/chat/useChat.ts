@@ -12,6 +12,7 @@ import {
 import { newId } from "../../lib/id";
 import { parseSseFrame } from "../../lib/sse";
 import { receiptsFrom } from "../../lib/text";
+import { dedupeDoubledText } from "../roast/RoastText";
 import type { ChatMessage, ChatMeta, ChatMode, ChatTone, Plan, PlanRejection, PlanStep, Step } from "./types";
 
 function closeOpenPlanSteps(plan: Plan | null, error?: string): Plan | null {
@@ -100,7 +101,9 @@ function applyStreamEvent(
 
   if (event === "result") {
     // Replace, don't append — post-guard text may diverge from streamed deltas.
-    const finalText = (data.text as string) ?? "";
+    // dedupeDoubledText guards the edge case where a regenerate leaves the text
+    // rendered exactly twice (A+A); a no-op on normal single output.
+    const finalText = dedupeDoubledText((data.text as string) ?? "");
     const finalSteps = ((data.tool_calls as Array<Record<string, unknown>>) ?? []).map((tc) => ({
       id: (tc.id as string) ?? null,
       name: (tc.name as string) ?? "",
@@ -285,7 +288,13 @@ export function useChat(opts?: {
         reader.releaseLock();
         patchAssistant(assistantId, (m) => {
           if (m.status !== "thinking" && m.status !== "streaming") return {};
-          return { status: "done", plan: closeOpenPlanSteps(m.plan) };
+          // No result event arrived (stream cut after the deltas). Dedupe in
+          // case a regenerate left the accumulated deltas doubled.
+          return {
+            status: "done",
+            content: dedupeDoubledText(m.content),
+            plan: closeOpenPlanSteps(m.plan),
+          };
         });
       } catch (e) {
         const aborted = e instanceof DOMException && e.name === "AbortError";

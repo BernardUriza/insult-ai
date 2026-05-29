@@ -19,6 +19,28 @@ export function stripReceiptsTail(text: string): string {
   return text.replace(/\n+\s*Receipts\s*\n[\s\S]*$/i, "");
 }
 
+/** Defensive de-dup: an edge-case backend regenerate can leave the content as
+ * the roast rendered EXACTLY twice (A + A). The normal flow never does this
+ * (verified by the bench smoke: result.text is single, the reducer replaces
+ * cleanly), so this is a guard, not a routine transform — it ONLY fires when
+ * the text is literally its opening repeated. Uses the first ~120 chars as a
+ * probe: if they reappear later and the slice before that seam equals the slice
+ * from it, the text is A+A — return one A. */
+export function dedupeDoubledText(text: string): string {
+  const t = text.trimEnd();
+  if (t.length < 200) return text;
+  const probe = t.slice(0, 120);
+  const seam = t.indexOf(probe, 120);
+  if (seam > 0) {
+    const first = t.slice(0, seam).trimEnd();
+    const second = t.slice(seam).trimEnd();
+    if (first.length > 100 && (first === second || second.startsWith(first))) {
+      return first;
+    }
+  }
+  return text;
+}
+
 /** Render a roast string with the **sententia** convention.
  *
  * The agent emits its key one-liners as ``**bold**``; we lift those into
