@@ -13,7 +13,11 @@ export const API_URL = normalizeApiUrl(
   process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_DEV_API_URL,
 );
 
-export const CHAT_STREAM_TIMEOUT_MS = 210_000;
+// Client abort for a /chat/stream turn. MUST stay LONGER than the backend's
+// INSULT_AI_CHAT_TURN_TIMEOUT_S (600s) so the SERVER wins the race and returns
+// its own timeout message instead of the client aborting first. Heavy agentic
+// briefs run 3-6 min; the old 210s killed them client-side (P0, 2026-05-28).
+export const CHAT_STREAM_TIMEOUT_MS = 630_000;
 export const API_REQUEST_TIMEOUT_MS = 30_000;
 export const MAX_CHAT_MESSAGE_CHARS = 12_000;
 export const MAX_LIBRARY_TEXT_CHARS = 120_000;

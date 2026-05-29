@@ -31,9 +31,13 @@ def _positive_int_env(name: str, default: int) -> int:
 
 
 # Hard ceiling on a single /chat/stream turn. Heavy agentic turns (multi-page
-# roast/brief research) can exceed 180s — raise this or trim the persona's
-# research depth so turns finish well under the cap.
-CHAT_TURN_TIMEOUT_S = _positive_int_env("INSULT_AI_CHAT_TURN_TIMEOUT_S", 180)
+# roast/brief research) routinely run 3-6 min — the old 180s default silently
+# killed legitimate briefs in PROD ("turn exceeded 180s timeout" before the
+# result ever rendered: P0, 2026-05-28). Default raised to 600s so a heavy
+# brief completes; override via env for ops tuning. The better long-term fix is
+# trimming the persona's research depth so turns finish well under the cap —
+# this timeout is the safety net, not the target.
+CHAT_TURN_TIMEOUT_S = _positive_int_env("INSULT_AI_CHAT_TURN_TIMEOUT_S", 600)
 REQUEST_TEXT_MAX_CHARS = _positive_int_env("INSULT_AI_REQUEST_TEXT_MAX_CHARS", 12_000)
 INGEST_TEXT_MAX_BYTES = _positive_int_env("INSULT_AI_INGEST_TEXT_MAX_BYTES", 1 * 1024 * 1024)
 VOICE_UPLOAD_MAX_BYTES = _positive_int_env("INSULT_AI_VOICE_UPLOAD_MAX_BYTES", 12 * 1024 * 1024)
