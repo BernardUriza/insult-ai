@@ -66,6 +66,10 @@ ALLOWED_LICENSES: frozenset[str] = frozenset(
         # (`roast_boundaries/`). No external attribution. Curator certifies
         # PHI screening (no real cases, no real names, no transcripts).
         "project-original",
+        # Public-domain classical texts (Project Gutenberg) — the Stoic corpus
+        # (`stoic_public/`): Marcus Aurelius, Epictetus. No PHI by construction
+        # (ancient philosophy), attribution carried in frontmatter.
+        "public-domain",
     }
 )
 
@@ -88,10 +92,24 @@ REQUIRED_FRONTMATTER_FIELDS: tuple[str, ...] = (
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CORPUS_ROOT = REPO_ROOT / "corpus"
 
+# Load api/.env so FI_RAG_* (pgvector DSN, embedder) match the RUNTIME's config.
+# Without this the client falls back to the default HDF5 backend and writes to a
+# local .h5 file the runtime (which reads .env → pgvector) never reads — the
+# ingest "succeeds" but the agent never sees the docs. Best-effort: if python-
+# dotenv isn't installed (lint-only env), skip silently; --commit needs the real
+# env anyway.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(REPO_ROOT / "api" / ".env")
+except ImportError:
+    pass
+
 INGEST_DIRS: tuple[Path, ...] = (
     CORPUS_ROOT / "clinical_public_knowledge",
     CORPUS_ROOT / "conversation_moves",
     CORPUS_ROOT / "roast_boundaries",
+    CORPUS_ROOT / "stoic_public",
 )
 
 EXCLUDED_DIR: Path = CORPUS_ROOT / "golden_conversations"
