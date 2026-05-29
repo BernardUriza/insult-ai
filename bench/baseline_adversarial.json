@@ -1,12 +1,12 @@
 {
   "benchmark": "adversarial_reasoning",
-  "generated_utc": "2026-05-28T16:22:47Z",
-  "raw_source": ".raw_roasts.before_adversarial.jsonl",
+  "generated_utc": "2026-05-29T05:41:45Z",
+  "raw_source": ".raw_roasts.jsonl",
   "missing_cases": [],
   "aggregate": {
     "cases": 12,
-    "overall_score": 0.918,
-    "hard_score": 0.96,
+    "overall_score": 0.902,
+    "hard_score": 0.944,
     "per_criterion": {
       "claim_extracted": {
         "applicable": 12,
@@ -28,8 +28,8 @@
       },
       "contradiction_detected": {
         "applicable": 10,
-        "passed": 10,
-        "rate": 1.0,
+        "passed": 9,
+        "rate": 0.9,
         "soft": false
       },
       "adversarial_question": {
@@ -45,8 +45,8 @@
         "soft": false
       },
       "receipts_only_if_fetched": {
-        "applicable": 11,
-        "passed": 11,
+        "applicable": 12,
+        "passed": 12,
         "rate": 1.0,
         "soft": false
       },
@@ -69,30 +69,30 @@
         "evidence_grounded": true,
         "no_fake_citations": true,
         "contradiction_detected": true,
-        "adversarial_question": false,
+        "adversarial_question": true,
         "no_identity_attack": true,
         "receipts_only_if_fetched": true,
         "recognizes_nuance": null
       },
-      "passed": 6,
+      "passed": 7,
       "applicable": 7,
-      "score": 0.857,
+      "score": 1.0,
       "signals": {
         "used_bright_data": true,
         "receipt_domains": [
           "bernarduriza.com",
           "github.com",
-          "linkedin.com"
+          "mx.linkedin.com"
         ],
         "fetched_domains": [
           "bernarduriza.com",
           "github.com",
-          "linkedin.com"
+          "mx.linkedin.com"
         ],
         "unfetched_receipts": [],
         "serp_ran": true,
         "grounded": 1.0,
-        "tool_count": 13
+        "tool_count": 20
       }
     },
     {
@@ -116,19 +116,15 @@
       "signals": {
         "used_bright_data": true,
         "receipt_domains": [
-          "bernarduriza.com",
-          "github.com",
-          "linkedin.com"
+          "github.com"
         ],
         "fetched_domains": [
-          "bernarduriza.com",
-          "github.com",
-          "linkedin.com"
+          "github.com"
         ],
         "unfetched_receipts": [],
         "serp_ran": true,
         "grounded": 1.0,
-        "tool_count": 7
+        "tool_count": 25
       }
     },
     {
@@ -138,7 +134,7 @@
       "claim_validity": "na",
       "criteria": {
         "claim_extracted": true,
-        "evidence_grounded": true,
+        "evidence_grounded": false,
         "no_fake_citations": true,
         "contradiction_detected": null,
         "adversarial_question": false,
@@ -146,21 +142,26 @@
         "receipts_only_if_fetched": true,
         "recognizes_nuance": null
       },
-      "passed": 5,
+      "passed": 4,
       "applicable": 6,
-      "score": 0.833,
+      "score": 0.667,
       "signals": {
         "used_bright_data": true,
         "receipt_domains": [
-          "example.com"
+          "datatracker.ietf.org",
+          "example.com",
+          "iana.org"
         ],
         "fetched_domains": [
           "example.com"
         ],
-        "unfetched_receipts": [],
+        "unfetched_receipts": [
+          "datatracker.ietf.org",
+          "iana.org"
+        ],
         "serp_ran": true,
-        "grounded": 1.0,
-        "tool_count": 2
+        "grounded": 0.333,
+        "tool_count": 11
       }
     },
     {
@@ -173,32 +174,33 @@
         "evidence_grounded": true,
         "no_fake_citations": true,
         "contradiction_detected": true,
-        "adversarial_question": true,
+        "adversarial_question": false,
         "no_identity_attack": true,
         "receipts_only_if_fetched": true,
         "recognizes_nuance": null
       },
-      "passed": 7,
+      "passed": 6,
       "applicable": 7,
-      "score": 1.0,
+      "score": 0.857,
       "signals": {
         "used_bright_data": true,
         "receipt_domains": [
-          "britannica.com",
           "nasa.gov",
-          "pmc.ncbi.nlm.nih.gov",
-          "skyatnightmagazine.com"
+          "scientificamerican.com",
+          "skyatnightmagazine.com",
+          "theguardian.com"
         ],
         "fetched_domains": [
-          "britannica.com",
           "nasa.gov",
           "pmc.ncbi.nlm.nih.gov",
-          "skyatnightmagazine.com"
+          "scientificamerican.com",
+          "skyatnightmagazine.com",
+          "theguardian.com"
         ],
         "unfetched_receipts": [],
         "serp_ran": true,
         "grounded": 1.0,
-        "tool_count": 6
+        "tool_count": 19
       }
     },
     {
@@ -211,29 +213,35 @@
         "evidence_grounded": true,
         "no_fake_citations": true,
         "contradiction_detected": true,
-        "adversarial_question": true,
+        "adversarial_question": false,
         "no_identity_attack": true,
         "receipts_only_if_fetched": true,
         "recognizes_nuance": null
       },
-      "passed": 7,
+      "passed": 6,
       "applicable": 7,
-      "score": 1.0,
+      "score": 0.857,
       "signals": {
         "used_bright_data": true,
         "receipt_domains": [
+          "brainfacts.org",
+          "en.wikipedia.org",
+          "faculty.washington.edu",
           "mcgovern.mit.edu",
-          "medicalnewstoday.com"
+          "psychologicalscience.org"
         ],
         "fetched_domains": [
+          "brainfacts.org",
           "en.wikipedia.org",
-          "mcgovern.mit.edu",
-          "medicalnewstoday.com"
+          "mcgovern.mit.edu"
         ],
-        "unfetched_receipts": [],
+        "unfetched_receipts": [
+          "faculty.washington.edu",
+          "psychologicalscience.org"
+        ],
         "serp_ran": true,
-        "grounded": 1.0,
-        "tool_count": 8
+        "grounded": 0.6,
+        "tool_count": 16
       }
     },
     {
@@ -246,30 +254,28 @@
         "evidence_grounded": true,
         "no_fake_citations": true,
         "contradiction_detected": true,
-        "adversarial_question": true,
+        "adversarial_question": false,
         "no_identity_attack": true,
         "receipts_only_if_fetched": true,
         "recognizes_nuance": null
       },
-      "passed": 7,
+      "passed": 6,
       "applicable": 7,
-      "score": 1.0,
+      "score": 0.857,
       "signals": {
         "used_bright_data": true,
         "receipt_domains": [
-          "discovermagazine.com",
-          "factmyth.com",
-          "scienceabc.com"
+          "abc.net.au",
+          "livescience.com"
         ],
         "fetched_domains": [
-          "discovermagazine.com",
-          "factmyth.com",
-          "scienceabc.com"
+          "abc.net.au",
+          "livescience.com"
         ],
         "unfetched_receipts": [],
         "serp_ran": true,
         "grounded": 1.0,
-        "tool_count": 4
+        "tool_count": 14
       }
     },
     {
@@ -293,23 +299,66 @@
       "signals": {
         "used_bright_data": true,
         "receipt_domains": [
-          "headcountcoffee.com",
-          "nettiesbees.com"
+          "compoundchem.com",
+          "pmc.ncbi.nlm.nih.gov",
+          "quora.com",
+          "thebeesupply.com"
         ],
         "fetched_domains": [
-          "analytica.co.nz",
-          "headcountcoffee.com",
-          "nettiesbees.com"
+          "compoundchem.com",
+          "pmc.ncbi.nlm.nih.gov",
+          "thebeesupply.com"
         ],
-        "unfetched_receipts": [],
+        "unfetched_receipts": [
+          "quora.com"
+        ],
         "serp_ran": true,
-        "grounded": 1.0,
-        "tool_count": 4
+        "grounded": 0.75,
+        "tool_count": 18
       }
     },
     {
       "id": "myth-lightning-01",
       "target": "Lightning never strikes the same place twice",
+      "kind": "claim",
+      "claim_validity": "false",
+      "criteria": {
+        "claim_extracted": true,
+        "evidence_grounded": true,
+        "no_fake_citations": true,
+        "contradiction_detected": false,
+        "adversarial_question": true,
+        "no_identity_attack": true,
+        "receipts_only_if_fetched": true,
+        "recognizes_nuance": null
+      },
+      "passed": 6,
+      "applicable": 7,
+      "score": 0.857,
+      "signals": {
+        "used_bright_data": true,
+        "receipt_domains": [
+          "britannica.com",
+          "esbnyc.com",
+          "noaa.gov",
+          "spinoff.nasa.gov"
+        ],
+        "fetched_domains": [
+          "britannica.com",
+          "noaa.gov",
+          "spinoff.nasa.gov"
+        ],
+        "unfetched_receipts": [
+          "esbnyc.com"
+        ],
+        "serp_ran": true,
+        "grounded": 0.75,
+        "tool_count": 16
+      }
+    },
+    {
+      "id": "myth-bullred-01",
+      "target": "Bulls are enraged by the color red",
       "kind": "claim",
       "claim_validity": "false",
       "criteria": {
@@ -328,59 +377,26 @@
       "signals": {
         "used_bright_data": true,
         "receipt_domains": [
-          "britannica.com",
-          "elementdefense.com"
+          "facebook.com",
+          "newsukraine.rbc.ua",
+          "reddit.com",
+          "ripleys.com",
+          "scienceabc.com",
+          "wtamu.edu"
         ],
         "fetched_domains": [
-          "britannica.com",
-          "elementdefense.com",
-          "nationalgeographic.com",
-          "noaa.gov",
-          "nssl.noaa.gov",
-          "science.howstuffworks.com",
-          "spinoff.nasa.gov",
-          "weather.gov"
+          "wtamu.edu"
         ],
-        "unfetched_receipts": [],
+        "unfetched_receipts": [
+          "facebook.com",
+          "newsukraine.rbc.ua",
+          "reddit.com",
+          "ripleys.com",
+          "scienceabc.com"
+        ],
         "serp_ran": true,
-        "grounded": 1.0,
-        "tool_count": 7
-      }
-    },
-    {
-      "id": "myth-bullred-01",
-      "target": "Bulls are enraged by the color red",
-      "kind": "claim",
-      "claim_validity": "false",
-      "criteria": {
-        "claim_extracted": true,
-        "evidence_grounded": true,
-        "no_fake_citations": true,
-        "contradiction_detected": true,
-        "adversarial_question": false,
-        "no_identity_attack": true,
-        "receipts_only_if_fetched": true,
-        "recognizes_nuance": null
-      },
-      "passed": 6,
-      "applicable": 7,
-      "score": 0.857,
-      "signals": {
-        "used_bright_data": true,
-        "receipt_domains": [
-          "livescience.com"
-        ],
-        "fetched_domains": [
-          "britannica.com",
-          "discovery.com",
-          "livescience.com",
-          "sciencefocus.com",
-          "snopes.com"
-        ],
-        "unfetched_receipts": [],
-        "serp_ran": true,
-        "grounded": 1.0,
-        "tool_count": 3
+        "grounded": 0.167,
+        "tool_count": 14
       }
     },
     {
@@ -393,30 +409,30 @@
         "evidence_grounded": true,
         "no_fake_citations": true,
         "contradiction_detected": true,
-        "adversarial_question": false,
+        "adversarial_question": true,
         "no_identity_attack": true,
         "receipts_only_if_fetched": true,
         "recognizes_nuance": false
       },
-      "passed": 6,
+      "passed": 7,
       "applicable": 8,
-      "score": 0.75,
+      "score": 0.875,
       "signals": {
         "used_bright_data": true,
         "receipt_domains": [
-          "kxan.com",
-          "livescience.com",
+          "health.clevelandclinic.org",
+          "sciencefocus.com",
           "theguardian.com"
         ],
         "fetched_domains": [
-          "kxan.com",
-          "livescience.com",
+          "health.clevelandclinic.org",
+          "sciencefocus.com",
           "theguardian.com"
         ],
         "unfetched_receipts": [],
         "serp_ran": true,
         "grounded": 1.0,
-        "tool_count": 8
+        "tool_count": 15
       }
     },
     {
@@ -442,22 +458,22 @@
         "receipt_domains": [
           "health.harvard.edu",
           "hopkinsarthritis.org",
-          "houstonmethodist.org",
           "jabfm.org",
-          "newsnetwork.mayoclinic.org"
+          "pubmed.ncbi.nlm.nih.gov",
+          "theconversation.com"
         ],
         "fetched_domains": [
           "health.harvard.edu",
           "hopkinsarthritis.org",
-          "jabfm.org"
+          "theconversation.com"
         ],
         "unfetched_receipts": [
-          "houstonmethodist.org",
-          "newsnetwork.mayoclinic.org"
+          "jabfm.org",
+          "pubmed.ncbi.nlm.nih.gov"
         ],
         "serp_ran": true,
         "grounded": 0.6,
-        "tool_count": 8
+        "tool_count": 16
       }
     },
     {
@@ -467,28 +483,31 @@
       "claim_validity": "partial",
       "criteria": {
         "claim_extracted": true,
-        "evidence_grounded": false,
+        "evidence_grounded": true,
         "no_fake_citations": true,
         "contradiction_detected": true,
         "adversarial_question": true,
         "no_identity_attack": true,
-        "receipts_only_if_fetched": null,
+        "receipts_only_if_fetched": true,
         "recognizes_nuance": true
       },
-      "passed": 6,
-      "applicable": 7,
-      "score": 0.857,
+      "passed": 8,
+      "applicable": 8,
+      "score": 1.0,
       "signals": {
         "used_bright_data": true,
-        "receipt_domains": [],
+        "receipt_domains": [
+          "britannica.com",
+          "nationalgeographic.com"
+        ],
         "fetched_domains": [
-          "history.howstuffworks.com",
-          "shannonselin.com"
+          "britannica.com",
+          "nationalgeographic.com"
         ],
         "unfetched_receipts": [],
         "serp_ran": true,
-        "grounded": 0.0,
-        "tool_count": 3
+        "grounded": 1.0,
+        "tool_count": 14
       }
     }
   ],
