@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import type { CSSProperties } from "react";
 import { useState } from "react";
 import { getUIIcon } from "../../lib/icons";
 import { AgenticSkeleton } from "../chat/AgenticSkeleton";
@@ -26,6 +27,55 @@ const EMPTY: Record<"roast" | "brief", { headline: string; subcopy: string }> = 
   },
 };
 
+function urlHost(value: string): string | null {
+  const trimmed = value.trim();
+  if (!/^https?:\/\/\S+$/i.test(trimmed)) return null;
+  try {
+    return new URL(trimmed).host.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+function EvidenceDeck({
+  mode,
+  host,
+}: {
+  mode: "roast" | "brief";
+  host: string | null;
+}) {
+  const armed = Boolean(host);
+  const cards =
+    mode === "brief"
+      ? ["Signals", "Market", "Receipts"]
+      : ["Target", "Claims", "Receipts"];
+
+  return (
+    <div className={`iai-empty-deck ${armed ? "is-armed" : ""}`} aria-hidden>
+      <div className="iai-empty-deck-stage">
+        {cards.map((label, i) => (
+          <div key={label} className="iai-empty-deck-card" style={{ "--i": i } as CSSProperties}>
+            <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-iai-fire">
+                {label}
+              </span>
+              <span className="h-1.5 w-1.5 rounded-full bg-iai-accent shadow-[0_0_12px_rgb(77_248_226/0.7)]" />
+            </div>
+            <div className="flex flex-1 flex-col justify-end gap-2 p-3">
+              <span className="h-1.5 w-9/12 rounded-full bg-white/18" />
+              <span className="h-1.5 w-7/12 rounded-full bg-white/12" />
+              <span className="h-1.5 w-10/12 rounded-full bg-white/10" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="iai-empty-deck-target">
+        {host ?? "Paste a URL"}
+      </div>
+    </div>
+  );
+}
+
 /** Hostname-only label for a receipt URL — compact "Sources" line. */
 function sourceLabel(url: string): string {
   try {
@@ -47,11 +97,13 @@ function sourceLabel(url: string): string {
 export function ReportView({
   mode,
   message,
+  draft = "",
   onSpeak,
   speakingId,
 }: {
   mode: "roast" | "brief";
   message: ChatMessage | null;
+  draft?: string;
   onSpeak?: (text: string | null, id: string) => void;
   speakingId?: string | null;
 }) {
@@ -60,22 +112,30 @@ export function ReportView({
   // Empty — no turn yet. The input bar is above; this is the canvas.
   if (!message || message.role !== "assistant") {
     const empty = EMPTY[mode];
+    const host = urlHost(draft);
     return (
-      <div className="iai-card iai-kinetic-panel flex min-h-[40vh] items-center justify-center text-center">
-        <div className="iai-kinetic-content flex flex-col items-center gap-3">
-          <Image
-            src="/logo.png"
-            alt=""
-            width={91}
-            height={72}
-            priority
-            className="iai-drift-slow opacity-90 drop-shadow-[0_0_24px_rgb(var(--color-iai-fire-rgb)/0.4)]"
-          />
-          <div className="inline-flex items-center gap-2 text-base font-semibold text-zinc-100">
-            <FlameIcon className="iai-wobble-slow h-4 w-4 text-iai-fire" aria-hidden />
-            {empty.headline}
+      <div className="iai-card iai-kinetic-panel flex min-h-[44vh] items-center justify-center overflow-hidden text-center">
+        <div className="iai-kinetic-content grid w-full items-center gap-6 md:grid-cols-[1fr_1.05fr] md:text-left">
+          <div className="flex flex-col items-center gap-3 md:items-start">
+            <Image
+              src="/logo.png"
+              alt=""
+              width={91}
+              height={72}
+              priority
+              className="iai-drift-slow opacity-90 drop-shadow-[0_0_24px_rgb(var(--color-iai-fire-rgb)/0.4)]"
+            />
+            <div className="inline-flex items-center gap-2 text-base font-semibold text-zinc-100">
+              <FlameIcon className="iai-wobble-slow h-4 w-4 text-iai-fire" aria-hidden />
+              {host ? `${host} is on the table.` : empty.headline}
+            </div>
+            <div className="iai-hint max-w-prose text-sm">
+              {host
+                ? "The evidence deck is armed. Send it and I'll turn the fetches into a cited cross-exam."
+                : empty.subcopy}
+            </div>
           </div>
-          <div className="iai-hint max-w-prose text-sm">{empty.subcopy}</div>
+          <EvidenceDeck mode={mode} host={host} />
         </div>
       </div>
     );

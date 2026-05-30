@@ -37,6 +37,7 @@ export function ReportInput({
   onSend,
   onAbort,
   seed,
+  onDraftChange,
 }: {
   mode: "roast" | "brief";
   streaming: boolean;
@@ -44,12 +45,22 @@ export function ReportInput({
   onAbort: () => void;
   /** Optional pre-fill (deep-link `?seed=`). Applied once per change. */
   seed?: string;
+  /** Lets the empty report canvas react while the user is still pasting. */
+  onDraftChange?: (value: string) => void;
 }) {
   const [value, setValue] = useState("");
 
   useEffect(() => {
-    if (seed) setValue(seed);
-  }, [seed]);
+    if (seed) {
+      setValue(seed);
+      onDraftChange?.(seed);
+    }
+  }, [seed, onDraftChange]);
+
+  const updateValue = (next: string) => {
+    setValue(next);
+    onDraftChange?.(next);
+  };
 
   const submit = () => {
     const t = value.trim();
@@ -74,7 +85,7 @@ export function ReportInput({
         <input
           type="text"
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => updateValue(e.target.value)}
           onKeyDown={onKeyDown}
           disabled={streaming}
           placeholder={copy.placeholder}

@@ -46,6 +46,7 @@ export default function ChatPage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [debugPlayer, setDebugPlayer] = useState(false);
   const [apiDown, setApiDown] = useState(false);
+  const [reportDraft, setReportDraft] = useState("");
 
   // Pick up deep-link params on mount. `?corpus=…` primes the agent to
   // search a document corpus; `?mode=…` lands the user directly in the
@@ -146,6 +147,8 @@ export default function ChatPage() {
   const lastUserContent =
     [...messages].reverse().find((m) => m.role === "user")?.content?.trim() ?? "";
   const targetIsUrl = /^https?:\/\/\S+$/i.test(lastUserContent);
+  const draftUrl = reportDraft.trim();
+  const draftIsUrl = /^https?:\/\/\S+$/i.test(draftUrl);
 
   useEffect(() => {
     if (apiDown) {
@@ -258,6 +261,7 @@ export default function ChatPage() {
               onSend={send}
               onAbort={abort}
               seed={seedDraft}
+              onDraftChange={setReportDraft}
             />
           ) : (
             <div className="flex flex-col gap-2 rounded-xl border border-iai-border/70 bg-iai-surface/25 p-2 sm:flex-row sm:items-center sm:justify-between">
@@ -298,6 +302,11 @@ export default function ChatPage() {
             {!streaming && lastAssistant && (
               <ReportPlanPanel message={lastAssistant} variant="bar" />
             )}
+            {!lastAssistant && draftIsUrl && (
+              <div className="max-w-md">
+                <TargetPreview url={draftUrl} />
+              </div>
+            )}
             {/* Live: a contained browser-style preview of the target inline
                 with the roast — capped so it never mega-grows the column. */}
             {streaming && targetIsUrl && (
@@ -308,6 +317,7 @@ export default function ChatPage() {
             <ReportView
               mode={reportMode}
               message={lastAssistant}
+              draft={reportDraft}
               onSpeak={handleSpeak}
               speakingId={speakingId}
             />

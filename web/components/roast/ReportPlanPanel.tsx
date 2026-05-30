@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type CSSProperties, useState } from "react";
 import {
   getToolIcon,
   getUIIcon,
@@ -20,6 +20,45 @@ const EMPTY_STEPS = [
   "Collect receipts",
   "Cross-examine the claim",
 ];
+
+function EmptyPlanPanel({ live = false }: { live?: boolean }) {
+  return (
+    <aside
+      className={`iai-card-soft flex flex-col gap-4 bg-iai-bg/70 text-sm backdrop-blur-md ${
+        live ? "iai-kinetic-panel" : ""
+      }`}
+      aria-label={live ? "Preparing plan" : "How the roast gets built"}
+    >
+      <div className="iai-kinetic-content flex flex-col gap-2">
+        <p className="iai-tag self-start">{live ? "Planning" : "Plan"}</p>
+        <h2 className="text-lg font-bold text-zinc-100">
+          {live ? "Building the cross-exam" : "How the roast gets built"}
+        </h2>
+        <p className="leading-relaxed text-zinc-300">
+          {live
+            ? "Declaring the plan before evidence gathering. The live steps land here as soon as the agent commits."
+            : "Drop a URL or claim. I'll inspect it, gather receipts, check the plan, then write the roast."}
+        </p>
+      </div>
+      <ol className="iai-kinetic-content grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+        {EMPTY_STEPS.map((step, i) => (
+          <li
+            key={step}
+            className={`flex items-center gap-3 rounded-lg border border-iai-border/70 bg-iai-surface/35 px-3 py-2 text-zinc-200 ${
+              live ? "iai-step-placeholder" : ""
+            }`}
+            style={{ "--i": i } as CSSProperties}
+          >
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-iai-fire/35 bg-iai-fire/10 text-xs font-bold text-iai-fire">
+              {i + 1}
+            </span>
+            <span>{step}</span>
+          </li>
+        ))}
+      </ol>
+    </aside>
+  );
+}
 
 function totalsLabel(totalMs: number | null, toolCount: number): string {
   return [
@@ -184,31 +223,7 @@ export function ReportPlanPanel({
   if (!message || message.role !== "assistant") {
     // The bar only exists for a settled turn; nothing to show without one.
     if (variant === "bar") return null;
-    return (
-      <aside className="iai-card-soft flex flex-col gap-4 bg-iai-bg/70 text-sm backdrop-blur-md">
-        <div className="flex flex-col gap-2">
-          <p className="iai-tag self-start">Plan</p>
-          <h2 className="text-lg font-bold text-zinc-100">How the roast gets built</h2>
-          <p className="leading-relaxed text-zinc-300">
-            Drop a URL or claim. I&apos;ll inspect it, gather receipts, check the
-            plan, then write the roast.
-          </p>
-        </div>
-        <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-          {EMPTY_STEPS.map((step, i) => (
-            <li
-              key={step}
-              className="flex items-center gap-3 rounded-lg border border-iai-border/70 bg-iai-surface/35 px-3 py-2 text-zinc-200"
-            >
-              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-iai-fire/35 bg-iai-fire/10 text-xs font-bold text-iai-fire">
-                {i + 1}
-              </span>
-              <span>{step}</span>
-            </li>
-          ))}
-        </ol>
-      </aside>
-    );
+    return <EmptyPlanPanel />;
   }
 
   if (variant === "bar") return <PlanBar message={message} />;
@@ -220,6 +235,10 @@ export function ReportPlanPanel({
   const toolCount = typeof meta?.tool_count === "number" ? meta.tool_count : steps.length;
   const live = message.status === "thinking" || message.status === "streaming";
   const latestPendingIndex = live ? latestOpenToolIndex(steps) : -1;
+
+  if (live && !message.plan && steps.length === 0) {
+    return <EmptyPlanPanel live />;
+  }
 
   return (
     <div className="flex flex-col gap-4">
