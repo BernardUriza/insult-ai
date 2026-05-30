@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { apiHeaders, apiUrl } from "../../lib/api";
+
 /** Browser-style live preview of the target URL, shown WHILE the roast streams.
  *
  *  Earlier attempts failed: microlink's free tier hit antibot protection on
@@ -8,8 +11,9 @@
  *  every valid URL now gets a deterministic generic card so pasting a URL
  *  never leaves the preview area blank.
  *
- *  TODO when there's time: a backend /preview endpoint that fetches the target
- *  server-side and parses og:image + og:title, replacing this allowlist. */
+ *  The backend /preview endpoint fetches server-side and parses og:image +
+ *  og:title for arbitrary URLs. This component keeps a deterministic local
+ *  fallback while that request is loading or if the target blocks metadata. */
 type Props = { url: string };
 
 type PreviewEntry = {
@@ -74,8 +78,43 @@ function lookupPreview(url: string): PreviewEntry {
 }
 
 export function TargetPreview({ url }: Props) {
-  const preview = lookupPreview(url);
+  const fallback = lookupPreview(url);
+  const [remote, setRemote] = useState<PreviewEntry | null>(null);
+  const preview = remote ?? fallback;
   const host = hostOf(url);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRemote(null);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 7000);
+    void fetch(apiUrl(`/preview?url=${encodeURIComponent(url)}`), {
+      headers: apiHeaders(),
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as PreviewEntry;
+        if (cancelled) return;
+        if (data.title || data.description || data.image) {
+          setRemote({
+            title: data.title || fallback.title,
+            description: data.description || fallback.description,
+            image: data.image || fallback.image,
+          });
+        }
+      })
+      .catch(() => {
+        // Preview is decorative. Fallback stays visible.
+      })
+      .finally(() => window.clearTimeout(timer));
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [fallback.description, fallback.image, fallback.title, url]);
+
   return (
     <div className="iai-card overflow-hidden p-0">
       {/* Fake browser chrome. */}

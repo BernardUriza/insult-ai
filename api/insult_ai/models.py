@@ -112,3 +112,10 @@ class QuipResponse(BaseModel):
     # Null when the message is sensitive/crisis or generation failed — the
     # UI then keeps its hardcoded fallback line.
     quip: str | None = None
+
+
+class PreviewResponse(BaseModel):
+    url: str
+    title: str
+    description: str = ""
+    image: str = ""

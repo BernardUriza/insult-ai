@@ -13,7 +13,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from .auth import limiter
-from .routes import chat_router, documents_router, roast_router, voice_router
+from .routes import chat_router, documents_router, preview_router, roast_router, voice_router
 from .startup import _rag  # noqa: F401 — import triggers the psych-corpus probe at boot
 
 # Ensure our logger surfaces in uvicorn's stdout/stderr. uvicorn configures the
@@ -60,6 +60,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(roast_router)
 app.include_router(documents_router)
 app.include_router(chat_router)
+app.include_router(preview_router)
 app.include_router(voice_router)
 
 
