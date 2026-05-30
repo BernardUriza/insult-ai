@@ -96,3 +96,69 @@ GTM Intelligence / Finance / Security. This repo positions on **GTM
 Intelligence** via the brief persona ("battlecards, sales outreach
 briefs, always-on structured web intelligence" — quoted from
 `personas.md`).
+
+## Submission positioning (lablab 2026)
+
+The submission angle, locked in 2026-05-29 after surveying the live
+leaderboard (top 3 — OmniSignal AI, Verdict, Sentinel — are single-purpose
+signal/due-diligence/threat tools; the long tail competes on the same
+ground). This rule governs **the submission form, the long description,
+the video framing, and any judge-facing copy** — it does NOT replace
+`pitch.md` (which governs general external framing) or `personas.md`
+(which governs persona voice).
+
+### Track choice
+- **Primary track: GTM Intelligence.** NOT Finance.
+- **Why GTM, not Finance:** the brief persona reads pages, claims,
+  companies, and public signals and turns them into actionable
+  intelligence — that maps to GTM, market research, competitive intel,
+  and sales enablement. Finance track is too narrow (and more crowded
+  with Bloomberg-shaped competitors like Cortex).
+
+### Positioning statement (the one judges read first)
+> Insult AI is an **adversarial reasoning engine for live web
+> intelligence**. It pressure-tests claims, companies, and narratives
+> with receipts — then turns the same engine into safe coaching when
+> the target becomes personal.
+
+### Submission one-liner (verbatim)
+> "Insult AI turns live web data into adversarial reasoning: it
+> cross-examines claims with receipts, exposes weak narratives, and
+> uses guardrails when the target becomes personal."
+
+### Differentiator (vs the leaderboard)
+- **Adversarial reasoning** (not "another GTM scraper"): cross-examines,
+  surfaces contradictions, ranks evidence by lethal weight.
+- **Provenance tiers** in receipts: fetched fulltext / news-search /
+  company source — the judge can see what was *read* vs *glimpsed*.
+- **Guardrails** that aren't slogans: PlanGuard vetoes identity-targeting
+  steps before any scrape runs; tone selector + crisis fallback; the
+  three personas share one engine, one safety floor.
+
+### Demo angle for the video
+- **Beat 1 (the cross-exam):** roast/brief on the JMIR LLMs-in-Mental-Health
+  paper — fetched fulltext, prior art surfaced, receipts tiered.
+- **Beat 2 (the pivot):** switch to clinical mode — same engine, second
+  persona. This is the ORIGINALITY + safety proof.
+- Lead with the *engine*, end with the *safety*.
+
+### Framing to AVOID
+- Do NOT lead with "mental health app" — narrows the audience, invites
+  regulatory pattern-matching.
+- Do NOT lead with "insult bot" / "roast generator" — undersells, and
+  every judge has seen ten of those.
+- Do NOT position as "another GTM scraper" — that's the long tail.
+
+### Judging focus (the four questions the submission MUST answer clearly)
+1. **What does it do?** (adversarial reasoning + receipts)
+2. **Why Bright Data matters?** (live web is the only way to cross-examine
+   a fresh claim; SERP + Web Unlocker + Scraping Browser stitched together)
+3. **Why is it original?** (three personas, one engine; comedy as UX,
+   clinical infrastructure as behavior; PlanGuard live)
+4. **Why is it safer than a roast bot?** (PlanGuard, tone consent,
+   provenance tiers, crisis fallback, no identity attacks)
+
+### Vote chasing
+Don't. The top 3 by community vote are consolidated and far ahead; the
+#4 spot needs only 2–3 votes. Submission energy is better spent on
+**judge clarity** (the four questions above) than on rallying votes.

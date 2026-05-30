@@ -23,6 +23,17 @@ Short form: *"Cross-examines claims. Cites live evidence."* (4 words: *"Adversar
 
 Short form: *"Verbal boxing coach for your bad patterns."* (3 words: *"Sparring partner, AI."*)
 
+**For the lablab 2026 submission form / long description:**
+> **"Insult AI turns live web data into adversarial reasoning: it
+> cross-examines claims with receipts, exposes weak narratives, and
+> uses guardrails when the target becomes personal."**
+
+This is the verbatim submission one-liner — track choice (GTM
+Intelligence), framing to avoid, and the four judge-clarity questions
+the submission must answer live in `hackathon.md` under "Submission
+positioning (lablab 2026)". Don't restate the strategy here, just use
+this line.
+
 Use the **boxing coach** line in the demo opener and the hackathon video hook —
 it's warmer and more memorable. Use the **cross-examination** line when pitching
 roast/brief directly (enterprise demos, GTM track, competitive intelligence angle).
