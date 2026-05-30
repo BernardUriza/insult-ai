@@ -25,6 +25,7 @@ import { emitEmberActivity } from "../../components/background/ember-engine";
 import { ConversationShell } from "../../components/layout/ConversationShell";
 import { InsultHeader } from "../../components/layout/InsultHeader";
 import { PoweredBy } from "../../components/ui/PoweredBy";
+import { targetUrlFromInput } from "../../lib/target";
 
 /** Multi-turn chat with live chain-of-thought. Streams /chat/stream (SSE) and
  * paints every Bright Data call as a step while the roast text arrives token
@@ -47,6 +48,7 @@ export default function ChatPage() {
   const [debugPlayer, setDebugPlayer] = useState(false);
   const [apiDown, setApiDown] = useState(false);
   const [reportDraft, setReportDraft] = useState("");
+  const [reportResetKey, setReportResetKey] = useState(0);
 
   // Pick up deep-link params on mount. `?corpus=…` primes the agent to
   // search a document corpus; `?mode=…` lands the user directly in the
@@ -146,9 +148,9 @@ export default function ChatPage() {
   // page being cross-examined to look at during the long agentic turn).
   const lastUserContent =
     [...messages].reverse().find((m) => m.role === "user")?.content?.trim() ?? "";
-  const targetIsUrl = /^https?:\/\/\S+$/i.test(lastUserContent);
+  const targetUrl = targetUrlFromInput(lastUserContent);
   const draftUrl = reportDraft.trim();
-  const draftIsUrl = /^https?:\/\/\S+$/i.test(draftUrl);
+  const draftPreviewUrl = targetUrlFromInput(draftUrl);
 
   useEffect(() => {
     if (apiDown) {
@@ -208,6 +210,8 @@ export default function ChatPage() {
     reset();
     tts.close();
     setSpeakingId(null);
+    setReportDraft("");
+    setReportResetKey((v) => v + 1);
   }, [reset, tts]);
 
   // Footer (powered-by + library + new) — shown in both layouts.
@@ -215,7 +219,7 @@ export default function ChatPage() {
     <>
       {apiDown && (
         <p className="mb-2 rounded-lg border border-amber-700/60 bg-amber-950/40 px-3 py-2 text-center text-xs text-amber-300">
-          API unreachable — check that the backend is running.
+          Live agent unreachable right now. You can still explore the UI; try again in a minute.
         </p>
       )}
       <div className="mt-1 flex flex-wrap items-center justify-center gap-2 text-[10px]">
@@ -262,6 +266,7 @@ export default function ChatPage() {
               onAbort={abort}
               seed={seedDraft}
               onDraftChange={setReportDraft}
+              resetKey={reportResetKey}
             />
           ) : (
             <div className="flex flex-col gap-2 rounded-xl border border-iai-border/70 bg-iai-surface/25 p-2 sm:flex-row sm:items-center sm:justify-between">
@@ -302,16 +307,16 @@ export default function ChatPage() {
             {!streaming && lastAssistant && (
               <ReportPlanPanel message={lastAssistant} variant="bar" />
             )}
-            {!lastAssistant && draftIsUrl && (
+            {!lastAssistant && draftPreviewUrl && (
               <div className="max-w-md">
-                <TargetPreview url={draftUrl} />
+                <TargetPreview url={draftPreviewUrl} />
               </div>
             )}
             {/* Live: a contained browser-style preview of the target inline
                 with the roast — capped so it never mega-grows the column. */}
-            {streaming && targetIsUrl && (
+            {streaming && targetUrl && (
               <div className="max-w-md">
-                <TargetPreview url={lastUserContent} />
+                <TargetPreview url={targetUrl} />
               </div>
             )}
             <ReportView

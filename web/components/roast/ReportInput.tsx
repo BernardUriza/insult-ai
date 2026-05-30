@@ -2,6 +2,7 @@
 
 import { type KeyboardEvent, useEffect, useState } from "react";
 import { getUIIcon } from "../../lib/icons";
+import { normalizeTargetInput } from "../../lib/target";
 import type { ChatMode } from "../chat/types";
 import { Button } from "../ui/Button";
 
@@ -38,6 +39,7 @@ export function ReportInput({
   onAbort,
   seed,
   onDraftChange,
+  resetKey,
 }: {
   mode: "roast" | "brief";
   streaming: boolean;
@@ -47,6 +49,8 @@ export function ReportInput({
   seed?: string;
   /** Lets the empty report canvas react while the user is still pasting. */
   onDraftChange?: (value: string) => void;
+  /** Bump to clear the local input from the parent shell. */
+  resetKey?: number;
 }) {
   const [value, setValue] = useState("");
 
@@ -57,14 +61,22 @@ export function ReportInput({
     }
   }, [seed, onDraftChange]);
 
+  useEffect(() => {
+    if (!resetKey) return;
+    setValue("");
+    onDraftChange?.("");
+  }, [resetKey, onDraftChange]);
+
   const updateValue = (next: string) => {
     setValue(next);
     onDraftChange?.(next);
   };
 
   const submit = () => {
-    const t = value.trim();
+    const t = normalizeTargetInput(value);
     if (!t || streaming) return;
+    setValue(t);
+    onDraftChange?.(t);
     onSend(t);
     // Keep the target in the field so the user sees what was roasted.
   };

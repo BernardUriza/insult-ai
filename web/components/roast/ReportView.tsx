@@ -4,6 +4,7 @@ import Image from "next/image";
 import type { CSSProperties } from "react";
 import { useState } from "react";
 import { getUIIcon } from "../../lib/icons";
+import { targetHost } from "../../lib/target";
 import { AgenticSkeleton } from "../chat/AgenticSkeleton";
 import { MarkdownRenderer } from "../chat/MarkdownRenderer";
 import type { ChatMessage } from "../chat/types";
@@ -26,16 +27,6 @@ const EMPTY: Record<"roast" | "brief", { headline: string; subcopy: string }> = 
     subcopy: "Drop a company or claim above. I'll pressure-test it against live signals.",
   },
 };
-
-function urlHost(value: string): string | null {
-  const trimmed = value.trim();
-  if (!/^https?:\/\/\S+$/i.test(trimmed)) return null;
-  try {
-    return new URL(trimmed).host.replace(/^www\./, "");
-  } catch {
-    return null;
-  }
-}
 
 function EvidenceDeck({
   mode,
@@ -112,7 +103,7 @@ export function ReportView({
   // Empty — no turn yet. The input bar is above; this is the canvas.
   if (!message || message.role !== "assistant") {
     const empty = EMPTY[mode];
-    const host = urlHost(draft);
+    const host = targetHost(draft);
     return (
       <div className="iai-card iai-kinetic-panel flex min-h-[44vh] items-center justify-center overflow-hidden text-center">
         <div className="iai-kinetic-content grid w-full items-center gap-6 md:grid-cols-[1fr_1.05fr] md:text-left">

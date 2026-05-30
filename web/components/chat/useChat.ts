@@ -26,6 +26,22 @@ function closeOpenPlanSteps(plan: Plan | null, error?: string): Plan | null {
   };
 }
 
+function userFacingStreamError(message: string): string {
+  if (/HTTP 429\b/.test(message)) {
+    return "Too many live runs are queued right now. Wait a minute and try again.";
+  }
+  if (/HTTP 401\b|HTTP 403\b/.test(message)) {
+    return "This deployment is missing or rejecting its access key.";
+  }
+  if (/Failed to fetch|NetworkError|Load failed/i.test(message)) {
+    return "Could not reach the API. The live agent may still be waking up.";
+  }
+  if (/HTTP 502\b|HTTP 503\b|HTTP 504\b/.test(message)) {
+    return "The agent backend failed during this run. Try again with a shorter URL or claim.";
+  }
+  return message;
+}
+
 /** Pure reducer: given the current assistant message and one parsed SSE event,
  * return the patch to apply. Returns {} for unrecognised events. */
 function applyStreamEvent(
@@ -126,7 +142,7 @@ function applyStreamEvent(
 
   if (event === "error") {
     const msg = (data.message as string) ?? "stream error";
-    return { status: "error", errorMessage: msg };
+    return { status: "error", errorMessage: userFacingStreamError(msg) };
   }
 
   // `open`, `done`, and unknown events are wire-only — no state change.
@@ -308,7 +324,7 @@ export function useChat(opts?: {
           const msg = e instanceof Error ? e.message : "request failed";
           patchAssistant(assistantId, (m) => ({
             status: "error",
-            errorMessage: msg,
+            errorMessage: userFacingStreamError(msg),
             plan: closeOpenPlanSteps(m.plan, msg),
           }));
         } else {
