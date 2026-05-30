@@ -20,6 +20,16 @@ type PreviewEntry = {
 
 const PREVIEW_ALLOWLIST: Array<{ match: RegExp; data: PreviewEntry }> = [
   {
+    match: /cognition\.ai/i,
+    data: {
+      image:
+        "https://cognition.ai/opengraph-image.jpg?opengraph-image.0mzhc99j4lsox.jpg?dpl=dpl_8yZR7MHEEizcyKWkwQCFnojaoYdk",
+      title: "Introducing Devin, the first AI software engineer | Cognition",
+      description:
+        "Setting a new state of the art on the SWE-bench coding benchmark. Meet Devin, the world's first fully autonomous AI software engineer.",
+    },
+  },
+  {
     match: /mental\.jmir\.org/i,
     data: {
       image:
