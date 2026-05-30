@@ -377,14 +377,33 @@ def safe_to_ship(report: dict, before: dict | None) -> dict:
             regressions.append(f"hard_score: {before['aggregate']['hard_score']} → {agg['hard_score']}")
         verdict = not reasons and not regressions
 
-    return {"safe_to_ship": verdict, "regressions": regressions, "blocking_reasons": reasons}
+    return {
+        "safe_to_ship": verdict,
+        # A baseline-only run isn't a failure — it's a reference point with
+        # nothing to diff against. Surfaced so the report can render it as a
+        # neutral state, not an alarming red `false`.
+        "baseline_only": before is None,
+        "regressions": regressions,
+        "blocking_reasons": reasons,
+    }
 
 
 def write_html(report: dict, gate: dict, path: Path) -> None:
     agg = report["aggregate"]
     pc = agg["per_criterion"]
     ship = gate["safe_to_ship"]
-    ship_color = "#9effa0" if ship else "#ff5c5c"
+    baseline_only = gate.get("baseline_only", False)
+    # Three visual states: amber = baseline reference (no comparison run, NOT a
+    # failure), green = certified ship, red = real regression / floor breach.
+    if baseline_only:
+        ship_color = "#ffb454"
+        verdict_line = "<b>BASELINE REFERENCE</b> · no prior run to diff against — not a failure"
+    elif ship:
+        ship_color = "#9effa0"
+        verdict_line = "safe_to_ship: <b>true</b>"
+    else:
+        ship_color = "#ff5c5c"
+        verdict_line = "safe_to_ship: <b>false</b>"
 
     def cell(v: bool | None) -> str:
         if v is None:
@@ -450,7 +469,7 @@ ul{{margin:6px 0}} li{{margin:2px 0}}
 Deterministic lexical floor — confirms PRESENCE of cross-examination behavior, not correctness. See module docstring.</p>
 
 <div class="verdict">
-  safe_to_ship: <b>{str(ship).lower()}</b><br>
+  {verdict_line}<br>
   <span class="scorebig">{int(agg['overall_score']*100)}%</span> overall ·
   <b style="color:#ffb454">{int(agg['hard_score']*100)}%</b> hard-criteria (excludes soft adversarial_question*)
 </div>

@@ -1,6 +1,6 @@
 {
   "benchmark": "adversarial_reasoning",
-  "generated_utc": "2026-05-29T05:41:45Z",
+  "generated_utc": "2026-05-29T06:19:18Z",
   "raw_source": ".raw_roasts.jsonl",
   "missing_cases": [],
   "aggregate": {
@@ -513,6 +513,7 @@
   ],
   "ship_gate": {
     "safe_to_ship": false,
+    "baseline_only": true,
     "regressions": [],
     "blocking_reasons": [
       "no before/after comparison \u2014 this is a baseline-only run; re-roast with the new persona and diff before claiming improvement"
